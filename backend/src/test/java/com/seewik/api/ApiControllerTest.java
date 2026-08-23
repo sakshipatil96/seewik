@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -15,7 +16,23 @@ class ApiControllerTest {
         ObjectMapper mapper = new ObjectMapper();
         CivicRouterService router = new CivicRouterService(mapper);
         GeminiService unusedGeminiService = new GeminiService(mapper, "seewik");
-        return MockMvcBuilders.standaloneSetup(new ApiController(unusedGeminiService, router)).build();
+        PrabhagBoundaryGateway gateway = (latitude, longitude) -> {
+            if (latitude < 21.2037780 || latitude > 21.5237780
+                    || longitude < 74.0811418 || longitude > 74.4011418) {
+                return Optional.empty();
+            }
+            return Optional.of(new PrabhagBoundaryGateway.BoundaryMatch(
+                    "PRABHAG-11",
+                    "Prabhag 11",
+                    "SYNTHETIC_BOUNDARY",
+                    true,
+                    "https://www.openstreetmap.org/node/245694497",
+                    "UNSOURCED",
+                    "REVIEW_PENDING",
+                    "synthetic-v0.1"));
+        };
+        PrabhagResolverService resolver = new PrabhagResolverService(gateway);
+        return MockMvcBuilders.standaloneSetup(new ApiController(unusedGeminiService, router, resolver)).build();
     }
 
     @Test
@@ -39,6 +56,89 @@ class ApiControllerTest {
                 .andExpect(jsonPath("$.sourceStatus").value("OFFICIAL_SOURCE"))
                 .andExpect(jsonPath("$.reviewStatus").value("REVIEW_PENDING"))
                 .andExpect(jsonPath("$.packVersion").value("v0.1"));
+    }
+
+    @Test
+    void bigQueryBoundaryIsOnlyACandidateAndCarriesTrustMetadata() throws Exception {
+        mvc().perform(post("/api/civic/resolve-prabhag")
+                        .contentType("application/json")
+                        .content("{\"latitude\":21.363778,\"longitude\":74.2411418}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANDIDATE_PRABHAG"))
+                .andExpect(jsonPath("$.prabhagId").value("PRABHAG-11"))
+                .andExpect(jsonPath("$.resolutionMethod").value("BIGQUERY_ST_COVERS"))
+                .andExpect(jsonPath("$.resolutionQuality").value("SYNTHETIC_BOUNDARY"))
+                .andExpect(jsonPath("$.requiresCitizenConfirmation").value(true))
+                .andExpect(jsonPath("$.sourceStatus").value("UNSOURCED"))
+                .andExpect(jsonPath("$.reviewStatus").value("REVIEW_PENDING"))
+                .andExpect(jsonPath("$.datasetVersion").value("synthetic-v0.1"))
+                .andExpect(jsonPath("$.queryLatencyMs").isNumber());
+    }
+
+    @Test
+    void coordinatesOutsideNandurbarSyntheticExtentAreRejected() throws Exception {
+        mvc().perform(post("/api/civic/resolve-prabhag")
+                        .contentType("application/json")
+                        .content("{\"latitude\":20.9042,\"longitude\":74.7749}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OUTSIDE_SUPPORTED_AREA"))
+                .andExpect(jsonPath("$.prabhagId").doesNotExist())
+                .andExpect(jsonPath("$.resolutionQuality").value("SYNTHETIC_BOUNDARY"));
+    }
+
+    @Test
+    void missingCoordinatesAreRejectedBeforeLookup() throws Exception {
+        mvc().perform(post("/api/civic/resolve-prabhag")
+                        .contentType("application/json")
+                        .content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("INVALID_COORDINATES"))
+                .andExpect(jsonPath("$.queryLatencyMs").doesNotExist());
+    }
+
+    @Test
+    void syntheticCandidateCannotRouteBeforeCitizenConfirmation() throws Exception {
+        mvc().perform(post("/api/civic/route")
+                        .contentType("application/json")
+                        .content("""
+                                {"issueType":"STREETLIGHT","prabhagId":"PRABHAG-11",
+                                 "resolutionMethod":"BIGQUERY_ST_COVERS","citizenConfirmed":false,
+                                 "boundaryDatasetVersion":"synthetic-v0.1"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CONFIRMATION_REQUIRED"))
+                .andExpect(jsonPath("$.routeId").doesNotExist())
+                .andExpect(jsonPath("$.citizenConfirmationRecorded").value(false));
+    }
+
+    @Test
+    void confirmedSyntheticCandidateCanReachDeterministicRouter() throws Exception {
+        mvc().perform(post("/api/civic/route")
+                        .contentType("application/json")
+                        .content("""
+                                {"issueType":"STREETLIGHT","prabhagId":"PRABHAG-11",
+                                 "resolutionMethod":"BIGQUERY_ST_COVERS","citizenConfirmed":true,
+                                 "boundaryDatasetVersion":"synthetic-v0.1"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUPPORTED_ROUTE"))
+                .andExpect(jsonPath("$.resolutionMethod").value("CITIZEN_CONFIRMED_SYNTHETIC_BOUNDARY"))
+                .andExpect(jsonPath("$.citizenConfirmationRecorded").value(true))
+                .andExpect(jsonPath("$.boundaryDatasetVersion").value("synthetic-v0.1"))
+                .andExpect(jsonPath("$.authority").value("Nandurbar Municipal Council"));
+    }
+
+    @Test
+    void staleSyntheticCandidateMustBeResolvedAgain() throws Exception {
+        mvc().perform(post("/api/civic/route")
+                        .contentType("application/json")
+                        .content("""
+                                {"issueType":"STREETLIGHT","prabhagId":"PRABHAG-11",
+                                 "resolutionMethod":"BIGQUERY_ST_COVERS","citizenConfirmed":true,
+                                 "boundaryDatasetVersion":"synthetic-v0.0"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CONFIRMATION_REQUIRED"));
     }
 
     @Test

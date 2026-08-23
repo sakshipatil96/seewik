@@ -7,6 +7,11 @@ All notable changes to the versioned Civic Pack and its deterministic routing im
 - Standardized the jurisdiction identifier on `prabhagId`; `wardId` remains a temporary request-only compatibility alias.
 - Added an official Prabhag 1-20 manual selector with `SELF_REPORTED` resolution.
 - Rejects unlisted prabhag identifiers rather than accepting arbitrary values.
+- Added deterministic `synthetic-v0.1` development boundaries for all 20 prabhags, generated from a fixed seed and a committed pure-Python Voronoi script.
+- Added the BigQuery `ST_COVERS` runtime resolver with `OUTSIDE_SUPPORTED_AREA` rejection.
+- Requires explicit citizen confirmation before a synthetic candidate can be used; manual `SELF_REPORTED` selection remains the override.
+- Records boundary provenance, quality, dataset version, and five uncached production lookup timings.
+- Keeps the synthetic geometry independently labelled `UNSOURCED` and `REVIEW_PENDING`; Civic Pack remains `v0.1`.
 
 ## Civic Pack v0.1 - 2026-08-22
 

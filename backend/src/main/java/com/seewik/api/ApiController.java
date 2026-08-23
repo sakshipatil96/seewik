@@ -13,10 +13,22 @@ import org.springframework.web.multipart.MultipartFile;
 public class ApiController {
     private final GeminiService geminiService;
     private final CivicRouterService civicRouterService;
+    private final PrabhagResolverService prabhagResolverService;
 
-    public ApiController(GeminiService geminiService, CivicRouterService civicRouterService) {
+    public ApiController(
+            GeminiService geminiService,
+            CivicRouterService civicRouterService,
+            PrabhagResolverService prabhagResolverService) {
         this.geminiService = geminiService;
         this.civicRouterService = civicRouterService;
+        this.prabhagResolverService = prabhagResolverService;
+    }
+
+    @PostMapping(value = "/api/civic/resolve-prabhag", consumes = "application/json", produces = "application/json")
+    public PrabhagResolverService.PrabhagResolution resolvePrabhag(
+            @org.springframework.web.bind.annotation.RequestBody
+                    PrabhagResolverService.PrabhagResolutionRequest request) {
+        return prabhagResolverService.resolve(request);
     }
 
     @PostMapping(value = "/api/civic/route", consumes = "application/json", produces = "application/json")

@@ -1,41 +1,73 @@
 # Seewik Day 2 build log
 
-Date: 2026-08-22 (America/Los_Angeles)
+Date: 2026-08-22–2026-08-23 (America/Los_Angeles)
 
 ## Outcome
 
-Built and deployed Civic Pack `v0.1`, a deterministic Spring Boot civic router, an evidence-traceable manual ward/prabhag dataset, and an `asia-south1` BigQuery ward table. No Gemini call is made by the civic router. No ward coordinates or geometry were fabricated.
+Built and deployed Civic Pack `v0.1`, a deterministic Spring Boot civic router, the manual prabhag flow, and a real BigQuery jurisdiction lookup path. Because official Nandurbar city geometry was unavailable, the lookup uses an explicitly synthetic, reproducible development dataset rather than presenting guessed geometry as official data.
+
+The final trust rule is:
+
+```text
+synthetic geometry proposes -> citizen confirms
+manual SELF_REPORTED selection overrides the proposal
+```
+
+No Gemini call is made by the civic router and no model decides civic authority.
 
 ## Prior ward research checked
 
-- Inspected `research/nandurbar_ward_maps_2026-08-21/SOURCE_LOG.md` and its saved official downloads before implementation.
-- Confirmed the prior negative result: no downloadable official Nandurbar Municipal Council ward-boundary map, boundary annexure, polygon dataset, or credible locality-per-ward spatial reference was available.
+- Inspected `research/nandurbar_ward_maps_2026-08-21/SOURCE_LOG.md` and the saved official downloads before implementation.
+- Confirmed that no downloadable official Nandurbar Municipal Council boundary map, boundary annexure, polygon dataset, or credible locality-per-prabhag spatial reference was available.
 - Kept the Nandurbar taluka map as context only and excluded Zilla Parishad/Panchayat Samiti material.
+- Checked OpenStreetMap/Nominatim as a final development-data source. A named Nandurbar city node and search extent were available, but no municipal city-boundary relation was found. District and taluka relations were not used as city boundaries.
 
-## Important source discrepancy discovered
+## Prabhag identifier resolution
 
-The prior source log treated the SEC summary's `40` as 40 citizen-selectable wards. Direct inspection of the official 2025 member-results PDF found a conflict:
+- The SEC 2025 summary displays `40` total wards and `41` total seats for Nandurbar.
+- The official 2025 member-results PDF enumerates Prabhags `1` through `20`, with seat identifiers `1A`–`19B` and `20A`–`20C`, totalling 41 councillor seats.
+- Seewik therefore exposes the 20 directly enumerated prabhags and preserves all 41 seat identifiers. It does not fabricate Prabhags 21–40.
+- The citizen-facing and runtime identifier is `prabhagId`. `wardId` remains a temporary request compatibility alias.
 
-- SEC 2025 election summary, page 6: Nandurbar displays `40` under `TOTAL WARDS` and `41` under `TOTAL SEATS`.
-- SEC 2025 member results, PDF pages 369-372: Nandurbar records enumerate prabhag numbers `1` through `20`, with seat IDs `1A`-`19B` and `20A`-`20C`, totaling 41 seats.
-
-The data pack preserves both observations. It stores the 20 directly enumerated prabhag IDs and all 41 seat IDs, and it does **not** fabricate `PRABHAG-21` through `PRABHAG-40`. A domain/product decision is still required on the preferred citizen-facing term and selector.
-
-## Ward source dataset
+## Official-source prabhag list
 
 - Version: `v0.1`
-- Method: `MANUAL_SELECTION`
-- Records: 20 official result-enumerated prabhags
-- Referenced seat IDs: 41
-- Geometry: none
-- `lat` / `lng`: null for every record
-- `geometryType`: `NONE` for every record
-- GPS auto-resolution: `UNAVAILABLE_NO_SPATIAL_DATA`
+- Records: 20 result-enumerated prabhags
+- Referenced seat identifiers: 41
+- Manual method: `SELF_REPORTED`
+- Original geometry: none
 - Files:
   - `data/wards/nandurbar-ward-source-v0.1.json`
   - `data/wards/wards.ndjson`
   - `data/wards/bigquery-schema.json`
   - `data/wards/WARD_SOURCE_NOTES.md`
+
+## Synthetic boundary dataset
+
+- Version: `synthetic-v0.1`
+- Method: fixed-seed clipped Voronoi tessellation
+- Generator: `data/prabhags/generate_synthetic_boundaries.py`
+- Generator dependencies: Python standard library only
+- Generator seed: `seewik-nandurbar-synthetic-boundaries-v0.1`
+- Polygons: 20
+- Outer extent: Nominatim search extent for OpenStreetMap city node `245694497`
+- Extent quality: `OSM_CITY_SEARCH_EXTENT_NOT_MUNICIPAL_BOUNDARY`
+- Resolution quality: `SYNTHETIC_BOUNDARY`
+- `sourceStatus`: `UNSOURCED`
+- `reviewStatus`: `REVIEW_PENDING`
+- `requiresCitizenConfirmation`: `true`
+- GeoJSON checksum: `059533c8988334e7a268482c83bac9693e74783081c5b3a8cb51061bda4e100a`
+- Reproducibility check: PASS; regeneration produced byte-identical committed artifacts.
+
+Generated artifacts:
+
+- `data/prabhags/synthetic-boundaries-v0.1.geojson`
+- `data/prabhags/synthetic-boundaries-v0.1.ndjson`
+- `data/prabhags/synthetic-boundaries-v0.1.sha256`
+- `data/prabhags/bigquery-schema.json`
+- `data/prabhags/README.md`
+
+Official geometry can later be loaded as a new dataset version. The active-version query boundary keeps the Civic Pack and route identifiers stable when the synthetic dataset is replaced.
 
 ## Civic Pack `v0.1`
 
@@ -52,130 +84,156 @@ Ten deterministic MVP routes:
 9. `DEAD_ANIMAL_REMOVAL`
 10. `PUBLIC_ROAD_OBSTRUCTION`
 
-Evidence and review counts:
+Civic Pack evidence and review counts:
 
 - `OFFICIAL_SOURCE`: 10
 - `UNSOURCED`: 0
 - `DOMAIN_REVIEWED`: 0
 - `REVIEW_PENDING`: 10
 
-Each route uses Nandurbar Municipal Council as the authority based on the Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965. Official channels are the official council contact email, the DMA complaint form, and the district-listed municipal office. No phone number was invented. Internal department is `UNVERIFIED_INTERNAL_DESK`; SLA and escalation are `NOT_VERIFIED`.
+The boundary dataset has a separate status count of 20 `UNSOURCED` and 20 `REVIEW_PENDING` records. Boundary status does not weaken or overwrite the source status of a civic route.
 
-## Router implementation
+Each route uses Nandurbar Municipal Council as the authority based on the Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965. No contact channel, phone number, SLA, or escalation was invented. Unverified internal departments remain `UNVERIFIED_INTERNAL_DESK`; SLA and escalation remain `NOT_VERIFIED`.
 
-- Endpoint: `POST /api/civic/route`
-- Input: `issueType`, `wardId`
-- Success: `SUPPORTED_ROUTE`
-- Unknown issue or missing ward mapping: `UNSUPPORTED_ROUTE`
-- Returns: `routeId`, `wardId`, authority, department status, official channels, SLA status, escalation status, official source, `sourceStatus`, `reviewStatus`, and `packVersion`.
+## Runtime resolver and deterministic router
+
+- Resolver endpoint: `POST /api/civic/resolve-prabhag`
+- Route endpoint: `POST /api/civic/route`
+- BigQuery lookup: parameterized `ST_COVERS(geometry, ST_GEOGPOINT(longitude, latitude))`
+- Query cache: disabled for the recorded timings
+- In-extent result: `CANDIDATE_PRABHAG`
+- No covering polygon: `OUTSIDE_SUPPORTED_AREA`
+- BigQuery failure: `RESOLUTION_UNAVAILABLE` with manual fallback
+- Invalid coordinates: `INVALID_COORDINATES`
+- A synthetic candidate is rejected by the route endpoint with `CONFIRMATION_REQUIRED` until `citizenConfirmed=true` and the dataset version matches.
+- A confirmed candidate is recorded as `CITIZEN_CONFIRMED_SYNTHETIC_BOUNDARY`.
+- Manual `SELF_REPORTED` selection always remains available and overrides a suggestion.
+- Unknown issues, unlisted prabhags, and missing mappings return `UNSUPPORTED_ROUTE`.
 - The router only indexes Civic Pack data; it contains no Gemini call and makes no model-based authority decision.
-
-## Tests and useful output
-
-Final Maven result:
-
-```text
-Tests run: 5, Failures: 0, Errors: 0, Skipped: 0
-BUILD SUCCESS
-```
-
-Covered:
-
-- supported deterministic route
-- unknown issue -> `UNSUPPORTED_ROUTE`
-- missing ward mapping -> `UNSUPPORTED_ROUTE`
-- simultaneous `OFFICIAL_SOURCE` + `REVIEW_PENDING`
-- Civic Pack version, count, uniqueness, source/review states, and unverified department integrity
-
-Deployed route smoke:
-
-```text
-issueType=streetlight, wardId=PRABHAG-01
-status=SUPPORTED_ROUTE
-routeId=NMC-PW-STREETLIGHT-v0.1
-sourceStatus=OFFICIAL_SOURCE
-reviewStatus=REVIEW_PENDING
-packVersion=v0.1
-```
 
 ## Firestore and BigQuery
 
-- Firestore `(default)` location deliberately verified first: `asia-south1`
+- Firestore `(default)` location verified before dataset work: `asia-south1`
 - Firestore type: `FIRESTORE_NATIVE`
-- BigQuery dataset created: `seewik.seewik_civic`
+- BigQuery dataset: `seewik.seewik_civic`
 - BigQuery location: `asia-south1`
-- Dataset description: `Seewik civic routing and ward source data; Day 2 v0.1`
-- Table: `seewik.seewik_civic.wards`
-- Table rows: 20
-- Rows with no geometry: 20
-- Referenced seat IDs: 41
-- No `GEOGRAPHY` column was created because no geometry is defensible.
+- Existing source tables preserved: `wards`, `prabhags`
+- Runtime table: `seewik.seewik_civic.prabhag_boundaries`
+- Runtime rows: 20
+- Valid `GEOGRAPHY` polygons: 20
+- Active dataset version: `synthetic-v0.1`
+- Cloud Run runtime identity has project-level `bigquery.jobUser` and `bigquery.dataViewer` roles. Dataset-level IAM scoping was attempted but the current interface reported that operation as allowlist-only, so the working permission was not removed or replaced with an unverified configuration.
 
-Verification query result:
+Validation query:
 
 ```text
-row_count=20
-no_geometry_count=20
-seat_id_count=41
+polygonCount=20
+correctlyLabelled=20
+distinctPrabhags=20
+emptyGeometry=0
 ```
 
-## Spatial lookup, outside-city behavior, and latency
+## Five production BigQuery lookup samples
 
-- `ST_COVERS`: not implemented; no polygons exist.
-- `ST_DISTANCE`: not implemented; no defensible centroids exist.
-- GPS auto-resolution: unavailable rather than guessed.
-- Outside-Nandurbar test: no auto-resolver exists, so coordinates cannot resolve to any ward and therefore cannot incorrectly map a Dhule point to Nandurbar. `OUTSIDE_SUPPORTED_AREA` becomes required when a spatial resolver is added.
-- Five BigQuery spatial latency samples: **blocked pending defensible geometry**. No lookup query exists to time, and no latency numbers were fabricated.
+These are end-to-end API samples through Cloud Run and the real BigQuery job path. The query cache was disabled. `queryLatencyMs` is the backend-measured BigQuery resolver duration.
+
+| # | Sample | Coordinates | Result | Prabhag | `queryLatencyMs` |
+|---|---|---|---|---|---:|
+| 1 | city centre, cold sample | `21.363778, 74.2411418` | `CANDIDATE_PRABHAG` | `PRABHAG-11` | 6014 |
+| 2 | southwest, inside extent | `21.22, 74.10` | `CANDIDATE_PRABHAG` | `PRABHAG-01` | 687 |
+| 3 | northeast, inside extent | `21.50, 74.38` | `CANDIDATE_PRABHAG` | `PRABHAG-20` | 534 |
+| 4 | northwest, inside extent | `21.50, 74.10` | `CANDIDATE_PRABHAG` | `PRABHAG-17` | 540 |
+| 5 | Dhule, outside extent | `20.9042, 74.7749` | `OUTSIDE_SUPPORTED_AREA` | none | 675 |
+
+Sorted timings: `534, 540, 675, 687, 6014` ms.
+
+- Minimum: **534 ms**
+- p50 / median: **675 ms**
+- Maximum: **6014 ms**
+
+The 6014 ms cold sample is retained rather than discarded. These timings are evidence for later circuit-breaker work; no circuit breaker was added on Day 2.
+
+## Tests and live verification
+
+Final backend result:
+
+```text
+Tests run: 15, Failures: 0, Errors: 0, Skipped: 0
+BUILD SUCCESS
+```
+
+Final frontend result:
+
+```text
+vite build: PASS
+```
+
+Coverage includes:
+
+- supported deterministic route
+- unknown issue -> `UNSUPPORTED_ROUTE`
+- missing or unlisted prabhag -> `UNSUPPORTED_ROUTE`
+- simultaneous `OFFICIAL_SOURCE` + `REVIEW_PENDING`
+- manual `SELF_REPORTED` route
+- unconfirmed synthetic suggestion -> `CONFIRMATION_REQUIRED`
+- stale boundary dataset version -> `CONFIRMATION_REQUIRED`
+- confirmed synthetic suggestion -> supported route with confirmation recorded
+- parameterized BigQuery query and cache-disabled configuration
+- covering boundary -> `CANDIDATE_PRABHAG`
+- no covering boundary -> `OUTSIDE_SUPPORTED_AREA`
+- invalid coordinates and resolver failure fallbacks
+- deterministic boundary regeneration
+
+Production smokes:
+
+```text
+unconfirmed synthetic candidate -> CONFIRMATION_REQUIRED
+confirmed synthetic candidate -> SUPPORTED_ROUTE
+confirmed resolution method -> CITIZEN_CONFIRMED_SYNTHETIC_BOUNDARY
+manual PRABHAG-02 override -> SUPPORTED_ROUTE + SELF_REPORTED
+Dhule coordinates -> OUTSIDE_SUPPORTED_AREA
+```
+
+Browser verification screenshot: `day2-bigquery-runtime-verification.png`.
 
 ## Deployment
 
-- Production health before deploy: PASS
+- Tests were green before deployment.
 - Cloud Run service: `seewik-api`
 - Region: `asia-south1`
-- Revision: `seewik-api-00003-zp5`
+- Revision: `seewik-api-00005-6l6`
 - Traffic: 100%
-- Public service URL: `https://seewik-api-528138216934.asia-south1.run.app`
-- Public health: `https://seewik-api-528138216934.asia-south1.run.app/health`
-- Public civic route: `https://seewik-api-528138216934.asia-south1.run.app/api/civic/route`
-- Production health after deploy: PASS
-- Supported and unsupported deployed route smokes: PASS
-- Existing service access policy was preserved unchanged.
+- API URL: `https://seewik-api-528138216934.asia-south1.run.app`
+- Health URL: `https://seewik-api-528138216934.asia-south1.run.app/health`
+- Resolver URL: `https://seewik-api-528138216934.asia-south1.run.app/api/civic/resolve-prabhag`
+- Router URL: `https://seewik-api-528138216934.asia-south1.run.app/api/civic/route`
+- Frontend URL: `https://seewik.web.app`
+- Public health after deployment: PASS
+- Live resolver, confirmation, manual override, supported route, and outside-area checks: PASS
 
 ## Problems encountered
 
-- The official summary/results ward-identifier conflict was discovered during direct PDF inspection. It is preserved as a blocker instead of being silently normalized.
-- Deployment preserved the existing IAM access policy.
-- Day 2 production health and route checks passed. The existing Day 1 deployed screenshot remains in the repository.
-- The repository was initialized on 2026-08-22 so Civic Pack `v0.1` could be pinned reproducibly.
+- The official SEC summary/result terminology conflict was preserved rather than silently normalized; the directly enumerated 20 prabhags are used.
+- OpenStreetMap provided a city search extent but not an official municipal boundary. The extent and all derived polygons are labelled accordingly.
+- The first hosted frontend build retained a local development API fallback. The fallback was corrected to the production API, rebuilt, redeployed, and verified live.
+- The cold production lookup took 6014 ms; it is recorded in the raw evidence rather than hidden.
+
+## Reproducibility
+
+- Git branch: `main`
+- Civic Pack `v0.1` tag: `citypack-v0.1`
+- Tagged commit: `71d5aae`
+- Prabhag/manual-routing baseline before this runtime addition: `70549ef`
+- Civic Pack remains `v0.1`; synthetic boundary data has its own `synthetic-v0.1` version.
+- The committed generator, fixed seed, fixed timestamp, generated artifacts, and SHA-256 checksum allow byte-identical regeneration.
 
 ## Not built (locked out of Day 2)
 
-No full Gemini structured classification/confidence flow, Marathi complaint generation, voice, lifecycle, points, Initiate, leaderboard, BigQuery memory circuit-breaker, MCP, ADK, or heavy UI polish was added.
+No full Gemini structured classification/confidence flow, Marathi complaint generation, voice, lifecycle, points, Initiate, leaderboard, BigQuery memory circuit breaker, MCP, ADK, or heavy UI polish was added.
 
 ## Unresolved blockers
 
-1. Product/domain decision: use the result-enumerated 20 prabhags for citizen manual selection, or hold the selector until the final ward-formation annexure explains the SEC summary's `40`.
-2. Official final ward map/boundary descriptions or credible locality-per-ward reference are still missing; GPS lookup and its five latency samples remain blocked.
-3. Exact locked real civic example image/location is not present; the worked-example test was not substituted with fake Nandurbar evidence.
-4. Domain review is pending for all ten routes, including the municipality's internal desk, any verified SLA, and any escalation path.
-5. Baseline survey and Nagar Parishad/domain-review outreach remain human tasks.
-
-## Same-day reproducibility and prabhag correction
-
-Added after the initial Day 2 closeout:
-
-- Initialized a Git repository on branch `main`.
-- Pinned the original Civic Pack `v0.1` state at commit `b24c20634e89fa739c911a101be2c337cc7f5039` with annotated tag `citypack-v0.1`.
-- Added root `CHANGELOG.md` for Civic Pack history.
-- Standardized the active jurisdiction contract on `prabhagId`; `wardId` remains request-only as a temporary compatibility alias.
-- Restricted manual inputs to official `PRABHAG-01` through `PRABHAG-20`; arbitrary IDs such as `PRABHAG-21` return `UNSUPPORTED_ROUTE`.
-- Added `resolutionMethod: SELF_REPORTED` to successful manual routes.
-- Added and deployed a Prabhag 1-20 manual selector on Firebase Hosting.
-- Created `seewik.seewik_civic.prabhags` in `asia-south1` with 20 prabhags, 41 seat identifiers, and no geometry.
-- Preserved the old `wards` table temporarily rather than destructively deleting it.
-- Final backend result: 7 tests, 0 failures, 0 errors.
-- Deployed backend revision: `seewik-api-00004-86q`, serving 100% of traffic.
-- Deployed frontend: `https://seewik.web.app`, bundle `index-tLB5j51A.js`.
-- Production check: `PRABHAG-01` returned `SUPPORTED_ROUTE` + `SELF_REPORTED`; `PRABHAG-21` returned `UNSUPPORTED_ROUTE`.
-
-The detailed SEC member results contain 41 councillor-seat rows: Prabhags 1-19 have two seats each (38), and Prabhag 20 has three seats, totaling 41. The directly elected president is not the 41st member-results row.
+1. Official Nandurbar prabhag geometry or boundary descriptions remain unavailable. `synthetic-v0.1` must be replaced, not relabelled, when authoritative geometry arrives.
+2. Exact locked real civic example image/location is not present; the worked-example test was not substituted with fake Nandurbar evidence.
+3. Domain review is pending for all ten civic routes, including internal departments, verified SLA, and escalation paths.
+4. Baseline survey and Nagar Parishad/domain-review outreach remain human tasks.

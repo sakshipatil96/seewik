@@ -1,0 +1,16 @@
+[
+  {"name":"prabhagId","type":"STRING","mode":"REQUIRED"},
+  {"name":"prabhagName","type":"STRING","mode":"REQUIRED"},
+  {"name":"geometry","type":"GEOGRAPHY","mode":"REQUIRED"},
+  {"name":"geometryType","type":"STRING","mode":"REQUIRED"},
+  {"name":"resolutionQuality","type":"STRING","mode":"REQUIRED"},
+  {"name":"requiresCitizenConfirmation","type":"BOOLEAN","mode":"REQUIRED"},
+  {"name":"sourceReference","type":"STRING","mode":"REQUIRED"},
+  {"name":"sourceStatus","type":"STRING","mode":"REQUIRED"},
+  {"name":"reviewStatus","type":"STRING","mode":"REQUIRED"},
+  {"name":"datasetVersion","type":"STRING","mode":"REQUIRED"},
+  {"name":"generatorVersion","type":"STRING","mode":"REQUIRED"},
+  {"name":"generatorSeed","type":"STRING","mode":"REQUIRED"},
+  {"name":"generatedAt","type":"TIMESTAMP","mode":"REQUIRED"},
+  {"name":"isActive","type":"BOOLEAN","mode":"REQUIRED"}
+]

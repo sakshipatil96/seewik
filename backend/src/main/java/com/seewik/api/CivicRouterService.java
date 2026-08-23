@@ -47,11 +47,26 @@ public class CivicRouterService {
         if (route == null || !SUPPORTED_PRABHAG_IDS.contains(prabhagId)) {
             return CivicRouteResponse.unsupported(prabhagId.isBlank() ? null : prabhagId, PACK_VERSION);
         }
+        String requestedMethod = normalizeResolutionMethod(request == null ? null : request.resolutionMethod());
+        boolean syntheticCandidate = PrabhagResolverService.RESOLUTION_METHOD.equals(requestedMethod);
+        if (!requestedMethod.isBlank() && !"SELF_REPORTED".equals(requestedMethod) && !syntheticCandidate) {
+            return CivicRouteResponse.unsupported(prabhagId, PACK_VERSION);
+        }
+        if (syntheticCandidate
+                && (!Boolean.TRUE.equals(request.citizenConfirmed())
+                        || !PrabhagResolverService.DATASET_VERSION.equals(request.boundaryDatasetVersion()))) {
+            return CivicRouteResponse.confirmationRequired(prabhagId, PACK_VERSION);
+        }
+        String resolutionMethod = syntheticCandidate
+                ? "CITIZEN_CONFIRMED_SYNTHETIC_BOUNDARY"
+                : "SELF_REPORTED";
         return new CivicRouteResponse(
                 "SUPPORTED_ROUTE",
                 route.routeId(),
                 prabhagId,
-                "SELF_REPORTED",
+                resolutionMethod,
+                syntheticCandidate,
+                syntheticCandidate ? PrabhagResolverService.DATASET_VERSION : null,
                 pack.authority(),
                 route.department(),
                 pack.officialChannels(),
@@ -73,13 +88,25 @@ public class CivicRouterService {
         return value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
     }
 
-    public record CivicRouteRequest(String issueType, String prabhagId, String wardId) {}
+    private static String normalizeResolutionMethod(String resolutionMethod) {
+        return resolutionMethod == null ? "" : resolutionMethod.trim().toUpperCase(Locale.ROOT);
+    }
+
+    public record CivicRouteRequest(
+            String issueType,
+            String prabhagId,
+            String wardId,
+            String resolutionMethod,
+            Boolean citizenConfirmed,
+            String boundaryDatasetVersion) {}
 
     public record CivicRouteResponse(
             String status,
             String routeId,
             String prabhagId,
             String resolutionMethod,
+            Boolean citizenConfirmationRecorded,
+            String boundaryDatasetVersion,
             String authority,
             String department,
             List<OfficialChannel> officialChannels,
@@ -91,7 +118,14 @@ public class CivicRouterService {
             String packVersion) {
         static CivicRouteResponse unsupported(String prabhagId, String packVersion) {
             return new CivicRouteResponse(
-                    "UNSUPPORTED_ROUTE", null, prabhagId, null, null, null, List.of(),
+                    "UNSUPPORTED_ROUTE", null, prabhagId, null, false, null, null, null, List.of(),
+                    "NOT_VERIFIED", "NOT_VERIFIED", null, null, null, packVersion);
+        }
+
+        static CivicRouteResponse confirmationRequired(String prabhagId, String packVersion) {
+            return new CivicRouteResponse(
+                    "CONFIRMATION_REQUIRED", null, prabhagId, PrabhagResolverService.RESOLUTION_METHOD,
+                    false, PrabhagResolverService.DATASET_VERSION, null, null, List.of(),
                     "NOT_VERIFIED", "NOT_VERIFIED", null, null, null, packVersion);
         }
     }
