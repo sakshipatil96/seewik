@@ -135,7 +135,7 @@ emptyGeometry=0
 
 ## Five production BigQuery lookup samples
 
-These are end-to-end API samples through Cloud Run and the real BigQuery job path. The query cache was disabled. `queryLatencyMs` is the backend-measured BigQuery resolver duration.
+These requests were sent to the deployed Cloud Run service, not executed through a local backend. The real BigQuery job path ran in production and the query cache was disabled. `queryLatencyMs` was measured inside the Cloud Run backend around the BigQuery resolver call, so it excludes client-to-service network time.
 
 | # | Sample | Coordinates | Result | Prabhag | `queryLatencyMs` |
 |---|---|---|---|---|---:|
@@ -147,11 +147,15 @@ These are end-to-end API samples through Cloud Run and the real BigQuery job pat
 
 Sorted timings: `534, 540, 675, 687, 6014` ms.
 
-- Minimum: **534 ms**
-- p50 / median: **675 ms**
-- Maximum: **6014 ms**
+- Five-sample p50 / median: **675 ms**
+- Observed cold path: **6014 ms (6.014 s)**
+- Subsequent observed range: **534–687 ms**
 
-The 6014 ms cold sample is retained rather than discarded. These timings are evidence for later circuit-breaker work; no circuit breaker was added on Day 2.
+The 6014 ms cold sample is retained and reported separately rather than being hidden by the median. It is 2.4 times the proposed 2.5-second circuit-breaker threshold.
+
+Measured cold-path latency exceeds the proposed application timeout, which is precisely why the planned memory fallback exists in the architecture. No circuit breaker was added on Day 2.
+
+Before finalising the threshold on Aug 28, take a second production round: 10 warm samples and 3 genuine cold samples from freshly started revisions. Report warm p50 and cold-path behavior separately.
 
 ## Tests and live verification
 
@@ -223,6 +227,8 @@ Browser verification screenshot: `day2-bigquery-runtime-verification.png`.
 - Git branch: `main`
 - Civic Pack `v0.1` tag: `citypack-v0.1`
 - Tagged commit: `71d5aae`
+- Synthetic boundary tag: `boundaries-synthetic-v0.1`
+- Synthetic boundary commit: `2ec87c9`
 - Prabhag/manual-routing baseline before this runtime addition: `70549ef`
 - Civic Pack remains `v0.1`; synthetic boundary data has its own `synthetic-v0.1` version.
 - The committed generator, fixed seed, fixed timestamp, generated artifacts, and SHA-256 checksum allow byte-identical regeneration.
