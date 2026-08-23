@@ -159,3 +159,23 @@ No full Gemini structured classification/confidence flow, Marathi complaint gene
 3. Exact locked real civic example image/location is not present; the worked-example test was not substituted with fake Nandurbar evidence.
 4. Domain review is pending for all ten routes, including the municipality's internal desk, any verified SLA, and any escalation path.
 5. Baseline survey and Nagar Parishad/domain-review outreach remain human tasks.
+
+## Same-day reproducibility and prabhag correction
+
+Added after the initial Day 2 closeout:
+
+- Initialized a Git repository on branch `main`.
+- Pinned the original Civic Pack `v0.1` state at commit `b24c20634e89fa739c911a101be2c337cc7f5039` with annotated tag `citypack-v0.1`.
+- Added root `CHANGELOG.md` for Civic Pack history.
+- Standardized the active jurisdiction contract on `prabhagId`; `wardId` remains request-only as a temporary compatibility alias.
+- Restricted manual inputs to official `PRABHAG-01` through `PRABHAG-20`; arbitrary IDs such as `PRABHAG-21` return `UNSUPPORTED_ROUTE`.
+- Added `resolutionMethod: SELF_REPORTED` to successful manual routes.
+- Added and deployed a Prabhag 1-20 manual selector on Firebase Hosting.
+- Created `seewik.seewik_civic.prabhags` in `asia-south1` with 20 prabhags, 41 seat identifiers, and no geometry.
+- Preserved the old `wards` table temporarily rather than destructively deleting it.
+- Final backend result: 7 tests, 0 failures, 0 errors.
+- Deployed backend revision: `seewik-api-00004-86q`, serving 100% of traffic.
+- Deployed frontend: `https://seewik.web.app`, bundle `index-tLB5j51A.js`.
+- Production check: `PRABHAG-01` returned `SUPPORTED_ROUTE` + `SELF_REPORTED`; `PRABHAG-21` returned `UNSUPPORTED_ROUTE`.
+
+The detailed SEC member results contain 41 councillor-seat rows: Prabhags 1-19 have two seats each (38), and Prabhag 20 has three seats, totaling 41. The directly elected president is not the 41st member-results row.

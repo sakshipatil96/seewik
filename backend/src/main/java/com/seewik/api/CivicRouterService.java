@@ -7,11 +7,17 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.springframework.stereotype.Service;
 
 @Service
 public class CivicRouterService {
     public static final String PACK_VERSION = "v0.1";
+    private static final Set<String> SUPPORTED_PRABHAG_IDS = IntStream.rangeClosed(1, 20)
+            .mapToObj(number -> "PRABHAG-%02d".formatted(number))
+            .collect(Collectors.toUnmodifiableSet());
     private final CivicPack pack;
     private final Map<String, RouteDefinition> routesByIssueType;
 
@@ -36,15 +42,16 @@ public class CivicRouterService {
 
     public CivicRouteResponse route(CivicRouteRequest request) {
         String issueType = normalizeIssueType(request == null ? null : request.issueType());
-        String wardId = request == null || request.wardId() == null ? "" : request.wardId().trim();
+        String prabhagId = request == null ? "" : firstNonBlank(request.prabhagId(), request.wardId());
         RouteDefinition route = routesByIssueType.get(issueType);
-        if (route == null || wardId.isBlank()) {
-            return CivicRouteResponse.unsupported(wardId.isBlank() ? null : wardId, PACK_VERSION);
+        if (route == null || !SUPPORTED_PRABHAG_IDS.contains(prabhagId)) {
+            return CivicRouteResponse.unsupported(prabhagId.isBlank() ? null : prabhagId, PACK_VERSION);
         }
         return new CivicRouteResponse(
                 "SUPPORTED_ROUTE",
                 route.routeId(),
-                wardId,
+                prabhagId,
+                "SELF_REPORTED",
                 pack.authority(),
                 route.department(),
                 pack.officialChannels(),
@@ -61,12 +68,18 @@ public class CivicRouterService {
         return issueType.trim().toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
     }
 
-    public record CivicRouteRequest(String issueType, String wardId) {}
+    private static String firstNonBlank(String preferred, String compatibilityAlias) {
+        String value = preferred == null || preferred.isBlank() ? compatibilityAlias : preferred;
+        return value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
+    }
+
+    public record CivicRouteRequest(String issueType, String prabhagId, String wardId) {}
 
     public record CivicRouteResponse(
             String status,
             String routeId,
-            String wardId,
+            String prabhagId,
+            String resolutionMethod,
             String authority,
             String department,
             List<OfficialChannel> officialChannels,
@@ -76,9 +89,9 @@ public class CivicRouterService {
             String sourceStatus,
             String reviewStatus,
             String packVersion) {
-        static CivicRouteResponse unsupported(String wardId, String packVersion) {
+        static CivicRouteResponse unsupported(String prabhagId, String packVersion) {
             return new CivicRouteResponse(
-                    "UNSUPPORTED_ROUTE", null, wardId, null, null, List.of(),
+                    "UNSUPPORTED_ROUTE", null, prabhagId, null, null, null, List.of(),
                     "NOT_VERIFIED", "NOT_VERIFIED", null, null, null, packVersion);
         }
     }

@@ -1,6 +1,6 @@
 [
-  {"name":"wardId","type":"STRING","mode":"REQUIRED"},
-  {"name":"wardName","type":"STRING","mode":"REQUIRED"},
+  {"name":"prabhagId","type":"STRING","mode":"REQUIRED"},
+  {"name":"prabhagName","type":"STRING","mode":"REQUIRED"},
   {"name":"lat","type":"FLOAT","mode":"NULLABLE"},
   {"name":"lng","type":"FLOAT","mode":"NULLABLE"},
   {"name":"geometryType","type":"STRING","mode":"REQUIRED"},

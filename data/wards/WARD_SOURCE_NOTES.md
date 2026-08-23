@@ -9,7 +9,7 @@ Two official 2025 SEC sources conflict in terminology:
 - The election summary PDF displays `40` under `TOTAL WARDS` and `41` under `TOTAL SEATS` for Nandurbar.
 - The member-results PDF (PDF pages 369-372) enumerates prabhag numbers `1` through `20`; seat IDs are `1A`-`19B` and `20A`-`20C`, totaling 41 seats.
 
-The v0.1 records therefore preserve the 20 directly enumerated prabhag identifiers and their 41 seat IDs, while flagging the summary discrepancy. It does not invent `PRABHAG-21` through `PRABHAG-40`. Manual selection may use the published prabhag number, but a domain reviewer or final ward-formation annexure should settle the municipality's preferred citizen-facing term.
+The v0.1 records therefore preserve the 20 directly enumerated `prabhagId` values and their 41 seat IDs, while flagging the summary discrepancy. It does not invent `PRABHAG-21` through `PRABHAG-40`. Manual selection uses Prabhags 1-20 and records the resolution method as `SELF_REPORTED`.
 
 ## Official sources
 

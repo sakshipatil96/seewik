@@ -2,6 +2,12 @@
 
 All notable changes to the versioned Civic Pack and its deterministic routing implementation are recorded here.
 
+## Unreleased
+
+- Standardized the jurisdiction identifier on `prabhagId`; `wardId` remains a temporary request-only compatibility alias.
+- Added an official Prabhag 1-20 manual selector with `SELF_REPORTED` resolution.
+- Rejects unlisted prabhag identifiers rather than accepting arbitrary values.
+
 ## Civic Pack v0.1 - 2026-08-22
 
 Initial evidence-traceable Civic Pack for Nandurbar Municipal Council.
