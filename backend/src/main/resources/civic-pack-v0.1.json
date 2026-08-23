@@ -1,0 +1,153 @@
+{
+  "packVersion": "v0.1",
+  "authority": "Nandurbar Municipal Council",
+  "officialChannels": [
+    {
+      "type": "EMAIL",
+      "value": "conandurbarnmc@gmail.com",
+      "label": "Nandurbar Municipal Council official contact email"
+    },
+    {
+      "type": "ONLINE_FORM",
+      "value": "https://mahadma.maharashtra.gov.in/en/complaint-2/",
+      "label": "Maharashtra Directorate of Municipal Administration complaint form"
+    },
+    {
+      "type": "IN_PERSON",
+      "value": "Nandurbar Nagarpalika, Nandurbar, Maharashtra 425412",
+      "label": "Municipal office listed by District Nandurbar"
+    }
+  ],
+  "routes": [
+    {
+      "routeId": "NMC-SWM-GARBAGE-v0.1",
+      "issueType": "GARBAGE_SOLID_WASTE",
+      "department": "UNVERIFIED_INTERNAL_DESK",
+      "scopeNote": "Council duty for cleansing public streets and places; the Nandurbar internal desk is not published.",
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Section 49(2)(c)"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING"
+    },
+    {
+      "routeId": "NMC-SWM-DUMPING-v0.1",
+      "issueType": "ILLEGAL_DUMPING",
+      "department": "UNVERIFIED_INTERNAL_DESK",
+      "scopeNote": "Council cleansing duty and statutory prohibition on depositing dust or refuse; the Nandurbar internal desk is not published.",
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Sections 49(2)(c) and 229"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING"
+    },
+    {
+      "routeId": "NMC-PW-POTHOLE-v0.1",
+      "issueType": "POTHOLE_ROAD_DAMAGE",
+      "department": "UNVERIFIED_INTERNAL_DESK",
+      "scopeNote": "Council duty covers construction and maintenance of public streets; road ownership must still be checked for non-municipal roads.",
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Section 49(2)(i)"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING"
+    },
+    {
+      "routeId": "NMC-PW-STREETLIGHT-v0.1",
+      "issueType": "STREETLIGHT",
+      "department": "UNVERIFIED_INTERNAL_DESK",
+      "scopeNote": "Council duty covers lighting public streets, places and buildings; the Nandurbar internal desk is not published.",
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Section 49(2)(a)"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING"
+    },
+    {
+      "routeId": "NMC-DRAINAGE-v0.1",
+      "issueType": "DRAINAGE_SEWAGE",
+      "department": "UNVERIFIED_INTERNAL_DESK",
+      "scopeNote": "Council duty covers drains, sewers, drainage and sewerage works; the Nandurbar internal desk is not published.",
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Section 49(2)(i) and Sections 200-214"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING"
+    },
+    {
+      "routeId": "NMC-WATER-v0.1",
+      "issueType": "WATER_SUPPLY",
+      "department": "UNVERIFIED_INTERNAL_DESK",
+      "scopeNote": "Council duty covers obtaining sufficient and wholesome water; the Nandurbar internal desk is not published.",
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Sections 49(2)(j), 50 and 215-220"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING"
+    },
+    {
+      "routeId": "NMC-SANITATION-TOILET-v0.1",
+      "issueType": "PUBLIC_TOILET_SANITATION",
+      "department": "UNVERIFIED_INTERNAL_DESK",
+      "scopeNote": "Council duty covers latrines, privies and urinals; the Nandurbar internal desk is not published.",
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Sections 49(2)(i) and 207"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING"
+    },
+    {
+      "routeId": "NMC-HEALTH-MOSQUITO-v0.1",
+      "issueType": "MOSQUITO_FOGGING",
+      "department": "UNVERIFIED_INTERNAL_DESK",
+      "scopeNote": "Council powers cover stagnant or insanitary water and mosquito breeding; fogging as a treatment or SLA is not promised.",
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Sections 220 and 243-244"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING"
+    },
+    {
+      "routeId": "NMC-SANITATION-DEAD-ANIMAL-v0.1",
+      "issueType": "DEAD_ANIMAL_REMOVAL",
+      "department": "UNVERIFIED_INTERNAL_DESK",
+      "scopeNote": "The Act authorizes council provision and agency for disposal of dead-animal carcasses; the Nandurbar internal desk is not published.",
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Section 256"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING"
+    },
+    {
+      "routeId": "NMC-PW-OBSTRUCTION-v0.1",
+      "issueType": "PUBLIC_ROAD_OBSTRUCTION",
+      "department": "UNVERIFIED_INTERNAL_DESK",
+      "scopeNote": "Council duty covers removal of obstructions in public streets and places; the Nandurbar internal desk is not published.",
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Section 49(2)(f)"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING"
+    }
+  ]
+}

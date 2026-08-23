@@ -1,0 +1,11 @@
+[
+  {"name":"wardId","type":"STRING","mode":"REQUIRED"},
+  {"name":"wardName","type":"STRING","mode":"REQUIRED"},
+  {"name":"lat","type":"FLOAT","mode":"NULLABLE"},
+  {"name":"lng","type":"FLOAT","mode":"NULLABLE"},
+  {"name":"geometryType","type":"STRING","mode":"REQUIRED"},
+  {"name":"sourceReference","type":"STRING","mode":"REQUIRED"},
+  {"name":"datasetVersion","type":"STRING","mode":"REQUIRED"},
+  {"name":"generatedAt","type":"TIMESTAMP","mode":"REQUIRED"},
+  {"name":"seatIds","type":"STRING","mode":"REPEATED"}
+]

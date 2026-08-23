@@ -1,0 +1,6 @@
+.gcloudignore
+.git
+.gitignore
+.m2/
+target/
+*.log
