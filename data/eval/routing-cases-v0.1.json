@@ -1,0 +1,22 @@
+{
+  "case_set_version": "routing-cases-v0.1",
+  "pack_version": "v0.2",
+  "notes": [
+    "Routing cases begin with an already confirmed issueType and prabhagId.",
+    "Authority expectations come only from the deterministic Civic Pack router, never Gemini."
+  ],
+  "cases": [
+    {"case_id":"ROUTE-GARBAGE-001","expected_issueType":"GARBAGE_SOLID_WASTE","confirmed_prabhagId":"PRABHAG-01","expected_routeId":"NMC-SWM-GARBAGE-v0.2","expected_authority":"Nandurbar Municipal Council","source":"CIVIC_PACK_V0.2"},
+    {"case_id":"ROUTE-DUMPING-002","expected_issueType":"ILLEGAL_DUMPING","confirmed_prabhagId":"PRABHAG-02","expected_routeId":"NMC-SWM-DUMPING-v0.2","expected_authority":"Nandurbar Municipal Council","source":"CIVIC_PACK_V0.2"},
+    {"case_id":"ROUTE-CLEANLINESS-003","expected_issueType":"PUBLIC_AREA_CLEANLINESS","confirmed_prabhagId":"PRABHAG-03","expected_routeId":"NMC-SWM-AREA-CLEAN-v0.2","expected_authority":"Nandurbar Municipal Council","source":"CIVIC_PACK_V0.2"},
+    {"case_id":"ROUTE-TOILET-004","expected_issueType":"PUBLIC_TOILET_SANITATION","confirmed_prabhagId":"PRABHAG-04","expected_routeId":"NMC-SANITATION-TOILET-v0.2","expected_authority":"Nandurbar Municipal Council","source":"CIVIC_PACK_V0.2"},
+    {"case_id":"ROUTE-MOSQUITO-005","expected_issueType":"MOSQUITO_FOGGING","confirmed_prabhagId":"PRABHAG-05","expected_routeId":"NMC-HEALTH-MOSQUITO-v0.2","expected_authority":"Nandurbar Municipal Council","source":"CIVIC_PACK_V0.2"},
+    {"case_id":"ROUTE-DEAD-ANIMAL-006","expected_issueType":"DEAD_ANIMAL_REMOVAL","confirmed_prabhagId":"PRABHAG-06","expected_routeId":"NMC-SANITATION-DEAD-ANIMAL-v0.2","expected_authority":"Nandurbar Municipal Council","source":"CIVIC_PACK_V0.2"},
+    {"case_id":"ROUTE-WATER-007","expected_issueType":"WATER_SUPPLY","confirmed_prabhagId":"PRABHAG-07","expected_routeId":"NMC-WATER-v0.2","expected_authority":"Nandurbar Municipal Council","source":"CIVIC_PACK_V0.2"},
+    {"case_id":"ROUTE-POTHOLE-008","expected_issueType":"POTHOLE_ROAD_DAMAGE","confirmed_prabhagId":"PRABHAG-08","expected_routeId":"NMC-PW-POTHOLE-v0.2","expected_authority":"Nandurbar Municipal Council","source":"CIVIC_PACK_V0.2"},
+    {"case_id":"ROUTE-DRAINAGE-009","expected_issueType":"DRAINAGE_SEWAGE","confirmed_prabhagId":"PRABHAG-09","expected_routeId":"NMC-DRAINAGE-v0.2","expected_authority":"Nandurbar Municipal Council","source":"CIVIC_PACK_V0.2"},
+    {"case_id":"ROUTE-OBSTRUCTION-010","expected_issueType":"PUBLIC_ROAD_OBSTRUCTION","confirmed_prabhagId":"PRABHAG-10","expected_routeId":"NMC-PW-OBSTRUCTION-v0.2","expected_authority":"Nandurbar Municipal Council","source":"CIVIC_PACK_V0.2"},
+    {"case_id":"ROUTE-STREETLIGHT-011","expected_issueType":"STREETLIGHT","confirmed_prabhagId":"PRABHAG-11","expected_routeId":"NMC-PW-STREETLIGHT-v0.2","expected_authority":"Nandurbar Municipal Council","source":"CIVIC_PACK_V0.2"},
+    {"case_id":"ROUTE-UNSUPPORTED-012","expected_issueType":"UNKNOWN","confirmed_prabhagId":"PRABHAG-12","expected_routeId":null,"expected_authority":null,"source":"NEGATIVE_CONTROL"}
+  ]
+}

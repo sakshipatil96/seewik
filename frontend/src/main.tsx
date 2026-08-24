@@ -80,6 +80,28 @@ type PrabhagResolution = {
   message: string;
 };
 
+type ClassificationResult = {
+  status: 'CLASSIFIED' | 'CLARIFICATION_REQUIRED' | 'CLASSIFICATION_ERROR';
+  issueType?: string;
+  subcategory?: string | null;
+  description?: string;
+  confidence?: number;
+  detectedLanguage?: 'MR' | 'HI' | 'EN' | 'MIXED' | 'UNKNOWN';
+  needsClarification?: boolean;
+  clarificationQuestion?: string | null;
+  schemaVersion?: string;
+  packVersion?: string;
+  modelVersion?: string;
+  errorCode?: string;
+  message?: string;
+};
+
+const ISSUE_VALUES = new Set<string>(ISSUE_TYPES.map(([value]) => value));
+
+function issueLabel(value: string) {
+  return ISSUE_TYPES.find(([issueType]) => issueType === value)?.[1] ?? value;
+}
+
 function App() {
   const [status, setStatus] = useState('Connecting…');
   const [details, setDetails] = useState<string[]>([]);
@@ -91,6 +113,12 @@ function App() {
   const [selectionMethod, setSelectionMethod] = useState('SELF_REPORTED');
   const [citizenConfirmed, setCitizenConfirmed] = useState(false);
   const [boundaryDatasetVersion, setBoundaryDatasetVersion] = useState<string | undefined>();
+  const [evidenceText, setEvidenceText] = useState('');
+  const [evidenceImage, setEvidenceImage] = useState<File | null>(null);
+  const [classification, setClassification] = useState<ClassificationResult | null>(null);
+  const [classificationStatus, setClassificationStatus] = useState('');
+  const [classificationConfirmed, setClassificationConfirmed] = useState(false);
+  const [classificationSource, setClassificationSource] = useState('SELF_REPORTED');
   const add = (line: string) => setDetails((old) => [...old, line]);
 
   useEffect(() => {
@@ -161,8 +189,65 @@ function App() {
     setLocationStatus('Manual prabhag selection will override any location suggestion.');
   }
 
+  function chooseIssueType(value: string) {
+    setIssueType(value as typeof issueType);
+    setClassificationConfirmed(false);
+    setClassificationSource(classification?.issueType === value ? 'GEMINI_SUGGESTED' : 'CITIZEN_SELECTED');
+    setRouteResult(null);
+  }
+
+  async function classifyEvidence() {
+    setClassification(null);
+    setClassificationConfirmed(false);
+    setRouteResult(null);
+    if (!evidenceImage && !evidenceText.trim()) {
+      setClassificationStatus('Add a photo or a short description first.');
+      return;
+    }
+    if (evidenceImage && evidenceImage.size > 5 * 1024 * 1024) {
+      setClassificationStatus('Please choose a photo that is 5 MB or smaller.');
+      return;
+    }
+    setClassificationStatus('Checking the issue category…');
+    const form = new FormData();
+    if (evidenceImage) form.append('image', evidenceImage);
+    if (evidenceText.trim()) form.append('text', evidenceText.trim());
+    const response = await fetch(`${API_URL}/api/civic/classify`, { method: 'POST', body: form });
+    const result: ClassificationResult = await response.json();
+    setClassification(result);
+    if (!response.ok || result.status === 'CLASSIFICATION_ERROR') {
+      setClassificationStatus(result.message ?? 'The category could not be checked. Choose it manually below.');
+      setClassificationSource('CITIZEN_SELECTED');
+      return;
+    }
+    if (result.issueType && result.issueType !== 'UNKNOWN' && ISSUE_VALUES.has(result.issueType)) {
+      setIssueType(result.issueType as typeof issueType);
+      setClassificationSource('GEMINI_SUGGESTED');
+    } else {
+      setClassificationSource('CITIZEN_SELECTED');
+    }
+    setClassificationStatus(
+      result.status === 'CLASSIFIED' && result.issueType
+        ? `Suggested category: ${issueLabel(result.issueType)}. Please confirm or correct it.`
+        : result.clarificationQuestion ?? 'The category is unclear. Please choose the best match below.',
+    );
+  }
+
+  function confirmIssueType() {
+    const source = classification?.issueType === issueType && classification.status === 'CLASSIFIED'
+      ? 'CITIZEN_CONFIRMED_GEMINI'
+      : 'CITIZEN_SELECTED';
+    setClassificationSource(source);
+    setClassificationConfirmed(true);
+    setClassificationStatus(`${issueLabel(issueType)} confirmed. Gemini does not choose the authority or department.`);
+  }
+
   async function findCivicRoute() {
     setRouteResult(null);
+    if (!classificationConfirmed) {
+      setRouteResult({ status: 'CATEGORY_CONFIRMATION_REQUIRED' });
+      return;
+    }
     const response = await fetch(`${API_URL}/api/civic/route`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -176,15 +261,42 @@ function App() {
     <section className="hero"><span className="eyebrow">SEEWIK · CIVIC PACK v0.2</span><h1>See it. Share it.<br />Help fix it.</h1><p>A lightweight foundation for reporting civic issues in your community.</p></section>
     <section className="card">
       <div className="signal" /><h2>Find the civic route</h2>
+      <p>Start with a photo or short description. Gemini may suggest an issue category, but you confirm it. Authority and department always come from Civic Pack v0.2.</p>
+      <div className="flow-step"><span>1</span><b>Describe the issue</b></div>
+      <label>Photo (optional)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => {
+        setEvidenceImage(event.target.files?.[0] ?? null);
+        setClassificationConfirmed(false);
+        setRouteResult(null);
+      }} /></label>
+      <label>Short description (optional)<textarea maxLength={2000} value={evidenceText} placeholder="उदा. रस्त्यावर मोठा खड्डा आहे" onChange={(event) => {
+        setEvidenceText(event.target.value);
+        setClassificationConfirmed(false);
+        setRouteResult(null);
+      }} /></label>
+      <button className="secondary" onClick={() => classifyEvidence().catch(() => {
+        setClassificationStatus('The category could not be checked. Choose it manually below.');
+        setClassificationSource('CITIZEN_SELECTED');
+      })}>Suggest issue category</button>
+      {classificationStatus && <div className={classification?.status === 'CLASSIFICATION_ERROR' ? 'notice' : 'classification-result'}>
+        <strong>{classification?.status === 'CLASSIFIED' ? 'Category suggestion ready' : classification?.status === 'CLARIFICATION_REQUIRED' ? 'Please clarify' : 'Category confirmation'}</strong>
+        <span>{classificationStatus}</span>
+        {classification?.description && <small>{classification.description}</small>}
+        {classification?.detectedLanguage && <small>Detected language: {classification.detectedLanguage}</small>}
+      </div>}
+      <label>Issue category<select value={issueType} onChange={(event) => chooseIssueType(event.target.value)}>{ISSUE_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+      <button onClick={confirmIssueType}>{classificationConfirmed ? 'Category confirmed' : 'Confirm this category'}</button>
+      {classificationConfirmed && <div className="confirmed-line">✓ {issueLabel(issueType)} · {classificationSource}</div>}
+
+      <div className="flow-step"><span>2</span><b>Confirm your prabhag</b></div>
       <p>Location can suggest a prabhag using synthetic development boundaries. The suggestion is never official and must be confirmed. Manual selection always overrides it.</p>
       <button className="secondary" onClick={useMyLocation}>Suggest from my location</button>
       {locationStatus && <div className="notice">{locationStatus}</div>}
       {resolution?.status === 'CANDIDATE_PRABHAG' && resolution.prabhagId && <div className="candidate"><strong>{resolution.prabhagName}</strong><span>{resolution.resolutionQuality} · {resolution.datasetVersion}</span><span>BigQuery lookup: {resolution.queryLatencyMs} ms</span><button onClick={confirmCandidate}>Confirm this suggested prabhag</button></div>}
-      <label>Issue type<select value={issueType} onChange={(event) => setIssueType(event.target.value as typeof issueType)}>{ISSUE_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       <label>Official prabhag number<select value={prabhagId} onChange={(event) => selectManualPrabhag(event.target.value)}>{PRABHAGS.map((value, index) => <option key={value} value={value}>Prabhag {index + 1}</option>)}</select></label>
-      <button onClick={() => findCivicRoute().catch((error) => setRouteResult({ status: `Routing failed: ${error.message}` }))}>Find official route</button>
+      <div className="flow-step"><span>3</span><b>Get the deterministic route</b></div>
+      <button disabled={!classificationConfirmed} onClick={() => findCivicRoute().catch((error) => setRouteResult({ status: `Routing failed: ${error.message}` }))}>Find official route</button>
       {routeResult && <div className="route-result">
-        <strong>{routeResult.status === 'SUPPORTED_ROUTE' ? routeResult.authority : routeResult.status}</strong>
+        <strong>{routeResult.status === 'SUPPORTED_ROUTE' ? routeResult.authority : routeResult.status === 'CATEGORY_CONFIRMATION_REQUIRED' ? 'Confirm the issue category first' : routeResult.status}</strong>
         {routeResult.routeId && <>
           {routeResult.department && <div className="department-result">
             <b>{routeResult.department.status === 'TYPICAL_STRUCTURE_UNVERIFIED' ? 'Likely department' : 'Department'}: {routeResult.department.displayName}</b>

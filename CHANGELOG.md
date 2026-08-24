@@ -4,6 +4,12 @@ All notable changes to the versioned Civic Pack and its deterministic routing im
 
 ## Unreleased
 
+- Added the standalone Gemini `gemini-3.7-flash` civic classifier with Vertex structured output, Civic Pack v0.2 prompt definitions, strict local schema validation, and explicit model-call versus schema-failure reporting.
+- Added transient JPEG/PNG/WebP image input and optional text input with a 5 MB image ceiling; report evidence is not persisted by the classifier.
+- Added citizen confirmation/correction between Gemini category suggestion and deterministic routing. Numeric confidence remains an internal control signal and is not rendered in the citizen UI.
+- Removed the legacy general-purpose Gemini smoke endpoints after the constrained classifier replaced them.
+- Added separate 12-case classification and 12-case routing evaluation sets. The initial authored non-voice classification smoke set matched 12/12 expected categories; this small synthetic fixture result is not treated as a general accuracy estimate.
+- Deployed Civic Pack v0.2 and the classifier in Cloud Run revision `seewik-api-00008-bnj`, then published the three-step flow to Firebase Hosting.
 - Added strict `classification-schema-v0.1` with the 11 Civic Pack issue types plus `UNKNOWN`, language enum `MR | HI | EN | MIXED | UNKNOWN`, and `additionalProperties: false`.
 - Added a standalone classification validator that reads allowed issue types from Civic Pack `v0.2`, enforces the internal `0.80` confidence gate, and rejects authority, department, prabhag, channel, SLA, escalation, and route fields before any wiring exists.
 - Standardized the jurisdiction identifier on `prabhagId`; `wardId` remains a temporary request-only compatibility alias.

@@ -1,0 +1,96 @@
+{
+  "case_set_version": "classification-cases-v0.1",
+  "schema_version": "classification-v0.1",
+  "pack_version": "v0.2",
+  "notes": [
+    "Classification cases never carry expected authority because Gemini does not decide authority.",
+    "Authored text cases are synthetic evaluation fixtures and are not presented as real Nandurbar reports.",
+    "The harmless screenshot is a repository test artifact, not civic evidence."
+  ],
+  "cases": [
+    {
+      "case_id": "CLS-MR-POTHOLE-001",
+      "image_ref": null,
+      "input_text": "रस्त्यावर मोठा खड्डा आहे.",
+      "expected_issueType": "POTHOLE_ROAD_DAMAGE",
+      "source": "SYNTHETIC_TEST_TEXT"
+    },
+    {
+      "case_id": "CLS-MR-STREETLIGHT-002",
+      "image_ref": null,
+      "input_text": "आमच्या रस्त्यावरील दिवा तीन दिवसांपासून बंद आहे.",
+      "expected_issueType": "STREETLIGHT",
+      "source": "SYNTHETIC_TEST_TEXT"
+    },
+    {
+      "case_id": "CLS-MIXED-WATER-003",
+      "image_ref": null,
+      "input_text": "Paani खूप कमी pressure ने येत आहे.",
+      "expected_issueType": "WATER_SUPPLY",
+      "source": "SYNTHETIC_TEST_TEXT"
+    },
+    {
+      "case_id": "CLS-HI-DRAINAGE-004",
+      "image_ref": null,
+      "input_text": "सड़क पर नाली का गंदा पानी बह रहा है।",
+      "expected_issueType": "DRAINAGE_SEWAGE",
+      "source": "SYNTHETIC_TEST_TEXT"
+    },
+    {
+      "case_id": "CLS-EN-GARBAGE-005",
+      "image_ref": null,
+      "input_text": "The public garbage bin is overflowing with household waste.",
+      "expected_issueType": "GARBAGE_SOLID_WASTE",
+      "source": "SYNTHETIC_TEST_TEXT"
+    },
+    {
+      "case_id": "CLS-MR-DUMPING-006",
+      "image_ref": null,
+      "input_text": "लोक रोज मोकळ्या जागेत कचरा टाकत आहेत.",
+      "expected_issueType": "ILLEGAL_DUMPING",
+      "source": "SYNTHETIC_TEST_TEXT"
+    },
+    {
+      "case_id": "CLS-MR-CLEANLINESS-007",
+      "image_ref": null,
+      "input_text": "सार्वजनिक चौक खूप अस्वच्छ आहे, पण कचऱ्याचा ढीग नाही.",
+      "expected_issueType": "PUBLIC_AREA_CLEANLINESS",
+      "source": "SYNTHETIC_TEST_TEXT"
+    },
+    {
+      "case_id": "CLS-EN-TOILET-008",
+      "image_ref": null,
+      "input_text": "The municipal public toilet is blocked and unusable.",
+      "expected_issueType": "PUBLIC_TOILET_SANITATION",
+      "source": "SYNTHETIC_TEST_TEXT"
+    },
+    {
+      "case_id": "CLS-HI-MOSQUITO-009",
+      "image_ref": null,
+      "input_text": "यहाँ रुके हुए पानी में बहुत मच्छर पनप रहे हैं।",
+      "expected_issueType": "MOSQUITO_FOGGING",
+      "source": "SYNTHETIC_TEST_TEXT"
+    },
+    {
+      "case_id": "CLS-MR-DEAD-ANIMAL-010",
+      "image_ref": null,
+      "input_text": "रस्त्याच्या कडेला मृत प्राणी पडला आहे.",
+      "expected_issueType": "DEAD_ANIMAL_REMOVAL",
+      "source": "SYNTHETIC_TEST_TEXT"
+    },
+    {
+      "case_id": "CLS-EN-OBSTRUCTION-011",
+      "image_ref": null,
+      "input_text": "Construction material is blocking most of the public road.",
+      "expected_issueType": "PUBLIC_ROAD_OBSTRUCTION",
+      "source": "SYNTHETIC_TEST_TEXT"
+    },
+    {
+      "case_id": "CLS-IMAGE-UNKNOWN-012",
+      "image_ref": "../../day1-frontend-verification.jpg",
+      "input_text": "This is a harmless application interface screenshot, not a civic issue report.",
+      "expected_issueType": "UNKNOWN",
+      "source": "REPOSITORY_TEST_ARTIFACT"
+    }
+  ]
+}

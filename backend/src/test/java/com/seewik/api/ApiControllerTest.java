@@ -15,7 +15,6 @@ class ApiControllerTest {
     private MockMvc mvc() throws Exception {
         ObjectMapper mapper = new ObjectMapper();
         CivicRouterService router = new CivicRouterService(mapper);
-        GeminiService unusedGeminiService = new GeminiService(mapper, "seewik");
         PrabhagBoundaryGateway gateway = (latitude, longitude) -> {
             if (latitude < 21.2037780 || latitude > 21.5237780
                     || longitude < 74.0811418 || longitude > 74.4011418) {
@@ -32,12 +31,17 @@ class ApiControllerTest {
                     "synthetic-v0.1"));
         };
         PrabhagResolverService resolver = new PrabhagResolverService(gateway);
-        return MockMvcBuilders.standaloneSetup(new ApiController(unusedGeminiService, router, resolver)).build();
+        return MockMvcBuilders.standaloneSetup(new ApiController(router, resolver)).build();
     }
 
     @Test
     void healthReturnsOk() throws Exception {
         mvc().perform(get("/healthz")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("ok"));
+    }
+
+    @Test
+    void legacyGeneralPurposeGeminiSmokeEndpointIsNotExposed() throws Exception {
+        mvc().perform(post("/api/gemini/smoke")).andExpect(status().isNotFound());
     }
 
     @Test

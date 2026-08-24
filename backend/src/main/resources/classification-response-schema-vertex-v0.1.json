@@ -1,0 +1,70 @@
+{
+  "type": "OBJECT",
+  "properties": {
+    "issueType": {
+      "type": "STRING",
+      "enum": [
+        "GARBAGE_SOLID_WASTE",
+        "ILLEGAL_DUMPING",
+        "PUBLIC_AREA_CLEANLINESS",
+        "PUBLIC_TOILET_SANITATION",
+        "MOSQUITO_FOGGING",
+        "DEAD_ANIMAL_REMOVAL",
+        "WATER_SUPPLY",
+        "POTHOLE_ROAD_DAMAGE",
+        "DRAINAGE_SEWAGE",
+        "PUBLIC_ROAD_OBSTRUCTION",
+        "STREETLIGHT",
+        "UNKNOWN"
+      ],
+      "description": "The single best supported Civic Pack category, or UNKNOWN when evidence is insufficient or outside the catalogue."
+    },
+    "subcategory": {
+      "type": "STRING",
+      "nullable": true,
+      "description": "A short evidence-grounded subtype, or null. It must not name an authority, department, route, or filing channel."
+    },
+    "description": {
+      "type": "STRING",
+      "description": "A concise description grounded only in visible image evidence and supplied citizen text."
+    },
+    "confidence": {
+      "type": "NUMBER",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Internal certainty from 0 to 1 for the selected issueType."
+    },
+    "detectedLanguage": {
+      "type": "STRING",
+      "enum": ["MR", "HI", "EN", "MIXED", "UNKNOWN"],
+      "description": "Language of the citizen-supplied text; UNKNOWN when there is no usable text."
+    },
+    "needsClarification": {
+      "type": "BOOLEAN",
+      "description": "Exactly true when issueType is UNKNOWN or confidence is below 0.80; otherwise false."
+    },
+    "clarificationQuestion": {
+      "type": "STRING",
+      "nullable": true,
+      "description": "One short neutral question when needsClarification is true; otherwise null."
+    }
+  },
+  "required": [
+    "issueType",
+    "subcategory",
+    "description",
+    "confidence",
+    "detectedLanguage",
+    "needsClarification",
+    "clarificationQuestion"
+  ],
+  "propertyOrdering": [
+    "issueType",
+    "subcategory",
+    "description",
+    "confidence",
+    "detectedLanguage",
+    "needsClarification",
+    "clarificationQuestion"
+  ]
+}

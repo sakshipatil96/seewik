@@ -42,13 +42,13 @@ Affected responses now carry machine-actionable and citizen-visible limitations 
 
 Facebook is retained only as an informational link and is not returned as a verified filing channel.
 
-### Verification
+### Checkpoint verification
 
 - Civic Pack JSON parse: PASS
 - Civic Pack integrity tests: PASS
 - Classification schema JSON parse: PASS
-- Standalone classification-validator tests: 25 passed, 0 failed
-- Full backend tests: 44 passed, 0 failed
+- Standalone classification-validator tests at checkpoint: 25 passed, 0 failed
+- Full backend tests at checkpoint: 44 passed, 0 failed
 - Frontend TypeScript and production build: PASS
 - Attribution-language audit for changed files: PASS
 - Private-secret pattern audit for changed files: PASS
@@ -72,18 +72,115 @@ Cross-field rules are deterministic:
 
 This checkpoint contains no Gemini call, BigQuery call, router call, or frontend wiring. Schema failures are therefore independently attributable and testable.
 
-### Deployment
+## Standalone Gemini classifier implementation
 
-This checkpoint was not deployed independently. The existing healthy production revision remains unchanged. Civic Pack `v0.2` will be deployed with the next tested Day 3 application revision.
+The real classifier was implemented and tested as a separate service before any frontend wiring.
 
-### Remaining Day 3 work
+- Model: `gemini-3.7-flash`
+- Vertex location: `global`
+- Response format: `application/json` with `classification-response-schema-vertex-v0.1`
+- Strict local validation: `classification-v0.1`
+- Prompt catalogue: exact `classificationDefinition` and `excludes` values loaded from Civic Pack `v0.2`
+- Citizen text: treated as untrusted evidence and delimiter-escaped
+- Model scope: perception only; authority, department, prabhag, channel, SLA, escalation, and route decisions forbidden
+- Image types: JPEG, PNG, and WebP
+- Image ceiling: 5 MB
+- Text ceiling: 2,000 characters
+- Evidence persistence: none in the classifier; bytes are sent transiently to Vertex and are not saved by Seewik
+- Legacy general-purpose Gemini smoke endpoints: removed after the constrained classifier replaced them
 
-- Make the real Gemini classification client work and pass standalone tests before wiring.
-- Apply the internal `0.80` confidence gate.
-- Test five Marathi voice notes as a non-blocking feasibility experiment when recordings are available.
-- Connect classification to the existing prabhag-confirmation and deterministic routing flow only after standalone classification is green.
+Model-call failures and schema-validation failures have distinct internal codes. Public errors remain controlled and do not expose raw model output or upstream error bodies.
 
-### External verification still pending
+### Standalone real-model exit gate
 
-- Nandurbar Municipal Council/domain review of route and department assignments.
-- Official prabhag boundaries to replace the separately versioned synthetic development dataset.
+The exit gate passed before wiring:
+
+1. Marathi text `रस्त्यावर मोठा खड्डा आहे.` returned `POTHOLE_ROAD_DAMAGE`, language `MR`, `needsClarification: false`, and a schema-valid response.
+2. The existing harmless application screenshot returned `UNKNOWN`, `needsClarification: true`, and a neutral clarification question.
+
+Neither response contained an authority or routing decision.
+
+## Evaluation evidence
+
+Classification and routing use separate case sets:
+
+- Classification: `data/eval/classification-cases-v0.1.json`
+- Routing: `data/eval/routing-cases-v0.1.json`
+
+Classifier cases contain `case_id`, `image_ref`, `input_text`, `expected_issueType`, and `source`. They do not contain expected authority. Routing cases begin with a confirmed issue type and prabhag and carry expected route and authority.
+
+### Real non-voice classification run
+
+- Cases: 12
+- Expected issue type matched: 12/12
+- `CLASSIFIED`: 11
+- `CLARIFICATION_REQUIRED`: 1 harmless non-civic screenshot
+- Errors: 0
+- Detected-language coverage: 5 MR, 2 HI, 4 EN, 1 MIXED
+- Latency: min 2,182 ms; median 2,972 ms; max 41,095 ms
+- Slow outliers: 33,211 ms and 41,095 ms
+- Raw results: `data/eval/results/classification-results-2026-08-24.ndjson`
+- Summary: `data/eval/results/classification-summary-2026-08-24.json`
+
+This is a small, authored smoke/evaluation set with synthetic text fixtures. The 12/12 result verifies the current contract and canonical labels; it is not a general accuracy estimate and does not substitute for the exact real Nandurbar case.
+
+The two long model outliers are recorded as a product risk. No memory circuit-breaker or broader latency architecture was added today.
+
+### Deterministic routing run
+
+The 12 routing fixtures passed against Civic Pack `v0.2`, including all eleven supported routes and the `UNKNOWN -> UNSUPPORTED_ROUTE` negative control. Authority came only from the router.
+
+## Wired citizen flow
+
+The frontend now enforces three separate steps:
+
+1. Gemini suggests a category from optional image/text evidence.
+2. The citizen confirms or corrects the category and confirms/selects Prabhag 1-20.
+3. The confirmed `(issueType, prabhagId)` is sent to the deterministic Civic Pack router.
+
+The route button remains disabled until category confirmation. Numeric confidence is not displayed. Low-confidence and `UNKNOWN` results ask for clarification; the citizen can always choose a category manually.
+
+Visual evidence:
+
+- [Classifier and citizen confirmation](day3-classifier-routing-mobile.jpg)
+- [Deterministic route result](day3-deterministic-route-mobile.jpg)
+
+The existing BigQuery prabhag resolver remains in `asia-south1`. Synthetic boundary candidates still require citizen confirmation, manual `SELF_REPORTED` selection still overrides them, and the outside-supported-area test remains green.
+
+## Final verification
+
+- Full backend suite: 67 passed, 0 failed, 0 errors, 0 skipped
+- Spring production application-context startup: PASS
+- Frontend TypeScript and production build: PASS
+- Local end-to-end browser flow: PASS
+- Production health: PASS
+- Production Marathi classification: PASS
+- Production deterministic pothole route: PASS
+- Legacy general-purpose Gemini endpoint: HTTP 404 as intended
+- Public frontend render and API health: PASS
+
+### What broke and how it was resolved
+
+- The first real local run exposed ambiguous Spring constructor injection because a package-private test constructor existed. The production constructor is now explicit, and a full application-context regression test covers startup wiring.
+- The globally named Firebase command was unavailable. The same official deployment tool was run through its package runner, and hosting deployment completed successfully.
+- Local browser testing initially used a `127.0.0.1` origin not listed in CORS. Testing was rerun on the already-approved `localhost` origin; production origins were unchanged.
+
+## Deployment
+
+- Cloud Run service: `seewik-api`
+- Region: `asia-south1`
+- Revision: `seewik-api-00008-bnj`
+- Traffic: 100%
+- Backend URL: `https://seewik-api-528138216934.asia-south1.run.app`
+- Classifier endpoint: `https://seewik-api-528138216934.asia-south1.run.app/api/civic/classify`
+- Router endpoint: `https://seewik-api-528138216934.asia-south1.run.app/api/civic/route`
+- Frontend URL: `https://seewik.web.app`
+
+The prior revision remained healthy while the new container built. Frontend production was published only after the new backend passed health, classification, and routing smoke checks.
+
+## Remaining voice-dependent and external work
+
+- Test the five Marathi voice notes when recordings are available. Voice remains a non-blocking feasibility experiment and is not implemented as a product feature today.
+- Run the exact locked real Nandurbar civic example when the user provides its image and location; no substitute was fabricated.
+- Obtain Nandurbar Municipal Council/domain review of route and likely-department assignments.
+- Replace the separately versioned synthetic prabhag boundaries when official geometry becomes available.

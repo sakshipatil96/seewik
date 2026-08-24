@@ -85,6 +85,31 @@ class ClassificationSchemaValidatorTest {
     }
 
     @Test
+    void vertexResponseSchemaEnumsAndOrderMatchStrictContract() throws Exception {
+        JsonNode strict;
+        JsonNode vertex;
+        try (InputStream input = getClass().getResourceAsStream("/classification-schema-v0.1.json")) {
+            assertNotNull(input);
+            strict = mapper.readTree(input);
+        }
+        try (InputStream input = getClass().getResourceAsStream("/classification-response-schema-vertex-v0.1.json")) {
+            assertNotNull(input);
+            vertex = mapper.readTree(input);
+        }
+        assertEquals(
+                values(strict.path("properties").path("issueType").path("enum")),
+                values(vertex.path("properties").path("issueType").path("enum")));
+        assertEquals(
+                values(strict.path("properties").path("detectedLanguage").path("enum")),
+                values(vertex.path("properties").path("detectedLanguage").path("enum")));
+        assertEquals(
+                values(strict.path("required")),
+                values(vertex.path("required")));
+        assertEquals(strict.path("required"), vertex.path("propertyOrdering"));
+        assertEquals(0.80d, ClassificationSchemaValidator.CONFIDENCE_THRESHOLD);
+    }
+
+    @Test
     void rejectsUnknownIssueEnum() {
         assertCode(highConfidenceJson("DAMAGED_INFRASTRUCTURE", "EN", 0.92), "INVALID_ISSUE_TYPE");
     }

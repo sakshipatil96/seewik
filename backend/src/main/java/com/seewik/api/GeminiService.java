@@ -16,7 +16,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
-public class GeminiService {
+public class GeminiService implements GeminiGateway {
+    public static final String MODEL = "gemini-3.7-flash";
+    public static final String LOCATION = "global";
     private final ObjectMapper json;
     private final HttpClient http = HttpClient.newHttpClient();
     private final String projectId;
@@ -27,6 +29,31 @@ public class GeminiService {
     }
 
     public String generate(String prompt, byte[] image, String mimeType) throws Exception {
+        Map<String, Object> generationConfig = new HashMap<>();
+        generationConfig.put("maxOutputTokens", 256);
+        generationConfig.put("temperature", 0.2);
+        return invoke(prompt, image, mimeType, generationConfig).text();
+    }
+
+    @Override
+    public GeneratedContent generateStructured(
+            String prompt,
+            byte[] image,
+            String mimeType,
+            JsonNode responseSchema) throws Exception {
+        Map<String, Object> generationConfig = new HashMap<>();
+        generationConfig.put("maxOutputTokens", 512);
+        generationConfig.put("temperature", 0.0);
+        generationConfig.put("responseMimeType", "application/json");
+        generationConfig.put("responseSchema", responseSchema);
+        return invoke(prompt, image, mimeType, generationConfig);
+    }
+
+    private GeneratedContent invoke(
+            String prompt,
+            byte[] image,
+            String mimeType,
+            Map<String, Object> generationConfig) throws Exception {
         GoogleCredentials credentials = GoogleCredentials.getApplicationDefault()
                 .createScoped("https://www.googleapis.com/auth/cloud-platform");
         credentials.refreshIfExpired();
@@ -40,9 +67,10 @@ public class GeminiService {
         }
         Map<String, Object> body = new HashMap<>();
         body.put("contents", List.of(Map.of("role", "user", "parts", parts)));
-        body.put("generationConfig", Map.of("maxOutputTokens", 256, "temperature", 0.2));
+        body.put("generationConfig", generationConfig);
 
-        String endpoint = "https://aiplatform.googleapis.com/v1/projects/%s/locations/global/publishers/google/models/gemini-3.7-flash:generateContent".formatted(projectId);
+        String endpoint = "https://aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:generateContent"
+                .formatted(projectId, LOCATION, MODEL);
         HttpRequest request = HttpRequest.newBuilder(URI.create(endpoint))
                 .header("Authorization", "Bearer " + credentials.getAccessToken().getTokenValue())
                 .header("Content-Type", "application/json")
@@ -50,12 +78,28 @@ public class GeminiService {
                 .build();
         HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() / 100 != 2) {
-            throw new IllegalStateException("Vertex AI returned " + response.statusCode() + ": " + response.body());
+            throw new IllegalStateException("Vertex AI request failed with status " + response.statusCode());
         }
         JsonNode root = json.readTree(response.body());
         JsonNode text = root.at("/candidates/0/content/parts/0/text");
-        if (text.isMissingNode()) throw new IllegalStateException("No text in Vertex AI response");
-        return text.asText();
+        if (text.isMissingNode() || !text.isTextual() || text.asText().isBlank()) {
+            throw new IllegalStateException("Vertex AI response did not contain generated text");
+        }
+        JsonNode usage = root.path("usageMetadata");
+        return new GeneratedContent(
+                text.asText(),
+                nullableText(root.get("modelVersion"), MODEL),
+                nullableText(root.get("responseId"), null),
+                nullableLong(usage.get("promptTokenCount")),
+                nullableLong(usage.get("candidatesTokenCount")),
+                nullableLong(usage.get("totalTokenCount")));
+    }
+
+    private static String nullableText(JsonNode node, String fallback) {
+        return node != null && node.isTextual() && !node.asText().isBlank() ? node.asText() : fallback;
+    }
+
+    private static Long nullableLong(JsonNode node) {
+        return node != null && node.canConvertToLong() ? node.longValue() : null;
     }
 }
-

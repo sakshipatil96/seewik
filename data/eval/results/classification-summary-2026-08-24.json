@@ -1,0 +1,20 @@
+{
+  "evaluatedAt": "2026-08-24T19:06:11Z",
+  "endpoint": "http://127.0.0.1:8080/api/civic/classify",
+  "caseSetVersion": "classification-cases-v0.1",
+  "schemaVersion": "classification-v0.1",
+  "packVersion": "v0.2",
+  "modelVersion": "gemini-3.7-flash",
+  "total": 12,
+  "correct": 12,
+  "accuracy": 1.0000,
+  "classified": 11,
+  "clarificationRequired": 1,
+  "errors": 0,
+  "latencyMs": {
+    "min": 2182,
+    "median": 2972,
+    "max": 41095
+  },
+  "resultsFile": "classification-results-2026-08-24.ndjson"
+}
