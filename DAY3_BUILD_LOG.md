@@ -178,9 +178,23 @@ The existing BigQuery prabhag resolver remains in `asia-south1`. Synthetic bound
 
 The prior revision remained healthy while the new container built. Frontend production was published only after the new backend passed health, classification, and routing smoke checks.
 
+## Voice feasibility evaluation
+
+Six user-provided short M4A recordings were evaluated directly with `gemini-3.7-flash` under a separate perception-only voice schema. The model prompt received the audio bytes but not the filenames. The original recordings were not copied into the repository or committed.
+
+- Cases: 6
+- Expected issue type matched: 6/6
+- Detected languages: 5 MR, 1 EN
+- Clarification required: 0
+- Errors: 0
+- Latency: min 3,171 ms; median 3,942 ms; max 4,194 ms
+
+The matched categories were drainage/sewage, garbage/solid waste, pothole/road damage, water supply, dead-animal removal, and streetlight. Transcriptions, translations, raw timings, and internal confidence values are preserved in `data/eval/results/voice-feasibility-results-2026-08-24.ndjson`; the aggregate is in `data/eval/results/voice-feasibility-summary-2026-08-24.json`.
+
+This proves direct Gemini audio understanding for this small supplied set. It does not implement product voice recording/upload, does not route from voice, and is not a general accuracy estimate.
+
 ## Remaining voice-dependent and external work
 
-- Test the five Marathi voice notes when recordings are available. Voice remains a non-blocking feasibility experiment and is not implemented as a product feature today.
 - Run the exact locked real Nandurbar civic example when the user provides its image and location; no substitute was fabricated.
 - Obtain Nandurbar Municipal Council/domain review of route and likely-department assignments.
 - Replace the separately versioned synthetic prabhag boundaries when official geometry becomes available.

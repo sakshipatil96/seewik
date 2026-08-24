@@ -1,0 +1,23 @@
+{
+  "evaluationType": "VOICE_FEASIBILITY",
+  "caseSetVersion": "voice-cases-v0.1",
+  "civicPackVersion": "v0.2",
+  "model": "gemini-3.7-flash",
+  "modelLocation": "global",
+  "inputFormat": "audio/mp4 (AAC in M4A container)",
+  "audioCommitted": false,
+  "fileNamesIncludedInModelPrompt": false,
+  "cases": 6,
+  "matchedExpectedIssueType": 6,
+  "clarificationRequired": 0,
+  "errors": 0,
+  "detectedLanguages": {"MR": 5, "HI": 0, "EN": 1, "MIXED": 0, "UNKNOWN": 0},
+  "latencyMs": {
+    "raw": [4194, 3950, 3277, 3934, 3991, 3171],
+    "sorted": [3171, 3277, 3934, 3950, 3991, 4194],
+    "min": 3171,
+    "median": 3942,
+    "max": 4194
+  },
+  "scopeNote": "Direct Gemini audio feasibility evaluation only. Voice upload, recording, transcription, and routing are not implemented as product features. This small user-provided set is not a general accuracy estimate."
+}
