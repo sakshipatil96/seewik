@@ -258,7 +258,7 @@ function App() {
   }
 
   return <main>
-    <section className="hero"><span className="eyebrow">SEEWIK · CIVIC PACK v0.2</span><h1>See it. Share it.<br />Help fix it.</h1><p>A lightweight foundation for reporting civic issues in your community.</p></section>
+    <section className="hero"><span className="eyebrow">SEEWIK</span><h1>A Civic Intelligence Platform</h1></section>
     <section className="card">
       <div className="signal" /><h2>Find the civic route</h2>
       <p>Start with a photo or short description. Gemini may suggest an issue category, but you confirm it. Authority and department always come from Civic Pack v0.2.</p>
@@ -277,7 +277,7 @@ function App() {
         setClassificationStatus('The category could not be checked. Choose it manually below.');
         setClassificationSource('CITIZEN_SELECTED');
       })}>Suggest issue category</button>
-      {classificationStatus && <div className={classification?.status === 'CLASSIFICATION_ERROR' ? 'notice' : 'classification-result'}>
+      {classificationStatus && <div aria-live="polite" className={`status-panel ${classification?.status === 'CLASSIFICATION_ERROR' ? 'state-error' : classification?.status === 'CLASSIFIED' ? 'state-success' : 'state-warning'}`}>
         <strong>{classification?.status === 'CLASSIFIED' ? 'Category suggestion ready' : classification?.status === 'CLARIFICATION_REQUIRED' ? 'Please clarify' : 'Category confirmation'}</strong>
         <span>{classificationStatus}</span>
         {classification?.description && <small>{classification.description}</small>}
@@ -285,17 +285,17 @@ function App() {
       </div>}
       <label>Issue category<select value={issueType} onChange={(event) => chooseIssueType(event.target.value)}>{ISSUE_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       <button onClick={confirmIssueType}>{classificationConfirmed ? 'Category confirmed' : 'Confirm this category'}</button>
-      {classificationConfirmed && <div className="confirmed-line">✓ {issueLabel(issueType)} · {classificationSource}</div>}
+      {classificationConfirmed && <div className="confirmed-line" aria-live="polite">✓ {issueLabel(issueType)} · {classificationSource}</div>}
 
       <div className="flow-step"><span>2</span><b>Confirm your prabhag</b></div>
       <p>Location can suggest a prabhag using synthetic development boundaries. The suggestion is never official and must be confirmed. Manual selection always overrides it.</p>
       <button className="secondary" onClick={useMyLocation}>Suggest from my location</button>
-      {locationStatus && <div className="notice">{locationStatus}</div>}
+      {locationStatus && <div aria-live="polite" className={`status-panel ${resolution?.status === 'CANDIDATE_PRABHAG' ? 'state-success' : resolution?.status === 'OUTSIDE_SUPPORTED_AREA' || resolution?.status === 'RESOLUTION_UNAVAILABLE' || resolution?.status === 'INVALID_COORDINATES' ? 'state-error' : 'state-warning'}`}>{locationStatus}</div>}
       {resolution?.status === 'CANDIDATE_PRABHAG' && resolution.prabhagId && <div className="candidate"><strong>{resolution.prabhagName}</strong><span>{resolution.resolutionQuality} · {resolution.datasetVersion}</span><span>BigQuery lookup: {resolution.queryLatencyMs} ms</span><button onClick={confirmCandidate}>Confirm this suggested prabhag</button></div>}
       <label>Official prabhag number<select value={prabhagId} onChange={(event) => selectManualPrabhag(event.target.value)}>{PRABHAGS.map((value, index) => <option key={value} value={value}>Prabhag {index + 1}</option>)}</select></label>
       <div className="flow-step"><span>3</span><b>Get the deterministic route</b></div>
       <button disabled={!classificationConfirmed} onClick={() => findCivicRoute().catch((error) => setRouteResult({ status: `Routing failed: ${error.message}` }))}>Find official route</button>
-      {routeResult && <div className="route-result">
+      {routeResult && <div aria-live="polite" className={`route-result ${routeResult.status === 'SUPPORTED_ROUTE' ? 'state-success' : 'state-error'}`}>
         <strong>{routeResult.status === 'SUPPORTED_ROUTE' ? routeResult.authority : routeResult.status === 'CATEGORY_CONFIRMATION_REQUIRED' ? 'Confirm the issue category first' : routeResult.status}</strong>
         {routeResult.routeId && <>
           {routeResult.department && <div className="department-result">
