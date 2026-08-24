@@ -49,13 +49,45 @@ class ApiControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SUPPORTED_ROUTE"))
-                .andExpect(jsonPath("$.routeId").value("NMC-SWM-GARBAGE-v0.1"))
+                .andExpect(jsonPath("$.routeId").value("NMC-SWM-GARBAGE-v0.2"))
                 .andExpect(jsonPath("$.prabhagId").value("PRABHAG-01"))
                 .andExpect(jsonPath("$.resolutionMethod").value("SELF_REPORTED"))
                 .andExpect(jsonPath("$.authority").value("Nandurbar Municipal Council"))
+                .andExpect(jsonPath("$.department.displayName").value("Health and Sanitation Department"))
+                .andExpect(jsonPath("$.department.status").value("TYPICAL_STRUCTURE_UNVERIFIED"))
+                .andExpect(jsonPath("$.officialChannels.length()").value(3))
+                .andExpect(jsonPath("$.informationalLinks.length()").value(1))
                 .andExpect(jsonPath("$.sourceStatus").value("OFFICIAL_SOURCE"))
                 .andExpect(jsonPath("$.reviewStatus").value("REVIEW_PENDING"))
-                .andExpect(jsonPath("$.packVersion").value("v0.1"));
+                .andExpect(jsonPath("$.packVersion").value("v0.2"));
+    }
+
+    @Test
+    void publicAreaCleanlinessIsSupportedInV02() throws Exception {
+        mvc().perform(post("/api/civic/route")
+                        .contentType("application/json")
+                        .content("""
+                                {"issueType":"PUBLIC_AREA_CLEANLINESS","prabhagId":"PRABHAG-05"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUPPORTED_ROUTE"))
+                .andExpect(jsonPath("$.routeId").value("NMC-SWM-AREA-CLEAN-v0.2"))
+                .andExpect(jsonPath("$.department.departmentId").value("AROGYA"))
+                .andExpect(jsonPath("$.packVersion").value("v0.2"));
+    }
+
+    @Test
+    void affectedRouteCarriesCitizenVisibleLimitation() throws Exception {
+        mvc().perform(post("/api/civic/route")
+                        .contentType("application/json")
+                        .content("""
+                                {"issueType":"POTHOLE_ROAD_DAMAGE","prabhagId":"PRABHAG-03"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUPPORTED_ROUTE"))
+                .andExpect(jsonPath("$.department.displayName").value("Public Works Department"))
+                .andExpect(jsonPath("$.knownLimitations[0].code").value("ROAD_OWNERSHIP_UNKNOWN"))
+                .andExpect(jsonPath("$.knownLimitations[0].requiresCitizenAttention").value(true));
     }
 
     @Test

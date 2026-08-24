@@ -11,6 +11,7 @@ const PRABHAGS = Array.from({ length: 20 }, (_, index) => `PRABHAG-${String(inde
 const ISSUE_TYPES = [
   ['GARBAGE_SOLID_WASTE', 'Garbage / solid waste'],
   ['ILLEGAL_DUMPING', 'Illegal dumping'],
+  ['PUBLIC_AREA_CLEANLINESS', 'Public-area cleanliness'],
   ['POTHOLE_ROAD_DAMAGE', 'Pothole / road damage'],
   ['STREETLIGHT', 'Streetlight'],
   ['DRAINAGE_SEWAGE', 'Drainage / sewage'],
@@ -21,14 +22,51 @@ const ISSUE_TYPES = [
   ['PUBLIC_ROAD_OBSTRUCTION', 'Public-road obstruction'],
 ] as const;
 
+type DepartmentResult = {
+  departmentId: string;
+  displayName: string;
+  localName: string;
+  status: string;
+  basis: string;
+};
+
+type OfficialChannel = {
+  channelId: string;
+  type: 'EMAIL' | 'ONLINE_FORM' | 'IN_PERSON';
+  value: string;
+  label: string;
+  scopeNote: string;
+};
+
+type InformationalLink = {
+  linkId: string;
+  type: string;
+  value: string;
+  label: string;
+  status: string;
+  scopeNote: string;
+};
+
+type KnownLimitation = {
+  code: string;
+  citizenMessage: string;
+  routingImpact: string;
+  requiresCitizenAttention: boolean;
+};
+
 type RouteResult = {
   status: string;
   routeId?: string;
   prabhagId?: string;
   resolutionMethod?: string;
   authority?: string;
+  department?: DepartmentResult;
+  officialChannels?: OfficialChannel[];
+  informationalLinks?: InformationalLink[];
+  knownLimitations?: KnownLimitation[];
   sourceStatus?: string;
   reviewStatus?: string;
+  packVersion?: string;
 };
 
 type PrabhagResolution = {
@@ -135,7 +173,7 @@ function App() {
   }
 
   return <main>
-    <section className="hero"><span className="eyebrow">SEEWIK · CIVIC PACK v0.1</span><h1>See it. Share it.<br />Help fix it.</h1><p>A lightweight foundation for reporting civic issues in your community.</p></section>
+    <section className="hero"><span className="eyebrow">SEEWIK · CIVIC PACK v0.2</span><h1>See it. Share it.<br />Help fix it.</h1><p>A lightweight foundation for reporting civic issues in your community.</p></section>
     <section className="card">
       <div className="signal" /><h2>Find the civic route</h2>
       <p>Location can suggest a prabhag using synthetic development boundaries. The suggestion is never official and must be confirmed. Manual selection always overrides it.</p>
@@ -145,7 +183,37 @@ function App() {
       <label>Issue type<select value={issueType} onChange={(event) => setIssueType(event.target.value as typeof issueType)}>{ISSUE_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       <label>Official prabhag number<select value={prabhagId} onChange={(event) => selectManualPrabhag(event.target.value)}>{PRABHAGS.map((value, index) => <option key={value} value={value}>Prabhag {index + 1}</option>)}</select></label>
       <button onClick={() => findCivicRoute().catch((error) => setRouteResult({ status: `Routing failed: ${error.message}` }))}>Find official route</button>
-      {routeResult && <div className="route-result"><strong>{routeResult.status === 'SUPPORTED_ROUTE' ? routeResult.authority : routeResult.status}</strong>{routeResult.routeId && <><span>{routeResult.routeId}</span><span>{routeResult.prabhagId} · {routeResult.resolutionMethod}</span><span>{routeResult.sourceStatus} · {routeResult.reviewStatus}</span></>}</div>}
+      {routeResult && <div className="route-result">
+        <strong>{routeResult.status === 'SUPPORTED_ROUTE' ? routeResult.authority : routeResult.status}</strong>
+        {routeResult.routeId && <>
+          {routeResult.department && <div className="department-result">
+            <b>{routeResult.department.status === 'TYPICAL_STRUCTURE_UNVERIFIED' ? 'Likely department' : 'Department'}: {routeResult.department.displayName}</b>
+            <span>{routeResult.department.localName}</span>
+            <span>{routeResult.department.basis}</span>
+            <span>{routeResult.department.status}</span>
+          </div>}
+          <span>{routeResult.routeId}</span>
+          <span>{routeResult.prabhagId} · {routeResult.resolutionMethod}</span>
+          <span>{routeResult.sourceStatus} · {routeResult.reviewStatus} · {routeResult.packVersion}</span>
+          {(routeResult.knownLimitations?.length ?? 0) > 0 && <div className="route-limitations">
+            <b>Please check before filing</b>
+            <ul>{routeResult.knownLimitations?.map((limitation) => <li key={limitation.code}>{limitation.citizenMessage}</li>)}</ul>
+          </div>}
+          {(routeResult.officialChannels?.length ?? 0) > 0 && <div className="route-channels">
+            <b>Official contact options</b>
+            <ul>{routeResult.officialChannels?.map((channel) => <li key={channel.channelId}>
+              {channel.type === 'EMAIL' && <a href={`mailto:${channel.value}`}>{channel.label}</a>}
+              {channel.type === 'ONLINE_FORM' && <a href={channel.value} target="_blank" rel="noreferrer">{channel.label}</a>}
+              {channel.type === 'IN_PERSON' && <span>{channel.label}: {channel.value}</span>}
+              <small>{channel.scopeNote}</small>
+            </li>)}</ul>
+          </div>}
+          {(routeResult.informationalLinks?.length ?? 0) > 0 && <div className="informational-links">
+            <b>Information only — not a verified filing channel</b>
+            <ul>{routeResult.informationalLinks?.map((link) => <li key={link.linkId}><a href={link.value} target="_blank" rel="noreferrer">{link.label}</a><small>{link.scopeNote}</small></li>)}</ul>
+          </div>}
+        </>}
+      </div>}
     </section>
     <section className="card systems"><h2>{status}</h2><p>The secure cloud path remains available for technical validation.</p><button onClick={() => verifyFirebase().catch((error) => add(`Firebase check failed: ${error.message}`))}>Verify Firebase services</button>{details.length > 0 && <ul>{details.map((detail, index) => <li key={`${index}-${detail}`}>{detail}</li>)}</ul>}</section>
     <footer>Built for local civic action</footer>

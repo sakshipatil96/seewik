@@ -11,7 +11,33 @@ All notable changes to the versioned Civic Pack and its deterministic routing im
 - Added the BigQuery `ST_COVERS` runtime resolver with `OUTSIDE_SUPPORTED_AREA` rejection.
 - Requires explicit citizen confirmation before a synthetic candidate can be used; manual `SELF_REPORTED` selection remains the override.
 - Records boundary provenance, quality, dataset version, and five uncached production lookup timings.
-- Keeps the synthetic geometry independently labelled `UNSOURCED` and `REVIEW_PENDING`; Civic Pack remains `v0.1`.
+- Keeps the synthetic geometry independently labelled `UNSOURCED` and `REVIEW_PENDING`; boundary dataset version `synthetic-v0.1` remains independent from Civic Pack versions.
+
+## Civic Pack v0.2 - 2026-08-24
+
+Evidence-traceable department differentiation and canonical classification definitions for Nandurbar.
+
+### Added
+
+- Added `PUBLIC_AREA_CLEANLINESS`, bringing the supported Civic Pack catalogue to eleven deterministic issue types.
+- Added canonical `classificationDefinition` and `excludes` rules to every issue type so the future Gemini prompt and evaluation labels can share one source of truth.
+- Added structured likely-department metadata with the independent status `TYPICAL_STRUCTURE_UNVERIFIED`; no Nandurbar desk is presented as confirmed.
+- Added route-level, citizen-visible `knownLimitations` for road ownership, electricity-network faults, water-network operation, drainage desk allocation, encroachment handling, and mosquito-control treatment.
+- Added full source title, URL, and section reference on every route.
+- Separated the observed municipal Facebook page into `informationalLinks`; only verified contact methods remain in `officialChannels`.
+
+### Preserved
+
+- Exact independent route fields `sourceStatus` and `reviewStatus`.
+- Initial counts: 11 `OFFICIAL_SOURCE`, 0 `UNSOURCED`, 0 `DOMAIN_REVIEWED`, and 11 `REVIEW_PENDING`.
+- Null SLA and escalation values where no citable commitment exists.
+- Deterministic routing with no Gemini authority or department decision.
+- Synthetic BigQuery prabhag candidates require citizen confirmation, and manual `SELF_REPORTED` selection remains available.
+
+### Data limitations
+
+- All department assignments are likely internal handlers inferred from typical municipal structure and remain `TYPICAL_STRUCTURE_UNVERIFIED` pending Nandurbar confirmation.
+- Authority-level limitations travel with affected route responses instead of living only in documentation.
 
 ## Civic Pack v0.1 - 2026-08-22
 

@@ -1,0 +1,373 @@
+{
+  "packVersion": "v0.2",
+  "cityId": "NANDURBAR",
+  "authority": "Nandurbar Municipal Council",
+  "authorityLocalName": "नंदुरबार नगरपालिका",
+  "generatedAt": "2026-08-24",
+  "packNotes": [
+    "Authority-level responsibility is sourced from the Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965.",
+    "Likely departments reflect typical Maharashtra municipal council structure. Nandurbar's internal desk allocation remains unpublished and is labelled TYPICAL_STRUCTURE_UNVERIFIED.",
+    "No route has been independently domain-reviewed. A correction and review request has been sent to Nandurbar Municipal Council.",
+    "SLA and escalation are null throughout because no citable route-specific commitment was located."
+  ],
+  "officialChannels": [
+    {
+      "channelId": "EMAIL_NMC",
+      "type": "EMAIL",
+      "value": "conandurbarnmc@gmail.com",
+      "label": "Nandurbar Municipal Council official contact email",
+      "scopeNote": "Official council contact email; no response-time commitment is asserted.",
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "sourceReference": {
+        "title": "Maharashtra municipal contact list",
+        "url": "https://cdnbbsr.s3waas.gov.in/s36048ff4e8cb07aa60b6777b6f7384d52/uploads/2025/01/202501311526705545.pdf",
+        "reference": "Nandurbar entry, English page 23 and Marathi page 4"
+      }
+    },
+    {
+      "channelId": "FORM_DMA",
+      "type": "ONLINE_FORM",
+      "value": "https://mahadma.maharashtra.gov.in/en/complaint-2/",
+      "label": "Maharashtra Directorate of Municipal Administration complaint form",
+      "scopeNote": "State-level directorate form, not a Nandurbar-specific grievance portal.",
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "sourceReference": {
+        "title": "Directorate of Municipal Administration complaint form",
+        "url": "https://mahadma.maharashtra.gov.in/en/complaint-2/",
+        "reference": "Official online complaint form"
+      }
+    },
+    {
+      "channelId": "OFFICE_NMC",
+      "type": "IN_PERSON",
+      "value": "Nandurbar Nagarpalika, Nandurbar, Maharashtra 425412",
+      "label": "Nandurbar municipal office",
+      "scopeNote": "Municipal office listed by District Nandurbar; no desk or appointment commitment is asserted.",
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "sourceReference": {
+        "title": "District Nandurbar municipality directory",
+        "url": "https://nandurbar.gov.in/en/public-utility-category/municipality/",
+        "reference": "Nandurbar Nagarpalika listing"
+      }
+    }
+  ],
+  "informationalLinks": [
+    {
+      "linkId": "SOCIAL_FB",
+      "type": "SOCIAL_MEDIA",
+      "value": "https://www.facebook.com/nandurbarmunicipalcouncil/",
+      "label": "Nandurbar Municipal Council Facebook page",
+      "status": "OBSERVED_UNVERIFIED",
+      "scopeNote": "Informational only. This page is not verified as an official grievance-filing channel and carries no response commitment."
+    }
+  ],
+  "departments": [
+    {
+      "departmentId": "AROGYA",
+      "displayName": "Health and Sanitation Department",
+      "localName": "आरोग्य विभाग",
+      "status": "TYPICAL_STRUCTURE_UNVERIFIED",
+      "basis": "Typical Maharashtra municipal council structure; Nandurbar allocation unpublished.",
+      "sourceReference": null
+    },
+    {
+      "departmentId": "PANI_PURAVATHA",
+      "displayName": "Water Supply Department",
+      "localName": "पाणीपुरवठा विभाग",
+      "status": "TYPICAL_STRUCTURE_UNVERIFIED",
+      "basis": "Typical Maharashtra municipal council structure; Nandurbar allocation unpublished.",
+      "sourceReference": null
+    },
+    {
+      "departmentId": "BANDHKAM",
+      "displayName": "Public Works Department",
+      "localName": "बांधकाम विभाग",
+      "status": "TYPICAL_STRUCTURE_UNVERIFIED",
+      "basis": "Typical Maharashtra municipal council structure; Nandurbar allocation unpublished.",
+      "sourceReference": null
+    },
+    {
+      "departmentId": "VIDYUT",
+      "displayName": "Electrical Section",
+      "localName": "विद्युत विभाग",
+      "status": "TYPICAL_STRUCTURE_UNVERIFIED",
+      "basis": "Typical Maharashtra municipal council structure; the section and its parent desk are unconfirmed for Nandurbar.",
+      "sourceReference": null
+    }
+  ],
+  "routes": [
+    {
+      "routeId": "NMC-SWM-GARBAGE-v0.2",
+      "issueType": "GARBAGE_SOLID_WASTE",
+      "classificationDefinition": "A garbage pile, overflowing public bin, accumulated household waste, or missed municipal waste collection.",
+      "excludes": [
+        "Deliberate dumping at an undesignated public location",
+        "A generally dirty public area without a specific waste pile or overflow"
+      ],
+      "departmentId": "AROGYA",
+      "scopeNote": "Council duty covers cleansing public streets and places. Nandurbar's internal handling desk remains unconfirmed.",
+      "knownLimitations": [],
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Section 49(2)(c)"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING",
+      "sla": null,
+      "escalation": null
+    },
+    {
+      "routeId": "NMC-SWM-DUMPING-v0.2",
+      "issueType": "ILLEGAL_DUMPING",
+      "classificationDefinition": "Waste being dumped or repeatedly left at an undesignated public location.",
+      "excludes": [
+        "An overflowing public bin or missed municipal collection",
+        "General public-area dirt without an identifiable dumping event or dump site"
+      ],
+      "departmentId": "AROGYA",
+      "scopeNote": "Council cleansing duty and the statutory prohibition on depositing dust or refuse support authority-level routing.",
+      "knownLimitations": [],
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Sections 49(2)(c) and 229"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING",
+      "sla": null,
+      "escalation": null
+    },
+    {
+      "routeId": "NMC-SWM-AREA-CLEAN-v0.2",
+      "issueType": "PUBLIC_AREA_CLEANLINESS",
+      "classificationDefinition": "A generally dirty or unclean public space without a specific garbage overflow or illegal-dumping event.",
+      "excludes": [
+        "A pile or overflow of collected waste",
+        "Dumping at an undesignated public location"
+      ],
+      "departmentId": "AROGYA",
+      "scopeNote": "General cleansing duty for public streets and places. Added in v0.2 to distinguish broad cleanliness complaints from garbage overflow and illegal dumping.",
+      "knownLimitations": [],
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Section 49(2)(c)"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING",
+      "sla": null,
+      "escalation": null
+    },
+    {
+      "routeId": "NMC-SANITATION-TOILET-v0.2",
+      "issueType": "PUBLIC_TOILET_SANITATION",
+      "classificationDefinition": "A municipal or public toilet that is dirty, damaged, blocked, unusable, or otherwise unsanitary.",
+      "excludes": [
+        "A toilet inside a private home or private commercial property",
+        "General street drainage or sewage overflow outside a public toilet"
+      ],
+      "departmentId": "AROGYA",
+      "scopeNote": "Council duty covers public latrines, privies and urinals.",
+      "knownLimitations": [],
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Sections 49(2)(i) and 207"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING",
+      "sla": null,
+      "escalation": null
+    },
+    {
+      "routeId": "NMC-HEALTH-MOSQUITO-v0.2",
+      "issueType": "MOSQUITO_FOGGING",
+      "classificationDefinition": "Stagnant or insanitary water, visible mosquito breeding, or a request for municipal mosquito-control action including a request for fogging.",
+      "excludes": [
+        "A private indoor pest-control request without a public-health condition",
+        "Smoke, haze, or fog unrelated to mosquito-control activity"
+      ],
+      "departmentId": "AROGYA",
+      "scopeNote": "Council powers cover stagnant or insanitary water and mosquito breeding. The treatment method remains a municipal decision.",
+      "knownLimitations": [
+        {
+          "code": "TREATMENT_METHOD_UNVERIFIED",
+          "citizenMessage": "The Municipal Council may choose the appropriate mosquito-control treatment; fogging is not promised.",
+          "routingImpact": "SERVICE_METHOD_MAY_DIFFER",
+          "requiresCitizenAttention": true
+        }
+      ],
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Sections 220 and 243-244"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING",
+      "sla": null,
+      "escalation": null
+    },
+    {
+      "routeId": "NMC-SANITATION-DEAD-ANIMAL-v0.2",
+      "issueType": "DEAD_ANIMAL_REMOVAL",
+      "classificationDefinition": "A dead-animal carcass in a public street, public place, or other location requiring municipal disposal.",
+      "excludes": [
+        "An injured or living animal requiring rescue",
+        "A carcass-management issue wholly inside private premises"
+      ],
+      "departmentId": "AROGYA",
+      "scopeNote": "The Act authorises council provision and agency for disposal of dead-animal carcasses.",
+      "knownLimitations": [],
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Section 256"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING",
+      "sla": null,
+      "escalation": null
+    },
+    {
+      "routeId": "NMC-WATER-v0.2",
+      "issueType": "WATER_SUPPLY",
+      "classificationDefinition": "A problem with municipal drinking-water availability, interruption, pressure, leakage, or apparent quality.",
+      "excludes": [
+        "A private plumbing fault confined to one property",
+        "A non-municipal water source whose operator is known to be another authority"
+      ],
+      "departmentId": "PANI_PURAVATHA",
+      "scopeNote": "Council duty covers obtaining sufficient and wholesome water. The operating body for every part of Nandurbar's network has not been independently confirmed.",
+      "knownLimitations": [
+        {
+          "code": "WATER_NETWORK_OPERATOR_UNKNOWN",
+          "citizenMessage": "If another public body operates this water connection, responsibility may sit outside the Municipal Council.",
+          "routingImpact": "AUTHORITY_MAY_DIFFER",
+          "requiresCitizenAttention": true
+        }
+      ],
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Sections 49(2)(j), 50 and 215-220"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING",
+      "sla": null,
+      "escalation": null
+    },
+    {
+      "routeId": "NMC-PW-POTHOLE-v0.2",
+      "issueType": "POTHOLE_ROAD_DAMAGE",
+      "classificationDefinition": "A pothole, broken surface, collapse, or other physical damage on a public road.",
+      "excludes": [
+        "An obstruction on an otherwise undamaged road",
+        "Damage known to be on a privately maintained road"
+      ],
+      "departmentId": "BANDHKAM",
+      "scopeNote": "Council duty covers construction and maintenance of municipal public streets. Road ownership must be checked where the road may be maintained by another authority.",
+      "knownLimitations": [
+        {
+          "code": "ROAD_OWNERSHIP_UNKNOWN",
+          "citizenMessage": "If this is a state or national highway, responsibility may sit with PWD or the relevant highway authority.",
+          "routingImpact": "AUTHORITY_MAY_DIFFER",
+          "requiresCitizenAttention": true
+        }
+      ],
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Section 49(2)(i)"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING",
+      "sla": null,
+      "escalation": null
+    },
+    {
+      "routeId": "NMC-DRAINAGE-v0.2",
+      "issueType": "DRAINAGE_SEWAGE",
+      "classificationDefinition": "Overflowing, blocked, damaged, or leaking public drains or sewers, including sewage entering a public street.",
+      "excludes": [
+        "A private plumbing blockage confined to one property",
+        "Clean-water leakage without a drainage or sewage condition"
+      ],
+      "departmentId": "BANDHKAM",
+      "scopeNote": "Council duty covers drains, sewers, drainage and sewerage works. Public Works is shown as the likely primary desk, but cleaning and structural work may be split internally.",
+      "knownLimitations": [
+        {
+          "code": "DRAINAGE_DESK_SPLIT_UNCONFIRMED",
+          "citizenMessage": "Drain cleaning and structural repair may be handled by different municipal departments; Nandurbar's internal allocation is not yet confirmed.",
+          "routingImpact": "DEPARTMENT_MAY_DIFFER",
+          "requiresCitizenAttention": true
+        }
+      ],
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Section 49(2)(i) and Sections 200-214"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING",
+      "sla": null,
+      "escalation": null
+    },
+    {
+      "routeId": "NMC-PW-OBSTRUCTION-v0.2",
+      "issueType": "PUBLIC_ROAD_OBSTRUCTION",
+      "classificationDefinition": "A physical obstruction blocking or materially restricting movement on a public street or public place.",
+      "excludes": [
+        "A pothole or damaged road surface without a separate obstruction",
+        "A traffic-enforcement complaint without a physical civic obstruction"
+      ],
+      "departmentId": "BANDHKAM",
+      "scopeNote": "Council duty covers removal of obstructions in public streets and places. Persistent commercial encroachment may follow a different internal municipal process.",
+      "knownLimitations": [
+        {
+          "code": "ENCROACHMENT_DESK_UNCONFIRMED",
+          "citizenMessage": "Persistent commercial encroachment may be handled through a different municipal desk; Nandurbar's internal allocation is not yet confirmed.",
+          "routingImpact": "DEPARTMENT_MAY_DIFFER",
+          "requiresCitizenAttention": true
+        }
+      ],
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Section 49(2)(f)"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING",
+      "sla": null,
+      "escalation": null
+    },
+    {
+      "routeId": "NMC-PW-STREETLIGHT-v0.2",
+      "issueType": "STREETLIGHT",
+      "classificationDefinition": "A municipal streetlight lamp that is not working, stays on incorrectly, flickers, or otherwise fails to light a public street.",
+      "excludes": [
+        "A leaning electricity pole, sagging conductor, transformer fault, or wider distribution-network failure",
+        "Lighting wholly inside private property"
+      ],
+      "departmentId": "VIDYUT",
+      "scopeNote": "Council duty covers lighting public streets, places and buildings. Electricity-distribution infrastructure remains outside this route.",
+      "knownLimitations": [
+        {
+          "code": "ELECTRICITY_NETWORK_FAULT_EXCLUDED",
+          "citizenMessage": "A leaning pole, exposed or sagging wire, transformer fault, or wider power failure may be an MSEDCL matter rather than a Municipal Council streetlight complaint.",
+          "routingImpact": "AUTHORITY_MAY_DIFFER",
+          "requiresCitizenAttention": true
+        }
+      ],
+      "officialSource": {
+        "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965",
+        "url": "https://www.indiacode.nic.in/handle/123456789/16073?locale=en",
+        "reference": "Section 49(2)(a)"
+      },
+      "sourceStatus": "OFFICIAL_SOURCE",
+      "reviewStatus": "REVIEW_PENDING",
+      "sla": null,
+      "escalation": null
+    }
+  ]
+}
