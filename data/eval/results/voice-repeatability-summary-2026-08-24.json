@@ -1,0 +1,31 @@
+{
+  "evaluationType": "VOICE_CLASSIFICATION_REPEATABILITY",
+  "caseSetVersion": "voice-cases-v0.1",
+  "schemaVersion": "classification-v0.1",
+  "civicPackVersion": "v0.2",
+  "model": "gemini-3.7-flash",
+  "modelLocation": "global",
+  "runsPerCase": 2,
+  "cases": 6,
+  "totalCalls": 12,
+  "confidenceThreshold": 0.8,
+  "realMarathiComplaintCases": 5,
+  "realMarathiComplaintCalls": 10,
+  "correctRealMarathiIssueTypeAtUsableConfidence": 10,
+  "blankAudioControlCalls": 2,
+  "blankAudioUnknownWithClarification": 2,
+  "stableCases": 6,
+  "categoryFlips": 0,
+  "schemaValidationErrors": 0,
+  "modelCallErrors": 0,
+  "latencyMs": {
+    "raw": [4230, 3453, 3230, 3444, 3787, 3270, 3731, 3371, 3478, 5214, 3431, 2871],
+    "sorted": [2871, 3230, 3270, 3371, 3431, 3444, 3453, 3478, 3731, 3787, 4230, 5214],
+    "min": 2871,
+    "median": 3448.5,
+    "max": 5214
+  },
+  "checkpointResult": "PASS_FOR_SUPPLIED_SET",
+  "failureModeNote": "The earlier experimental transcription-plus-classification contract hallucinated a dead-animal complaint from the blank control. The repeatability prompt explicitly treated silence as possible and used the production classification-v0.1 output schema. The contrast is retained because blank-audio behavior is contract-sensitive.",
+  "scopeNote": "This small user-provided set verifies category correctness, threshold usability, blank handling, and two-run stability. It is not a general accuracy estimate and does not implement product voice input."
+}

@@ -124,7 +124,9 @@ Classifier cases contain `case_id`, `image_ref`, `input_text`, `expected_issueTy
 
 This is a small, authored smoke/evaluation set with synthetic text fixtures. The 12/12 result verifies the current contract and canonical labels; it is not a general accuracy estimate and does not substitute for the exact real Nandurbar case.
 
-The two long model outliers are recorded as a product risk. No memory circuit-breaker or broader latency architecture was added today.
+The 41,095 ms maximum belonged to `CLS-HI-DRAINAGE-004`, a short Hindi text-only case. The 33,211 ms outlier belonged to `CLS-IMAGE-UNKNOWN-012`; its screenshot was only about 50 KB. Classification latency is measured around one Vertex model call inside an already-running backend, and the client contains no retry. Application cold start, a large image, and a client retry therefore do not explain these two samples. The current evidence cannot distinguish upstream model queuing from network/service latency.
+
+The backend already rejects images larger than 5 MB. Client-side resizing/downscaling is not implemented. A bounded Gemini-call timeout with a clean manual-category fallback and client-side image downscaling remain Aug 28 hardening tasks; no timeout or broader latency architecture was added today.
 
 ### Deterministic routing run
 
@@ -178,20 +180,28 @@ The existing BigQuery prabhag resolver remains in `asia-south1`. Synthetic bound
 
 The prior revision remained healthy while the new container built. Frontend production was published only after the new backend passed health, classification, and routing smoke checks.
 
-## Voice feasibility evaluation
+## Voice feasibility and repeatability evaluation
 
-Six user-provided short M4A recordings were evaluated directly with `gemini-3.7-flash` under a separate perception-only voice schema. The model prompt received the audio bytes but not the filenames. The original recordings were not copied into the repository or committed.
+Six user-provided short M4A recordings were evaluated directly with `gemini-3.7-flash`. Five contain Marathi civic complaints; the sixth is an intentionally blank negative control. The model received audio bytes but not filenames, and the recordings were not copied into the repository or committed.
 
-- Cases: 6
-- Expected issue type matched: 6/6
-- Detected languages: 5 MR, 1 EN
-- Clarification required: 0
-- Errors: 0
-- Latency: min 3,171 ms; median 3,942 ms; max 4,194 ms
+The initial experimental transcription-plus-classification run failed the blank control: it invented “There is a dead dog lying on the road,” returned `DEAD_ANIMAL_REMOVAL`, and reported 0.98 confidence. The initial evidence then incorrectly treated that model output as the expected label, creating an invalid circular 6/6 result. The corrected initial result is 5/6 with one severe false positive. That failure remains preserved in `voice-feasibility-results-2026-08-24.ndjson` rather than being overwritten.
 
-The matched categories were drainage/sewage, garbage/solid waste, pothole/road damage, water supply, dead-animal removal, and streetlight. Transcriptions, translations, raw timings, and internal confidence values are preserved in `data/eval/results/voice-feasibility-results-2026-08-24.ndjson`; the aggregate is in `data/eval/results/voice-feasibility-summary-2026-08-24.json`.
+All recordings were then run twice using the production `classification-v0.1` output schema and a voice prompt that explicitly allows silence:
 
-This proves direct Gemini audio understanding for this small supplied set. It does not implement product voice recording/upload, does not route from voice, and is not a general accuracy estimate.
+- Real Marathi complaint calls correct at confidence >= 0.80: 10/10
+- Blank control: `UNKNOWN` + clarification in 2/2 calls
+- Stable categories across both runs: 6/6
+- Category flips: 0
+- Schema/model errors: 0
+- Latency: min 2,871 ms; median 3,448.5 ms; max 5,214 ms
+
+The repeatability run passes the supplied-set criterion: correct `issueType`, usable confidence for real complaints, correct blank handling, and no category flips. The initial hallucination shows that silence handling is prompt/contract-sensitive, so this is not a general accuracy claim and does not justify product voice input without additional negative controls.
+
+Evidence:
+
+- Initial corrected failure: `data/eval/results/voice-feasibility-results-2026-08-24.ndjson`
+- Repeat raw calls: `data/eval/results/voice-repeatability-results-2026-08-24.ndjson`
+- Repeat summary: `data/eval/results/voice-repeatability-summary-2026-08-24.json`
 
 ## Remaining voice-dependent and external work
 

@@ -1,12 +1,12 @@
 {
   "caseSetVersion": "voice-cases-v0.1",
-  "purpose": "User-provided short voice-note feasibility cases. Audio remains outside the repository.",
+  "purpose": "User-provided short voice-note classification and repeatability cases. Audio remains outside the repository.",
   "cases": [
     {"case_id":"voice-001","audio_ref":"Gator paani.m4a","expected_issueType":"DRAINAGE_SEWAGE","source":"USER_PROVIDED_VOICE_NOTE"},
     {"case_id":"voice-002","audio_ref":"Kachra.m4a","expected_issueType":"GARBAGE_SOLID_WASTE","source":"USER_PROVIDED_VOICE_NOTE"},
     {"case_id":"voice-003","audio_ref":"Khadda.m4a","expected_issueType":"POTHOLE_ROAD_DAMAGE","source":"USER_PROVIDED_VOICE_NOTE"},
     {"case_id":"voice-004","audio_ref":"Nalala pani.m4a","expected_issueType":"WATER_SUPPLY","source":"USER_PROVIDED_VOICE_NOTE"},
-    {"case_id":"voice-005","audio_ref":"New Recording 21.m4a","expected_issueType":"DEAD_ANIMAL_REMOVAL","source":"USER_PROVIDED_VOICE_NOTE"},
+    {"case_id":"voice-005","audio_ref":"New Recording 21.m4a","expected_issueType":"UNKNOWN","source":"USER_PROVIDED_BLANK_AUDIO_CONTROL","isNegativeControl":true},
     {"case_id":"voice-006","audio_ref":"Street light.m4a","expected_issueType":"STREETLIGHT","source":"USER_PROVIDED_VOICE_NOTE"}
   ]
 }
