@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://seewik.app/schemas/classification-schema-v0.1.json",
+  "title": "Seewik Civic Issue Classification v0.1",
+  "description": "Strict perception-only output. Authority, department, prabhag, channel, SLA, escalation, and route decisions are forbidden.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "issueType",
+    "subcategory",
+    "description",
+    "confidence",
+    "detectedLanguage",
+    "needsClarification",
+    "clarificationQuestion"
+  ],
+  "properties": {
+    "issueType": {
+      "type": "string",
+      "enum": [
+        "GARBAGE_SOLID_WASTE",
+        "ILLEGAL_DUMPING",
+        "PUBLIC_AREA_CLEANLINESS",
+        "PUBLIC_TOILET_SANITATION",
+        "MOSQUITO_FOGGING",
+        "DEAD_ANIMAL_REMOVAL",
+        "WATER_SUPPLY",
+        "POTHOLE_ROAD_DAMAGE",
+        "DRAINAGE_SEWAGE",
+        "PUBLIC_ROAD_OBSTRUCTION",
+        "STREETLIGHT",
+        "UNKNOWN"
+      ]
+    },
+    "subcategory": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 160,
+      "description": "Optional descriptive subtype. It is not used for authority routing."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000,
+      "description": "Grounded description of visible evidence and supplied text only."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Internal control signal. It is not displayed numerically to citizens."
+    },
+    "detectedLanguage": {
+      "type": "string",
+      "enum": ["MR", "HI", "EN", "MIXED", "UNKNOWN"]
+    },
+    "needsClarification": {
+      "type": "boolean"
+    },
+    "clarificationQuestion": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 300
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "anyOf": [
+          {
+            "properties": {"issueType": {"const": "UNKNOWN"}},
+            "required": ["issueType"]
+          },
+          {
+            "properties": {"confidence": {"exclusiveMaximum": 0.8}},
+            "required": ["confidence"]
+          }
+        ]
+      },
+      "then": {
+        "properties": {
+          "needsClarification": {"const": true},
+          "clarificationQuestion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "needsClarification": {"const": false},
+          "clarificationQuestion": {"type": "null"}
+        }
+      }
+    }
+  ]
+}
