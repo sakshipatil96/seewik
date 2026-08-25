@@ -1,9 +1,79 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function validIssueType(value) {
+      return value in [
+        'GARBAGE_SOLID_WASTE',
+        'ILLEGAL_DUMPING',
+        'PUBLIC_AREA_CLEANLINESS',
+        'PUBLIC_TOILET_SANITATION',
+        'MOSQUITO_FOGGING',
+        'DEAD_ANIMAL_REMOVAL',
+        'WATER_SUPPLY',
+        'POTHOLE_ROAD_DAMAGE',
+        'DRAINAGE_SEWAGE',
+        'PUBLIC_ROAD_OBSTRUCTION',
+        'STREETLIGHT'
+      ];
+    }
+
+    function validDraft(data) {
+      return data.keys().hasOnly([
+          'ownerUid', 'status', 'confirmedIssueType', 'prabhagId', 'routeId',
+          'authority', 'draftLanguage', 'draftSubject', 'draftBody',
+          'packVersion', 'schemaVersion', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasAll([
+          'ownerUid', 'status', 'confirmedIssueType', 'prabhagId', 'routeId',
+          'authority', 'draftLanguage', 'draftSubject', 'draftBody',
+          'packVersion', 'schemaVersion', 'createdAt', 'updatedAt'
+        ])
+        && data.ownerUid is string
+        && data.status == 'DRAFT'
+        && data.confirmedIssueType is string
+        && validIssueType(data.confirmedIssueType)
+        && data.prabhagId is string
+        && data.prabhagId.matches('^PRABHAG-(0[1-9]|1[0-9]|20)$')
+        && data.routeId is string
+        && data.routeId.size() > 0
+        && data.authority == 'Nandurbar Municipal Council'
+        && data.draftLanguage in ['MR', 'EN']
+        && data.draftSubject is string
+        && data.draftSubject.size() > 0
+        && data.draftSubject.size() <= 160
+        && data.draftBody is string
+        && data.draftBody.size() >= 20
+        && data.draftBody.size() <= 2500
+        && data.packVersion == 'v0.2'
+        && data.schemaVersion == 'complaint-draft-v0.1'
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
     match /day1_checks/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /reports/{reportId} {
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && validDraft(request.resource.data);
+
+      allow read: if signedIn() && resource.data.ownerUid == request.auth.uid;
+
+      allow update: if signedIn()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['draftSubject', 'draftBody', 'updatedAt'])
+        && validDraft(request.resource.data);
+
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
     }
   }
 }
-

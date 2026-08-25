@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://seewik.app/schemas/complaint-draft-schema-v0.1.json",
+  "title": "Seewik Complaint Draft v0.1",
+  "description": "Citizen-reviewable English or Marathi wording produced only after deterministic civic routing. Authority and routing metadata are supplied by Civic Pack, never by the language model.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "draftVersion",
+    "schemaVersion",
+    "packVersion",
+    "language",
+    "routeId",
+    "prabhagId",
+    "authority",
+    "authorityLocalName",
+    "subject",
+    "body",
+    "missingDetails",
+    "citizenReviewRequired",
+    "modelVersion",
+    "latencyMs",
+    "generatedAt"
+  ],
+  "properties": {
+    "status": {"const": "DRAFT_READY"},
+    "draftVersion": {"const": "complaint-draft-v0.1"},
+    "schemaVersion": {"const": "complaint-draft-v0.1"},
+    "packVersion": {"const": "v0.2"},
+    "language": {"enum": ["MR", "EN"]},
+    "routeId": {"type": "string", "minLength": 1},
+    "prabhagId": {"type": "string", "pattern": "^PRABHAG-(0[1-9]|1[0-9]|20)$"},
+    "authority": {"type": "string", "minLength": 1},
+    "authorityLocalName": {"type": "string", "minLength": 1},
+    "subject": {"type": "string", "minLength": 1, "maxLength": 160},
+    "body": {"type": "string", "minLength": 20, "maxLength": 2500},
+    "missingDetails": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["LOCATION_OR_LANDMARK"]}
+    },
+    "citizenReviewRequired": {"const": true},
+    "modelVersion": {"type": "string", "minLength": 1},
+    "responseId": {"type": ["string", "null"]},
+    "latencyMs": {"type": "integer", "minimum": 0},
+    "generatedAt": {"type": "string", "format": "date-time"},
+    "promptTokenCount": {"type": ["integer", "null"], "minimum": 0},
+    "candidatesTokenCount": {"type": ["integer", "null"], "minimum": 0},
+    "totalTokenCount": {"type": ["integer", "null"], "minimum": 0}
+  }
+}

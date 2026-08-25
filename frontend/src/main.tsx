@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { signInAnonymously } from 'firebase/auth';
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { getBytes, ref, uploadBytes } from 'firebase/storage';
 import { auth, db, storage } from './firebase';
 import './styles.css';
@@ -96,6 +96,26 @@ type ClassificationResult = {
   message?: string;
 };
 
+type ComplaintDraftResult = {
+  status: 'DRAFT_READY' | 'DRAFT_ERROR';
+  draftVersion?: string;
+  schemaVersion?: string;
+  packVersion?: string;
+  language?: 'MR' | 'EN';
+  routeId?: string;
+  prabhagId?: string;
+  authority?: string;
+  authorityLocalName?: string;
+  subject?: string;
+  body?: string;
+  missingDetails?: string[];
+  citizenReviewRequired?: boolean;
+  modelVersion?: string;
+  latencyMs?: number;
+  errorCode?: string;
+  message?: string;
+};
+
 const ISSUE_VALUES = new Set<string>(ISSUE_TYPES.map(([value]) => value));
 
 function issueLabel(value: string) {
@@ -119,7 +139,25 @@ function App() {
   const [classificationStatus, setClassificationStatus] = useState('');
   const [classificationConfirmed, setClassificationConfirmed] = useState(false);
   const [classificationSource, setClassificationSource] = useState('SELF_REPORTED');
+  const [complaintFacts, setComplaintFacts] = useState('');
+  const [locationDetails, setLocationDetails] = useState('');
+  const [draftLanguage, setDraftLanguage] = useState<'MR' | 'EN'>('MR');
+  const [complaintDraft, setComplaintDraft] = useState<ComplaintDraftResult | null>(null);
+  const [draftSubject, setDraftSubject] = useState('');
+  const [draftBody, setDraftBody] = useState('');
+  const [draftStatus, setDraftStatus] = useState('');
+  const [draftDocumentId, setDraftDocumentId] = useState<string | null>(null);
+  const [draftReviewed, setDraftReviewed] = useState(false);
   const add = (line: string) => setDetails((old) => [...old, line]);
+
+  function resetDraft() {
+    setComplaintDraft(null);
+    setDraftSubject('');
+    setDraftBody('');
+    setDraftStatus('');
+    setDraftDocumentId(null);
+    setDraftReviewed(false);
+  }
 
   useEffect(() => {
     fetch(`${API_URL}/health`).then((response) => response.json()).then((data) => {
@@ -178,6 +216,7 @@ function App() {
     setCitizenConfirmed(true);
     setBoundaryDatasetVersion(resolution.datasetVersion);
     setLocationStatus(`${resolution.prabhagName} confirmed. You can still choose a different prabhag manually.`);
+    resetDraft();
   }
 
   function selectManualPrabhag(value: string) {
@@ -187,6 +226,8 @@ function App() {
     setBoundaryDatasetVersion(undefined);
     setResolution(null);
     setLocationStatus('Manual prabhag selection will override any location suggestion.');
+    setRouteResult(null);
+    resetDraft();
   }
 
   function chooseIssueType(value: string) {
@@ -194,12 +235,14 @@ function App() {
     setClassificationConfirmed(false);
     setClassificationSource(classification?.issueType === value ? 'GEMINI_SUGGESTED' : 'CITIZEN_SELECTED');
     setRouteResult(null);
+    resetDraft();
   }
 
   async function classifyEvidence() {
     setClassification(null);
     setClassificationConfirmed(false);
     setRouteResult(null);
+    resetDraft();
     if (!evidenceImage && !evidenceText.trim()) {
       setClassificationStatus('Add a photo or a short description first.');
       return;
@@ -215,6 +258,7 @@ function App() {
     const response = await fetch(`${API_URL}/api/civic/classify`, { method: 'POST', body: form });
     const result: ClassificationResult = await response.json();
     setClassification(result);
+    if (!complaintFacts.trim()) setComplaintFacts(evidenceText.trim() || result.description || '');
     if (!response.ok || result.status === 'CLASSIFICATION_ERROR') {
       setClassificationStatus(result.message ?? 'The category could not be checked. Choose it manually below.');
       setClassificationSource('CITIZEN_SELECTED');
@@ -244,6 +288,7 @@ function App() {
 
   async function findCivicRoute() {
     setRouteResult(null);
+    resetDraft();
     if (!classificationConfirmed) {
       setRouteResult({ status: 'CATEGORY_CONFIRMATION_REQUIRED' });
       return;
@@ -254,7 +299,105 @@ function App() {
       body: JSON.stringify({ issueType, prabhagId, resolutionMethod: selectionMethod, citizenConfirmed, boundaryDatasetVersion }),
     });
     if (!response.ok) throw new Error(`Routing request failed (${response.status})`);
-    setRouteResult(await response.json());
+    const result: RouteResult = await response.json();
+    setRouteResult(result);
+    if (result.status === 'SUPPORTED_ROUTE' && !complaintFacts.trim()) {
+      setComplaintFacts(evidenceText.trim() || classification?.description || '');
+    }
+  }
+
+  async function persistNewDraft(result: ComplaintDraftResult) {
+    if (!result.routeId || !result.prabhagId || !result.authority || !result.language || !result.subject || !result.body || !result.packVersion || !result.schemaVersion) {
+      throw new Error('Draft metadata is incomplete and was not saved.');
+    }
+    const credential = auth.currentUser ? { user: auth.currentUser } : await signInAnonymously(auth);
+    const reportRef = doc(collection(db, 'reports'));
+    await setDoc(reportRef, {
+      ownerUid: credential.user.uid,
+      status: 'DRAFT',
+      confirmedIssueType: issueType,
+      prabhagId: result.prabhagId,
+      routeId: result.routeId,
+      authority: result.authority,
+      draftLanguage: result.language,
+      draftSubject: result.subject,
+      draftBody: result.body,
+      packVersion: result.packVersion,
+      schemaVersion: result.schemaVersion,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    setDraftDocumentId(reportRef.id);
+    return reportRef.id;
+  }
+
+  async function createComplaintDraft() {
+    if (routeResult?.status !== 'SUPPORTED_ROUTE') {
+      setDraftStatus('Get a supported civic route before drafting.');
+      return;
+    }
+    if (!complaintFacts.trim()) {
+      setDraftStatus('Add the factual issue details before drafting.');
+      return;
+    }
+    resetDraft();
+    setDraftStatus(`Creating ${draftLanguage === 'MR' ? 'Marathi' : 'English'} complaint draft…`);
+    const response = await fetch(`${API_URL}/api/civic/draft-complaint`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        issueType,
+        prabhagId,
+        resolutionMethod: selectionMethod,
+        citizenConfirmed,
+        boundaryDatasetVersion,
+        classificationConfirmed,
+        citizenDescription: complaintFacts.trim(),
+        locationDetails: locationDetails.trim() || null,
+        draftLanguage,
+      }),
+    });
+    const result: ComplaintDraftResult = await response.json();
+    setComplaintDraft(result);
+    if (!response.ok || result.status !== 'DRAFT_READY' || !result.subject || !result.body) {
+      setDraftStatus(result.message ?? 'The complaint draft could not be created. Your confirmed route is unchanged.');
+      return;
+    }
+    setDraftSubject(result.subject);
+    setDraftBody(result.body);
+    setDraftReviewed(false);
+    try {
+      const reportId = await persistNewDraft(result);
+      setDraftStatus(`Saved as Firestore DRAFT · ${reportId.slice(0, 8)}…`);
+    } catch (error) {
+      setDraftStatus(`Draft created but could not be saved: ${(error as Error).message}`);
+    }
+  }
+
+  async function saveDraftEdits() {
+    if (!draftDocumentId || !draftSubject.trim() || !draftBody.trim()) {
+      setDraftStatus('No saved draft is available to update.');
+      return false;
+    }
+    await updateDoc(doc(db, 'reports', draftDocumentId), {
+      draftSubject: draftSubject.trim(),
+      draftBody: draftBody.trim(),
+      updatedAt: serverTimestamp(),
+    });
+    setDraftStatus(`Draft changes saved · ${draftDocumentId.slice(0, 8)}…`);
+    return true;
+  }
+
+  async function copyReviewedDraft() {
+    if (!draftReviewed) {
+      setDraftStatus('Review the draft and confirm before copying.');
+      return;
+    }
+    const saved = await saveDraftEdits();
+    if (!saved) return;
+    const recipient = complaintDraft?.authorityLocalName || complaintDraft?.authority || '';
+    await navigator.clipboard.writeText(`${recipient}\n\n${draftSubject.trim()}\n\n${draftBody.trim()}`);
+    setDraftStatus('Reviewed complaint copied. No complaint was submitted automatically.');
   }
 
   return <main>
@@ -267,11 +410,13 @@ function App() {
         setEvidenceImage(event.target.files?.[0] ?? null);
         setClassificationConfirmed(false);
         setRouteResult(null);
+        resetDraft();
       }} /></label>
       <label>Short description (optional)<textarea maxLength={2000} value={evidenceText} placeholder="उदा. रस्त्यावर मोठा खड्डा आहे" onChange={(event) => {
         setEvidenceText(event.target.value);
         setClassificationConfirmed(false);
         setRouteResult(null);
+        resetDraft();
       }} /></label>
       <button className="secondary" onClick={() => classifyEvidence().catch(() => {
         setClassificationStatus('The category could not be checked. Choose it manually below.');
@@ -326,6 +471,47 @@ function App() {
           </div>}
         </>}
       </div>}
+      {routeResult?.status === 'SUPPORTED_ROUTE' && <>
+        <div className="flow-step"><span>4</span><b>Create and review the complaint draft</b></div>
+        <p>The recipient and route stay fixed from Civic Pack. Gemini only drafts the wording from the facts you confirm below.</p>
+        <div className="locked-recipient">
+          <small>Locked recipient</small>
+          <strong>{routeResult.authority}</strong>
+          <span>{routeResult.routeId} · {routeResult.prabhagId}</span>
+        </div>
+        <label>Confirmed complaint facts<textarea maxLength={2000} value={complaintFacts} placeholder="Describe only what happened. Do not add guesses." onChange={(event) => {
+          setComplaintFacts(event.target.value);
+          resetDraft();
+        }} /></label>
+        <label>Location or landmark (optional)<input type="text" maxLength={500} value={locationDetails} placeholder="उदा. बस स्थानकाजवळ" onChange={(event) => {
+          setLocationDetails(event.target.value);
+          resetDraft();
+        }} /></label>
+        <label>Draft language<select value={draftLanguage} onChange={(event) => {
+          setDraftLanguage(event.target.value as 'MR' | 'EN');
+          resetDraft();
+        }}><option value="MR">Marathi</option><option value="EN">English</option></select></label>
+        <button onClick={() => createComplaintDraft().catch((error) => setDraftStatus(`Drafting failed: ${error.message}`))}>Create complaint draft</button>
+        {draftStatus && <div aria-live="polite" className={`status-panel ${complaintDraft?.status === 'DRAFT_ERROR' || draftStatus.includes('could not') || draftStatus.includes('failed') ? 'state-error' : 'state-warning'}`}>{draftStatus}</div>}
+        {complaintDraft?.status === 'DRAFT_READY' && <div className="draft-panel">
+          <div className="draft-heading"><div><small>Recipient</small><strong>{complaintDraft.authorityLocalName || complaintDraft.authority}</strong></div><span>{complaintDraft.language} · {complaintDraft.draftVersion}</span></div>
+          {(complaintDraft.missingDetails?.length ?? 0) > 0 && <div className="missing-facts"><b>Missing fact</b><span>Add a location or landmark before submitting if one is available. It was not invented in this draft.</span></div>}
+          <label>Subject<input type="text" maxLength={160} value={draftSubject} onChange={(event) => {
+            setDraftSubject(event.target.value);
+            setDraftReviewed(false);
+          }} /></label>
+          <label>Complaint body<textarea className="draft-body" maxLength={2500} value={draftBody} onChange={(event) => {
+            setDraftBody(event.target.value);
+            setDraftReviewed(false);
+          }} /></label>
+          <label className="review-check"><input type="checkbox" checked={draftReviewed} onChange={(event) => setDraftReviewed(event.target.checked)} /><span>I reviewed the facts, recipient and wording.</span></label>
+          <div className="draft-actions">
+            <button className="secondary" disabled={!draftDocumentId} onClick={() => saveDraftEdits().catch((error) => setDraftStatus(`Draft save failed: ${error.message}`))}>Save changes</button>
+            <button disabled={!draftReviewed || !draftDocumentId} onClick={() => copyReviewedDraft().catch((error) => setDraftStatus(`Copy failed: ${error.message}`))}>Copy reviewed complaint</button>
+          </div>
+          <small>No complaint is submitted automatically. The saved Firestore record remains a DRAFT owned by your anonymous account.</small>
+        </div>}
+      </>}
     </section>
     <section className="card systems"><h2>{status}</h2><p>The secure cloud path remains available for technical validation.</p><button onClick={() => verifyFirebase().catch((error) => add(`Firebase check failed: ${error.message}`))}>Verify Firebase services</button>{details.length > 0 && <ul>{details.map((detail, index) => <li key={`${index}-${detail}`}>{detail}</li>)}</ul>}</section>
     <footer>Built for local civic action</footer>

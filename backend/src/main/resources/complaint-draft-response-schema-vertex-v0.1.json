@@ -1,0 +1,15 @@
+{
+  "type": "OBJECT",
+  "properties": {
+    "subject": {
+      "type": "STRING",
+      "description": "A concise formal complaint subject in the requested language, grounded only in supplied citizen facts and trusted route context."
+    },
+    "body": {
+      "type": "STRING",
+      "description": "A polite formal complaint body in the requested language, grounded only in supplied citizen facts and trusted route context. It must not select or change an authority, department, route, channel, SLA, or escalation path."
+    }
+  },
+  "required": ["subject", "body"],
+  "propertyOrdering": ["subject", "body"]
+}

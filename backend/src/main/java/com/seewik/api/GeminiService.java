@@ -41,8 +41,18 @@ public class GeminiService implements GeminiGateway {
             byte[] image,
             String mimeType,
             JsonNode responseSchema) throws Exception {
+        return generateStructured(prompt, image, mimeType, responseSchema, 512);
+    }
+
+    @Override
+    public GeneratedContent generateStructured(
+            String prompt,
+            byte[] image,
+            String mimeType,
+            JsonNode responseSchema,
+            int maxOutputTokens) throws Exception {
         Map<String, Object> generationConfig = new HashMap<>();
-        generationConfig.put("maxOutputTokens", 512);
+        generationConfig.put("maxOutputTokens", maxOutputTokens);
         generationConfig.put("temperature", 0.0);
         generationConfig.put("responseMimeType", "application/json");
         generationConfig.put("responseSchema", responseSchema);
