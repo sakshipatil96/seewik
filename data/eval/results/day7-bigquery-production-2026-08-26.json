@@ -1,0 +1,37 @@
+[
+  {
+    "applied_exclusions": [
+      {
+        "event_id": "evt_ac7b1f01b8f5d06f5dd8fd0514e3255cabc83af11d942f2cfe696a6f313d7e7d",
+        "reason": "PRODUCTION_SMOKE_TEST"
+      }
+    ],
+    "dataset_id": "seewik_civic",
+    "dataset_region": "asia-south1",
+    "dedupe_distance_analysis": [],
+    "filed_to_verified_duration": {
+      "median_filed_to_verified_seconds": null,
+      "resolved_report_count": "0"
+    },
+    "housekeeping": {
+      "excluded_lifecycle_rows": "1",
+      "product_dedupe_rows": "0",
+      "product_lifecycle_rows": "0",
+      "raw_dedupe_rows": "0",
+      "raw_lifecycle_rows": "1"
+    },
+    "overdue_eligibility": {
+      "overdue_eligible_events": "0",
+      "overdue_eligible_reports": "0"
+    },
+    "points_by_triggering_event": [],
+    "project_id": "seewik",
+    "queried_at": "2026-08-26 23:02:56",
+    "reports_by_prabhag_category": [],
+    "verified_resolution": {
+      "filed_reports": "0",
+      "verified_fixed_reports": "0",
+      "verified_resolution_rate": null
+    }
+  }
+]

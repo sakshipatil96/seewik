@@ -1,0 +1,74 @@
+[
+  {
+    "dedupe_distance_analysis": [
+      {
+        "disposition": "DEDUPE_NOT_EVALUATED",
+        "evaluation_count": "1",
+        "max_distance_meters": null,
+        "measured_count": "0",
+        "median_distance_meters": null,
+        "min_distance_meters": null
+      },
+      {
+        "disposition": "NO_MATCH",
+        "evaluation_count": "1",
+        "max_distance_meters": "120.0",
+        "measured_count": "1",
+        "median_distance_meters": "120.0",
+        "min_distance_meters": "120.0"
+      },
+      {
+        "disposition": "POSSIBLE_DUPLICATE",
+        "evaluation_count": "1",
+        "max_distance_meters": "25.0",
+        "measured_count": "1",
+        "median_distance_meters": "25.0",
+        "min_distance_meters": "25.0"
+      }
+    ],
+    "evidence_class": "CONTROLLED_CTE_FIXTURE_NOT_PRODUCTION",
+    "filed_to_verified_duration": {
+      "median_filed_to_verified_seconds": "172800",
+      "resolved_report_count": "1"
+    },
+    "overdue_eligibility": {
+      "overdue_eligible_events": "0",
+      "overdue_eligible_reports": "0"
+    },
+    "points_by_triggering_event": [
+      {
+        "event_count": "1",
+        "points_awarded": "40",
+        "triggering_event": "REPAIR_VERIFIED"
+      },
+      {
+        "event_count": "3",
+        "points_awarded": "10",
+        "triggering_event": "REPORT_FILED"
+      }
+    ],
+    "queried_at": "2026-08-26 23:03:10",
+    "reports_by_prabhag_category": [
+      {
+        "issue_type": "DRAINAGE_SEWAGE",
+        "prabhag_id": "PRABHAG-01",
+        "report_count": "1"
+      },
+      {
+        "issue_type": "POTHOLE_ROAD_DAMAGE",
+        "prabhag_id": "PRABHAG-01",
+        "report_count": "1"
+      },
+      {
+        "issue_type": "GARBAGE_SOLID_WASTE",
+        "prabhag_id": "PRABHAG-02",
+        "report_count": "1"
+      }
+    ],
+    "verified_resolution": {
+      "filed_reports": "3",
+      "verified_fixed_reports": "1",
+      "verified_resolution_rate": "0.3333333333333333"
+    }
+  }
+]
