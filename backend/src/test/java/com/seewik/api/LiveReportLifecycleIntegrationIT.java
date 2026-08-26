@@ -32,7 +32,7 @@ class LiveReportLifecycleIntegrationIT {
         FirebaseAdminProvider firebase = new FirebaseAdminProvider(PROJECT_ID);
         AnonymousSession owner = null;
         AnonymousSession other = null;
-        String reportId = "day5-live-" + UUID.randomUUID();
+        String reportId = "day6-live-" + UUID.randomUUID();
         String eventId = null;
         String dedupeId = null;
         String pointsEntryId = null;
@@ -46,6 +46,13 @@ class LiveReportLifecycleIntegrationIT {
 
             assertEquals(200, firestore("GET", "reports/" + reportId, owner.idToken(), null, null).statusCode());
             assertEquals(403, firestore("GET", "reports/" + reportId, other.idToken(), null, null).statusCode());
+            HttpResponse<String> ownerList = reportQuery(owner.idToken(), owner.uid());
+            assertEquals(200, ownerList.statusCode(), ownerList.body());
+            assertEquals("DRAFT", listedReport(ownerList.body(), reportId)
+                    .path("fields").path("status").path("stringValue").asText());
+            HttpResponse<String> otherList = reportQuery(other.idToken(), other.uid());
+            assertEquals(200, otherList.statusCode(), otherList.body());
+            assertTrue(listedReport(otherList.body(), reportId).isMissingNode());
             assertEquals(
                     403,
                     firestore(
@@ -55,7 +62,6 @@ class LiveReportLifecycleIntegrationIT {
                                     minimalEventDocument(owner.uid()),
                                     null)
                             .statusCode());
-
             CitizenIdentityVerifier.AuthenticatedCitizen citizen =
                     new FirebaseCitizenIdentityVerifier(firebase).verifyBearer("Bearer " + owner.idToken());
             assertEquals(owner.uid(), citizen.uid());
@@ -74,7 +80,7 @@ class LiveReportLifecycleIntegrationIT {
                             "EMAIL_NMC",
                             null,
                             null,
-                            "Disposable Day 5 ownership test"));
+                            "Disposable ownership and dashboard test"));
             eventId = transition.eventId();
             dedupeId = eventId.replaceFirst("^evt_", "dedupe_");
             outboxId = transition.analyticsOutboxId();
@@ -94,6 +100,18 @@ class LiveReportLifecycleIntegrationIT {
             assertEquals(200, ownerReport.statusCode(), ownerReport.body());
             assertEquals("FILED", mapper.readTree(ownerReport.body())
                     .path("fields").path("status").path("stringValue").asText());
+            HttpResponse<String> filedList = reportQuery(owner.idToken(), owner.uid());
+            assertEquals("FILED", listedReport(filedList.body(), reportId)
+                    .path("fields").path("status").path("stringValue").asText());
+            assertEquals(
+                    403,
+                    firestore(
+                                    "PATCH",
+                                    "reports/" + reportId,
+                                    owner.idToken(),
+                                    draftTextUpdateDocument("Filed reports cannot be edited"),
+                                    "updateMask.fieldPaths=draftSubject&updateMask.fieldPaths=draftBody&updateMask.fieldPaths=updatedAt")
+                            .statusCode());
             String eventPath = "reports/" + reportId + "/lifecycleEvents/" + eventId;
             assertEquals(200, firestore("GET", eventPath, owner.idToken(), null, null).statusCode());
             assertEquals(403, firestore("GET", eventPath, other.idToken(), null, null).statusCode());
@@ -130,12 +148,15 @@ class LiveReportLifecycleIntegrationIT {
                     java.util.Map.entry("reportId", reportId),
                     java.util.Map.entry("eventId", eventId),
                     java.util.Map.entry("ownerCreateRead", true),
+                    java.util.Map.entry("ownerDashboardListsDraftAndFiled", true),
+                    java.util.Map.entry("otherDashboardExcludesOwnerReport", true),
                     java.util.Map.entry("crossOwnerReportReadDenied", true),
                     java.util.Map.entry("clientEventWriteDenied", true),
                     java.util.Map.entry("serverFiledTransition", true),
                     java.util.Map.entry("ownerEventRead", true),
                     java.util.Map.entry("crossOwnerEventReadDenied", true),
                     java.util.Map.entry("clientStatusMutationDenied", true),
+                    java.util.Map.entry("filedDraftEditAndResumeDenied", true),
                     java.util.Map.entry("filedReportDeleteDenied", true),
                     java.util.Map.entry("routeSnapshotFrozen", true),
                     java.util.Map.entry("ownerDedupeRead", true),
@@ -206,6 +227,32 @@ class LiveReportLifecycleIntegrationIT {
         return http.send(request.build(), HttpResponse.BodyHandlers.ofString());
     }
 
+    private HttpResponse<String> reportQuery(String idToken, String ownerUid) throws Exception {
+        ObjectNode fieldFilter = mapper.createObjectNode();
+        fieldFilter.set("field", mapper.createObjectNode().put("fieldPath", "ownerUid"));
+        fieldFilter.put("op", "EQUAL");
+        fieldFilter.set("value", stringValue(ownerUid));
+        ObjectNode structuredQuery = mapper.createObjectNode();
+        structuredQuery.set("from", mapper.createArrayNode().add(mapper.createObjectNode().put("collectionId", "reports")));
+        structuredQuery.set("where", mapper.createObjectNode().set("fieldFilter", fieldFilter));
+        ObjectNode body = mapper.createObjectNode().set("structuredQuery", structuredQuery);
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://firestore.googleapis.com/v1/projects/seewik/databases/(default)/documents:runQuery"))
+                .header("Authorization", "Bearer " + idToken)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body)))
+                .build();
+        return http.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    private JsonNode listedReport(String responseBody, String reportId) throws Exception {
+        for (JsonNode result : mapper.readTree(responseBody)) {
+            JsonNode document = result.path("document");
+            if (document.path("name").asText().endsWith("/reports/" + reportId)) return document;
+        }
+        return mapper.missingNode();
+    }
+
     private ObjectNode draftDocument(String ownerUid) {
         ObjectNode fields = mapper.createObjectNode();
         fields.set("ownerUid", stringValue(ownerUid));
@@ -234,6 +281,14 @@ class LiveReportLifecycleIntegrationIT {
     private ObjectNode statusOnlyDocument(String status) {
         ObjectNode fields = mapper.createObjectNode();
         fields.set("status", stringValue(status));
+        return mapper.createObjectNode().set("fields", fields);
+    }
+
+    private ObjectNode draftTextUpdateDocument(String subject) {
+        ObjectNode fields = mapper.createObjectNode();
+        fields.set("draftSubject", stringValue(subject));
+        fields.set("draftBody", stringValue("This body edit must be rejected after the report is filed."));
+        fields.set("updatedAt", timestampValue(Instant.now()));
         return mapper.createObjectNode().set("fields", fields);
     }
 

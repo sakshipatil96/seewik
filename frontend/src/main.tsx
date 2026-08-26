@@ -4,6 +4,7 @@ import { signInAnonymously } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import { getBytes, ref, uploadBytes } from 'firebase/storage';
 import { auth, db, storage } from './firebase';
+import { canEditReport, canResumeReport, draftRouteIsCurrent, pathForScreen, reportIdFromPath, reportIdFromReviewSearch, screenFromPath, type AppScreen } from './reportNavigation';
 import './styles.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://seewik-api-528138216934.asia-south1.run.app';
@@ -141,13 +142,74 @@ type TimelineItem = {
   pointsAwarded: number;
 };
 
+type SavedReport = {
+  id: string;
+  ownerUid: string;
+  status: string;
+  confirmedIssueType: string;
+  prabhagId: string;
+  routeId: string;
+  authority: string;
+  draftLanguage: 'MR' | 'EN';
+  draftSubject: string;
+  draftBody: string;
+  packVersion: string;
+  schemaVersion: string;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+  filedAt?: unknown;
+  acknowledgementId?: string;
+  filingChannelId?: string;
+  overdueEligibility?: string;
+  routeSnapshot?: RouteResult;
+};
+
 const ISSUE_VALUES = new Set<string>(ISSUE_TYPES.map(([value]) => value));
 
 function issueLabel(value: string) {
   return ISSUE_TYPES.find(([issueType]) => issueType === value)?.[1] ?? value;
 }
 
+function timestampMillis(value: unknown) {
+  if (value instanceof Date) return value.getTime();
+  if (value && typeof value === 'object' && 'toMillis' in value && typeof value.toMillis === 'function') return value.toMillis();
+  if (value && typeof value === 'object' && 'seconds' in value && typeof value.seconds === 'number') return value.seconds * 1000;
+  if (typeof value === 'string') return Date.parse(value) || 0;
+  return 0;
+}
+
+function timestampLabel(value: unknown) {
+  const milliseconds = timestampMillis(value);
+  return milliseconds ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(milliseconds) : 'Time pending';
+}
+
+function savedReport(id: string, data: Record<string, unknown>): SavedReport {
+  return {
+    id,
+    ownerUid: String(data.ownerUid ?? ''),
+    status: String(data.status ?? 'DRAFT'),
+    confirmedIssueType: String(data.confirmedIssueType ?? 'UNKNOWN'),
+    prabhagId: String(data.prabhagId ?? 'UNKNOWN'),
+    routeId: String(data.routeId ?? ''),
+    authority: String(data.authority ?? ''),
+    draftLanguage: data.draftLanguage === 'EN' ? 'EN' : 'MR',
+    draftSubject: String(data.draftSubject ?? ''),
+    draftBody: String(data.draftBody ?? ''),
+    packVersion: String(data.packVersion ?? ''),
+    schemaVersion: String(data.schemaVersion ?? ''),
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    filedAt: data.filedAt,
+    acknowledgementId: data.acknowledgementId ? String(data.acknowledgementId) : undefined,
+    filingChannelId: data.filingChannelId ? String(data.filingChannelId) : undefined,
+    overdueEligibility: data.overdueEligibility ? String(data.overdueEligibility) : undefined,
+    routeSnapshot: data.routeSnapshot as RouteResult | undefined,
+  };
+}
+
 function App() {
+  const [screen, setScreen] = useState<AppScreen>(() => screenFromPath(window.location.pathname));
+  const [locationKey, setLocationKey] = useState(() => `${window.location.pathname}${window.location.search}`);
   const [status, setStatus] = useState('Connecting…');
   const [details, setDetails] = useState<string[]>([]);
   const [issueType, setIssueType] = useState(ISSUE_TYPES[0][0]);
@@ -182,7 +244,19 @@ function App() {
   const [acknowledgementId, setAcknowledgementId] = useState('');
   const [pointsTotal, setPointsTotal] = useState(0);
   const [demoStep, setDemoStep] = useState(0);
+  const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
+  const [reportsStatus, setReportsStatus] = useState('');
+  const [selectedReport, setSelectedReport] = useState<SavedReport | null>(null);
   const add = (line: string) => setDetails((old) => [...old, line]);
+
+  function navigate(nextScreen: AppScreen, replace = false, reportId?: string) {
+    const path = pathForScreen(nextScreen, reportId);
+    if (replace) window.history.replaceState({}, '', path);
+    else if (`${window.location.pathname}${window.location.search}` !== path) window.history.pushState({}, '', path);
+    setScreen(nextScreen);
+    setLocationKey(`${window.location.pathname}${window.location.search}`);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
   function resetDraft() {
     setComplaintDraft(null);
@@ -197,6 +271,30 @@ function App() {
     setDuplicateWarning(null);
     setFilingChannelId('');
     setAcknowledgementId('');
+    setSelectedReport(null);
+  }
+
+  function startOver() {
+    setIssueType(ISSUE_TYPES[0][0]);
+    setPrabhagId(PRABHAGS[0]);
+    setRouteResult(null);
+    setResolution(null);
+    setLocationStatus('');
+    setSelectionMethod('SELF_REPORTED');
+    setCitizenConfirmed(false);
+    setBoundaryDatasetVersion(undefined);
+    setEvidenceText('');
+    setEvidenceImage(null);
+    setClassification(null);
+    setClassificationStatus('');
+    setClassificationConfirmed(false);
+    setClassificationSource('SELF_REPORTED');
+    setComplaintFacts('');
+    setLocationDetails('');
+    setDraftLanguage('MR');
+    setCurrentCoordinates(null);
+    resetDraft();
+    navigate('new-report');
   }
 
   useEffect(() => {
@@ -205,6 +303,32 @@ function App() {
       add(`Cloud API: ${data.status}`);
     }).catch((error) => setStatus(`API check failed: ${error.message}`));
   }, []);
+
+  useEffect(() => {
+    const onPopState = () => {
+      setScreen(screenFromPath(window.location.pathname));
+      setLocationKey(`${window.location.pathname}${window.location.search}`);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (screen === 'reports') loadMyReports().catch((error) => setReportsStatus(`Reports could not be loaded: ${error.message}`));
+    if (screen === 'points') refreshDerivedPoints().catch(() => undefined);
+    if (screen === 'report-detail') {
+      const reportId = reportIdFromPath(window.location.pathname);
+      if (reportId && selectedReport?.id !== reportId) {
+        loadReportById(reportId, false).catch((error) => setReportsStatus(`Report could not be loaded: ${error.message}`));
+      }
+    }
+    if (screen === 'review') {
+      const reportId = reportIdFromReviewSearch(window.location.search);
+      if (reportId && selectedReport?.id !== reportId) {
+        loadReportById(reportId, true).catch((error) => setDraftStatus(`Draft could not be resumed: ${error.message}`));
+      }
+    }
+  }, [screen, locationKey]);
 
   async function verifyFirebase() {
     setDetails([]);
@@ -259,6 +383,7 @@ function App() {
     setCitizenConfirmed(true);
     setBoundaryDatasetVersion(resolution.datasetVersion);
     setLocationStatus(`${resolution.prabhagName} confirmed. You can still choose a different prabhag manually.`);
+    setRouteResult(null);
     resetDraft();
   }
 
@@ -374,6 +499,25 @@ function App() {
     setDraftDocumentId(reportRef.id);
     setReportStatus('DRAFT');
     setTimeline([{ eventType: 'DRAFT_SAVED', toStatus: 'DRAFT', occurredAt: new Date().toISOString(), verificationBasis: 'NONE', pointsAwarded: 0 }]);
+    const now = new Date();
+    const localReport: SavedReport = {
+      id: reportRef.id,
+      ownerUid: credential.user.uid,
+      status: 'DRAFT',
+      confirmedIssueType: issueType,
+      prabhagId: result.prabhagId,
+      routeId: result.routeId,
+      authority: result.authority,
+      draftLanguage: result.language,
+      draftSubject: result.subject,
+      draftBody: result.body,
+      packVersion: result.packVersion,
+      schemaVersion: result.schemaVersion,
+      createdAt: now,
+      updatedAt: now,
+    };
+    setSelectedReport(localReport);
+    setSavedReports((reports) => [localReport, ...reports.filter((report) => report.id !== localReport.id)]);
     return reportRef.id;
   }
 
@@ -415,14 +559,23 @@ function App() {
     try {
       const reportId = await persistNewDraft(result);
       setDraftStatus(`Saved as Firestore DRAFT · ${reportId.slice(0, 8)}…`);
+      navigate('review', false, reportId);
     } catch (error) {
       setDraftStatus(`Draft created but could not be saved: ${(error as Error).message}`);
     }
   }
 
   async function saveDraftEdits() {
+    if (!canEditReport(reportStatus)) {
+      setDraftStatus('Filed reports are immutable and cannot be edited or resumed as drafts.');
+      return false;
+    }
     if (!draftDocumentId || !draftSubject.trim() || !draftBody.trim()) {
       setDraftStatus('No saved draft is available to update.');
+      return false;
+    }
+    if (!selectedReport || selectedReport.id !== draftDocumentId) {
+      setDraftStatus('The selected report no longer matches this editor. Reopen it from My reports.');
       return false;
     }
     await updateDoc(doc(db, 'reports', draftDocumentId), {
@@ -430,6 +583,9 @@ function App() {
       draftBody: draftBody.trim(),
       updatedAt: serverTimestamp(),
     });
+    const updatedAt = new Date();
+    setSelectedReport((report) => report?.id === draftDocumentId ? { ...report, draftSubject: draftSubject.trim(), draftBody: draftBody.trim(), updatedAt } : report);
+    setSavedReports((reports) => reports.map((report) => report.id === draftDocumentId ? { ...report, draftSubject: draftSubject.trim(), draftBody: draftBody.trim(), updatedAt } : report));
     setDraftStatus(`Draft changes saved · ${draftDocumentId.slice(0, 8)}…`);
     return true;
   }
@@ -444,6 +600,124 @@ function App() {
     const recipient = complaintDraft?.authorityLocalName || complaintDraft?.authority || '';
     await navigator.clipboard.writeText(`${recipient}\n\n${draftSubject.trim()}\n\n${draftBody.trim()}`);
     setDraftStatus('Reviewed complaint copied. No complaint was submitted automatically.');
+  }
+
+  async function fileReviewedReport(dedupeOverride = false) {
+    if (!draftReviewed) {
+      setDraftStatus('Review the final draft before recording that it was filed.');
+      return;
+    }
+    const currentRouteId = routeResult?.routeId ?? complaintDraft?.routeId ?? '';
+    const currentPackVersion = routeResult?.packVersion ?? complaintDraft?.packVersion ?? '';
+    if (!selectedReport || !draftRouteIsCurrent(
+      { issueType: selectedReport.confirmedIssueType, prabhagId: selectedReport.prabhagId, routeId: selectedReport.routeId, packVersion: selectedReport.packVersion },
+      { issueType, prabhagId, routeId: currentRouteId, packVersion: currentPackVersion },
+    )) {
+      setDraftStatus('This draft has stale category, prabhag or route facts. Reopen the saved draft before filing.');
+      return;
+    }
+    if (!await saveDraftEdits()) return;
+    await transitionReport('FILED', dedupeOverride);
+  }
+
+  async function loadMyReports() {
+    setReportsStatus('Loading your reports…');
+    const credential = auth.currentUser ? { user: auth.currentUser } : await signInAnonymously(auth);
+    const snapshot = await getDocs(query(collection(db, 'reports'), where('ownerUid', '==', credential.user.uid)));
+    const reports = snapshot.docs
+      .map((item) => savedReport(item.id, item.data()))
+      .sort((left, right) => timestampMillis(right.updatedAt) - timestampMillis(left.updatedAt));
+    setSavedReports(reports);
+    setReportsStatus(reports.length ? `${reports.length} owner-protected report${reports.length === 1 ? '' : 's'}` : 'No saved reports yet.');
+  }
+
+  async function loadTimeline(report: SavedReport) {
+    const snapshot = await getDocs(collection(db, 'reports', report.id, 'lifecycleEvents'));
+    const events = snapshot.docs.map((item) => {
+      const data = item.data();
+      return {
+        eventType: String(data.eventType ?? 'UNKNOWN_EVENT'),
+        toStatus: String(data.toStatus ?? report.status),
+        occurredAt: timestampMillis(data.occurredAt) ? new Date(timestampMillis(data.occurredAt)).toISOString() : new Date().toISOString(),
+        verificationBasis: String(data.verificationBasis ?? 'NONE'),
+        pointsAwarded: Number(data.pointsAwarded ?? 0),
+      } satisfies TimelineItem;
+    }).sort((left, right) => Date.parse(left.occurredAt) - Date.parse(right.occurredAt));
+    if (!events.length && report.status === 'DRAFT') {
+      events.push({ eventType: 'DRAFT_SAVED', toStatus: 'DRAFT', occurredAt: timestampMillis(report.createdAt) ? new Date(timestampMillis(report.createdAt)).toISOString() : new Date().toISOString(), verificationBasis: 'NONE', pointsAwarded: 0 });
+    }
+    setTimeline(events);
+  }
+
+  async function hydrateReport(report: SavedReport) {
+    setSelectedReport(report);
+    setDraftDocumentId(report.id);
+    setReportStatus(report.status);
+    setIssueType(report.confirmedIssueType as typeof issueType);
+    setPrabhagId(report.prabhagId);
+    setDraftLanguage(report.draftLanguage);
+    setDraftSubject(report.draftSubject);
+    setDraftBody(report.draftBody);
+    setDraftReviewed(false);
+    setAcknowledgementId(report.acknowledgementId ?? '');
+    setFilingChannelId(report.filingChannelId ?? '');
+    setComplaintDraft({
+      status: 'DRAFT_READY',
+      draftVersion: 'v0.1',
+      schemaVersion: report.schemaVersion,
+      packVersion: report.packVersion,
+      language: report.draftLanguage,
+      routeId: report.routeId,
+      prabhagId: report.prabhagId,
+      authority: report.authority,
+      subject: report.draftSubject,
+      body: report.draftBody,
+      citizenReviewRequired: true,
+    });
+    const frozen = report.routeSnapshot;
+    if (frozen) {
+      setRouteResult({ ...frozen, status: 'SUPPORTED_ROUTE', routeId: frozen.routeId ?? report.routeId, prabhagId: frozen.prabhagId ?? report.prabhagId, authority: frozen.authority ?? report.authority, packVersion: frozen.packVersion ?? report.packVersion });
+    } else {
+      const response = await fetch(`${API_URL}/api/civic/route`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ issueType: report.confirmedIssueType, prabhagId: report.prabhagId, resolutionMethod: 'SELF_REPORTED', citizenConfirmed: false }),
+      });
+      if (response.ok) setRouteResult(await response.json());
+      else setRouteResult({ status: 'SUPPORTED_ROUTE', routeId: report.routeId, prabhagId: report.prabhagId, authority: report.authority, packVersion: report.packVersion });
+    }
+    await Promise.all([loadTimeline(report), refreshDerivedPoints()]);
+  }
+
+  async function loadReportById(reportId: string, resumeRequested: boolean) {
+    setReportsStatus('Loading report…');
+    const credential = auth.currentUser ? { user: auth.currentUser } : await signInAnonymously(auth);
+    const snapshot = await getDoc(doc(db, 'reports', reportId));
+    if (!snapshot.exists() || snapshot.data().ownerUid !== credential.user.uid) throw new Error('The report was not found for this anonymous account.');
+    const report = savedReport(snapshot.id, snapshot.data());
+    await hydrateReport(report);
+    setReportsStatus('Report loaded.');
+    if (resumeRequested && !canResumeReport(report.status)) {
+      setDraftStatus('Filed reports are immutable and cannot be edited or resumed as drafts.');
+      navigate('report-detail', true, report.id);
+    }
+  }
+
+  async function resumeSavedReport(report: SavedReport) {
+    if (!canResumeReport(report.status)) {
+      setDraftStatus('Filed reports are immutable and cannot be edited or resumed as drafts.');
+      await hydrateReport(report);
+      navigate('report-detail', false, report.id);
+      return;
+    }
+    await hydrateReport(report);
+    setDraftStatus(`Resumed Firestore DRAFT · ${report.id.slice(0, 8)}…`);
+    navigate('review', false, report.id);
+  }
+
+  async function openSavedReport(report: SavedReport) {
+    await hydrateReport(report);
+    navigate('report-detail', false, report.id);
   }
 
   async function refreshDerivedPoints() {
@@ -503,7 +777,19 @@ function App() {
       ? ` · ${result.dedupeDisposition}${result.measuredDistanceMeters != null ? ` at ${result.measuredDistanceMeters.toFixed(1)} m` : ''}`
       : '';
     setLifecycleStatus(`${result.toStatus.replaceAll('_', ' ')} recorded${result.pointsAwarded ? ` · +${result.pointsAwarded} points` : ''}${dedupeNote}`);
+    const updatedAt = new Date(result.occurredAt);
+    setSelectedReport((report) => report ? {
+      ...report,
+      status: result.toStatus,
+      updatedAt,
+      acknowledgementId: isFiling ? acknowledgementId.trim() || undefined : report.acknowledgementId,
+      filingChannelId: isFiling ? filingChannelId || undefined : report.filingChannelId,
+      routeSnapshot: isFiling && routeResult ? routeResult : report.routeSnapshot,
+      overdueEligibility: isFiling ? 'OVERDUE_UNKNOWN' : report.overdueEligibility,
+    } : report);
+    setSavedReports((reports) => reports.map((report) => report.id === draftDocumentId ? { ...report, status: result.toStatus, updatedAt, acknowledgementId: isFiling ? acknowledgementId.trim() || undefined : report.acknowledgementId, filingChannelId: isFiling ? filingChannelId || undefined : report.filingChannelId, routeSnapshot: isFiling && routeResult ? routeResult : report.routeSnapshot, overdueEligibility: isFiling ? 'OVERDUE_UNKNOWN' : report.overdueEligibility } : report));
     await refreshDerivedPoints();
+    if (result.toStatus === 'FILED') navigate('report-detail', false, draftDocumentId);
   }
 
   const demoStates = [
@@ -516,7 +802,28 @@ function App() {
   ];
 
   return <main>
-    <section className="hero"><span className="eyebrow">SEEWIK</span><h1>A Civic Intelligence Platform</h1></section>
+    <header className="app-header">
+      <button className="brand-button" onClick={() => navigate('home')} aria-label="Seewik home">SEEWIK</button>
+      <nav className="desktop-nav" aria-label="Primary navigation">
+        <button className={screen === 'home' ? 'active' : ''} onClick={() => navigate('home')}>Home</button>
+        <button className={screen === 'new-report' || screen === 'review' ? 'active' : ''} onClick={() => navigate('new-report')}>Report an issue</button>
+        <button className={screen === 'reports' || screen === 'report-detail' ? 'active' : ''} onClick={() => navigate('reports')}>My reports</button>
+        <button className={screen === 'points' ? 'active' : ''} onClick={() => navigate('points')}>My points</button>
+      </nav>
+    </header>
+    {screen !== 'home' && <div className="page-tools"><span>Saved reports are not deleted by Start over.</span><button className="secondary" onClick={startOver}>Start over</button></div>}
+
+    {screen === 'home' && <>
+      <section className="hero"><span className="eyebrow">LOCAL CIVIC ACTION</span><h1>A Civic Intelligence Platform</h1><p>Identify a civic issue, find the confirmed route, prepare a complaint and track the outcome.</p></section>
+      <section className="home-actions" aria-label="Start using Seewik">
+        <article><span>01</span><h2>Report an issue</h2><p>Describe the problem, confirm its category and find the deterministic civic route.</p><button onClick={() => navigate('new-report')}>Start a report</button></article>
+        <article><span>02</span><h2>My reports</h2><p>Resume drafts and inspect filed reports without rewriting their frozen facts.</p><button className="secondary" onClick={() => navigate('reports')}>Open my reports</button></article>
+        <article><span>03</span><h2>My points</h2><p>See rewards derived from filing and verified outcomes, never complaint volume alone.</p><button className="secondary" onClick={() => navigate('points')}>View my points</button></article>
+      </section>
+    </>}
+
+    {screen === 'new-report' && <>
+    <section className="hero page-hero"><span className="eyebrow">NEW REPORT</span><h1>Find the right civic route</h1><p>Gemini may suggest a category. You confirm it, and Civic Pack determines the route.</p></section>
     <section className="card">
       <div className="signal" /><h2>Find the civic route</h2>
       <p>Start with a photo or short description. Gemini may suggest an issue category, but you confirm it. Authority and department always come from Civic Pack v0.2.</p>
@@ -664,6 +971,62 @@ function App() {
         </div>}
       </>}
     </section>
+    </>}
+
+    {screen === 'review' && <section className="card page-card">
+      <span className="eyebrow">COMPLAINT REVIEW</span><h2>Review your saved complaint</h2>
+      {!draftDocumentId || complaintDraft?.status !== 'DRAFT_READY' ? <div className="empty-state"><b>No draft is ready in this session.</b><p>Create or open a saved draft before reviewing it.</p><button onClick={() => navigate('new-report')}>Start a report</button></div> : <>
+        <div className={`report-status-banner ${canEditReport(reportStatus) ? 'editable' : 'immutable'}`}><b>{reportStatus.replaceAll('_', ' ')}</b><span>{canEditReport(reportStatus) ? 'Editable draft' : 'Filed report — facts and wording are frozen'}</span></div>
+        <div className="locked-recipient"><small>Locked recipient</small><strong>{complaintDraft.authorityLocalName || complaintDraft.authority}</strong><span>{complaintDraft.routeId} · {complaintDraft.prabhagId} · {complaintDraft.packVersion}</span></div>
+        <label>Subject<input type="text" maxLength={160} readOnly={!canEditReport(reportStatus)} value={draftSubject} onChange={(event) => { setDraftSubject(event.target.value); setDraftReviewed(false); }} /></label>
+        <label>Complaint body<textarea className="draft-body" maxLength={2500} readOnly={!canEditReport(reportStatus)} value={draftBody} onChange={(event) => { setDraftBody(event.target.value); setDraftReviewed(false); }} /></label>
+        {canEditReport(reportStatus) ? <>
+          <label className="review-check"><input type="checkbox" checked={draftReviewed} onChange={(event) => setDraftReviewed(event.target.checked)} /><span>I reviewed the facts, recipient and wording.</span></label>
+          <div className="draft-actions"><button className="secondary" onClick={() => saveDraftEdits().catch((error) => setDraftStatus(`Draft save failed: ${error.message}`))}>Save changes</button><button disabled={!draftReviewed} onClick={() => copyReviewedDraft().catch((error) => setDraftStatus(`Copy failed: ${error.message}`))}>Copy reviewed complaint</button></div>
+          <div className="lifecycle-panel filing-panel"><div className="lifecycle-heading"><div><small>Record real-world filing</small><strong>DRAFT</strong></div><div className="points-pill"><span>Possible reward</span><b>+5</b></div></div><p>Seewik never submits the complaint. Use this only after you file it yourself.</p>
+            {(routeResult?.officialChannels?.length ?? 0) > 0 && <label>Channel you used<select value={filingChannelId} onChange={(event) => setFilingChannelId(event.target.value)}><option value="">Not recorded</option>{routeResult?.officialChannels?.map((channel) => <option key={channel.channelId} value={channel.channelId}>{channel.label}</option>)}</select></label>}
+            <label>Acknowledgement / tracking ID (optional)<input maxLength={200} value={acknowledgementId} onChange={(event) => setAcknowledgementId(event.target.value)} placeholder="Leave blank if none was provided" /></label>
+            <button disabled={!draftReviewed} onClick={() => fileReviewedReport().catch((error) => setLifecycleStatus(error.message))}>I filed this complaint</button>
+            {!currentCoordinates && <small>Dedupe will be marked DEDUPE_NOT_EVALUATED because no coordinates are available.</small>}
+            {duplicateWarning && <div className="duplicate-warning"><b>Possible duplicate</b><span>A same-category report is {duplicateWarning.measuredDistanceMeters?.toFixed(1)} m away.</span><button className="secondary" onClick={() => fileReviewedReport(true).catch((error) => setLifecycleStatus(error.message))}>This is different — file with 0 points</button></div>}
+            {lifecycleStatus && <div aria-live="polite" className="status-panel state-warning">{lifecycleStatus}</div>}
+          </div>
+          <button className="text-action" onClick={() => navigate('new-report')}>Return to report builder</button>
+        </> : <><div className="status-panel state-warning"><strong>This report cannot be resumed</strong><span>Once filed, the complaint wording and frozen route facts cannot be edited.</span></div><button onClick={() => navigate('report-detail', false, draftDocumentId)}>View report timeline</button></>}
+        {draftStatus && <div aria-live="polite" className="status-panel state-warning">{draftStatus}</div>}
+      </>}
+    </section>}
+
+    {screen === 'reports' && <section className="card page-card">
+      <span className="eyebrow">MY REPORTS</span><h2>Your saved civic work</h2><p>Drafts can be resumed. Filed reports open as immutable records.</p>
+      <div className="reports-toolbar"><span aria-live="polite">{reportsStatus}</span><button className="secondary" onClick={() => loadMyReports().catch((error) => setReportsStatus(`Reports could not be loaded: ${error.message}`))}>Refresh</button></div>
+      {!savedReports.length && !reportsStatus.startsWith('Loading') ? <div className="empty-state"><b>No reports are saved for this anonymous account.</b><p>Create a report to save an owner-protected Firestore draft.</p><button onClick={() => navigate('new-report')}>Create a report</button></div> : <div className="report-list">{savedReports.map((report) => <article className="report-list-item" key={report.id}><div><span className={`status-chip status-${report.status.toLowerCase()}`}>{report.status}</span><h3>{issueLabel(report.confirmedIssueType)}</h3><p>{report.prabhagId} · Updated {timestampLabel(report.updatedAt)}</p><small>{report.id.slice(0, 12)}… · {report.packVersion}</small></div>{canResumeReport(report.status) ? <button onClick={() => resumeSavedReport(report).catch((error) => setReportsStatus(`Draft could not be resumed: ${error.message}`))}>Resume draft</button> : <button onClick={() => openSavedReport(report).catch((error) => setReportsStatus(`Report could not be opened: ${error.message}`))}>View report</button>}</article>)}</div>}
+    </section>}
+
+    {screen === 'report-detail' && <section className="card page-card">
+      <span className="eyebrow">REPORT DETAILS</span><h2>{selectedReport ? issueLabel(selectedReport.confirmedIssueType) : 'Loading report'}</h2>
+      {!selectedReport ? <div className="empty-state"><p>{reportsStatus || 'Choose a report from My reports.'}</p><button onClick={() => navigate('reports')}>Open my reports</button></div> : <>
+        <div className="report-status-banner immutable"><b>{reportStatus.replaceAll('_', ' ')}</b><span>{reportStatus === 'DRAFT' ? 'Open the review screen to edit this draft.' : 'Filed record — complaint and route facts are immutable'}</span></div>
+        <dl className="report-facts"><div><dt>Prabhag</dt><dd>{selectedReport.prabhagId}</dd></div><div><dt>Route</dt><dd>{selectedReport.routeSnapshot?.routeId || selectedReport.routeId}</dd></div><div><dt>Pack</dt><dd>{selectedReport.routeSnapshot?.packVersion || selectedReport.packVersion}</dd></div><div><dt>Authority</dt><dd>{selectedReport.routeSnapshot?.authority || selectedReport.authority}</dd></div><div><dt>Acknowledgement</dt><dd>{selectedReport.acknowledgementId || 'Not provided'}</dd></div><div><dt>Updated</dt><dd>{timestampLabel(selectedReport.updatedAt)}</dd></div></dl>
+        {selectedReport.routeSnapshot?.department && <div className="locked-recipient"><small>Frozen route department</small><strong>{selectedReport.routeSnapshot.department.displayName}</strong><span>{selectedReport.routeSnapshot.department.status} · {selectedReport.routeSnapshot.sourceStatus} · {selectedReport.routeSnapshot.reviewStatus}</span></div>}
+        {(selectedReport.routeSnapshot?.knownLimitations?.length ?? 0) > 0 && <div className="route-limitations"><b>Please keep in mind</b><ul>{selectedReport.routeSnapshot?.knownLimitations?.map((limitation) => <li key={limitation.code}>{limitation.citizenMessage}</li>)}</ul></div>}
+        <div className="points-summary"><span>Derived points for this anonymous account</span><b>{pointsTotal}</b></div>
+        {reportStatus === 'DRAFT' && <button onClick={() => resumeSavedReport(selectedReport).catch((error) => setReportsStatus(error.message))}>Resume draft</button>}
+        {['FILED', 'OVERDUE', 'REOPENED'].includes(reportStatus) && <><div className="overdue-unknown"><b>Overdue: unknown</b><span>No verified SLA exists, so Seewik will not invent a due date.</span></div><button onClick={() => transitionReport('CLAIMED_FIXED').catch((error) => setLifecycleStatus(error.message))}>Record a repair claim</button></>}
+        {reportStatus === 'CLAIMED_FIXED' && <div className="lifecycle-actions"><button onClick={() => transitionReport('VERIFIED_FIXED').catch((error) => setLifecycleStatus(error.message))}>Verify fixed</button><button className="secondary" onClick={() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message))}>Reject repair claim</button></div>}
+        {reportStatus === 'VERIFIED_FIXED' && <button className="secondary" onClick={() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message))}>Report recurrence</button>}
+        {lifecycleStatus && <div aria-live="polite" className="status-panel state-warning">{lifecycleStatus}</div>}
+        <ol className="timeline">{timeline.map((item, index) => <li key={`${item.occurredAt}-${index}`}><span>{index + 1}</span><div><b>{item.toStatus.replaceAll('_', ' ')}</b><small>{item.eventType} · {item.verificationBasis}{item.pointsAwarded ? ` · +${item.pointsAwarded}` : ''}</small></div></li>)}</ol>
+      </>}
+    </section>}
+
+    {screen === 'points' && <section className="card page-card points-page">
+      <span className="eyebrow">MY POINTS</span><h2>{pointsTotal} derived points</h2><p>Totals are calculated from immutable ledger entries rather than stored as an editable score.</p>
+      <div className="points-rules"><div><b>+5</b><span>First accepted filing</span></div><div><b>+40</b><span>First verified fix</span></div><div><b>0</b><span>Duplicate override, reopening or re-verification</span></div></div>
+      <button className="secondary" onClick={() => refreshDerivedPoints().catch(() => undefined)}>Refresh my points</button>
+    </section>}
+
+    {screen === 'home' && <>
     <section className="card demo-card">
       <div className="demo-banner">DEMO DATA · SYNTHETIC CLOCK · EXCLUDED FROM ANALYTICS AND REWARDS</div>
       <h2>90-second lifecycle demo</h2>
@@ -678,7 +1041,9 @@ function App() {
       </div>
     </section>
     <section className="card systems"><h2>{status}</h2><p>The secure cloud path remains available for technical validation.</p><button onClick={() => verifyFirebase().catch((error) => add(`Firebase check failed: ${error.message}`))}>Verify Firebase services</button>{details.length > 0 && <ul>{details.map((detail, index) => <li key={`${index}-${detail}`}>{detail}</li>)}</ul>}</section>
+    </>}
     <footer>Built for local civic action</footer>
+    <nav className="mobile-nav" aria-label="Mobile navigation"><button className={screen === 'home' ? 'active' : ''} onClick={() => navigate('home')}><span>⌂</span>Home</button><button className={screen === 'new-report' || screen === 'review' ? 'active' : ''} onClick={() => navigate('new-report')}><span>＋</span>Report</button><button className={screen === 'reports' || screen === 'report-detail' ? 'active' : ''} onClick={() => navigate('reports')}><span>≡</span>Reports</button><button className={screen === 'points' ? 'active' : ''} onClick={() => navigate('points')}><span>◆</span>Points</button></nav>
   </main>;
 }
 
