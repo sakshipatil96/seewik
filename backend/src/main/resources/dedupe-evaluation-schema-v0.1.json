@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://seewik.web.app/schemas/dedupe-evaluation-v0.1.json",
+  "title": "Seewik append-only dedupe evaluation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["evaluationId", "reportId", "ownerUid", "issueType", "prabhagId", "disposition", "thresholdMeters", "heuristicVersion", "overrideRequested", "latitudeProvided", "occurredAt", "schemaVersion", "requestFingerprint"],
+  "properties": {
+    "evaluationId": {"type":"string"},
+    "reportId": {"type":"string"},
+    "ownerUid": {"type":"string"},
+    "issueType": {"type":"string"},
+    "prabhagId": {"type":"string"},
+    "candidateReportId": {"type":["string","null"]},
+    "disposition": {"enum":["DEDUPE_NOT_EVALUATED","NO_CANDIDATE","NOT_A_MATCH","POSSIBLE_DUPLICATE","OVERRIDDEN_POSSIBLE_DUPLICATE"]},
+    "measuredDistanceMeters": {"type":["number","null"]},
+    "thresholdMeters": {"const":75.0},
+    "heuristicVersion": {"const":"same-category-75m-v0.1"},
+    "overrideRequested": {"type":"boolean"},
+    "latitudeProvided": {"type":"boolean"},
+    "occurredAt": {},
+    "schemaVersion": {"const":"dedupe-evaluation-v0.1"},
+    "requestFingerprint": {"type":"string"}
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://seewik.web.app/schemas/report-lifecycle-v0.1.json",
+  "title": "Seewik report lifecycle event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId",
+    "reportId",
+    "ownerUid",
+    "fromStatus",
+    "toStatus",
+    "eventType",
+    "verificationBasis",
+    "occurredAt",
+    "schemaVersion",
+    "packVersion",
+    "idempotencyKeyHash",
+    "requestFingerprint"
+  ],
+  "properties": {
+    "eventId": { "type": "string", "minLength": 1, "maxLength": 96 },
+    "reportId": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "ownerUid": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "fromStatus": { "$ref": "#/$defs/reportStatus" },
+    "toStatus": { "$ref": "#/$defs/reportStatus" },
+    "eventType": { "$ref": "#/$defs/eventType" },
+    "verificationBasis": { "$ref": "#/$defs/verificationBasis" },
+    "evidenceReference": { "type": ["string", "null"], "maxLength": 500 },
+    "filingChannelId": { "type": ["string", "null"], "maxLength": 120 },
+    "acknowledgementId": { "type": ["string", "null"], "maxLength": 200 },
+    "note": { "type": ["string", "null"], "maxLength": 1000 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "schemaVersion": { "const": "report-lifecycle-v0.1" },
+    "packVersion": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "idempotencyKeyHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "requestFingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  },
+  "$defs": {
+    "reportStatus": {
+      "enum": [
+        "DRAFT",
+        "FILED",
+        "OVERDUE",
+        "CLAIMED_FIXED",
+        "VERIFIED_FIXED",
+        "REOPENED"
+      ]
+    },
+    "eventType": {
+      "enum": [
+        "REPORT_FILED",
+        "OVERDUE_REACHED",
+        "REPAIR_CLAIM_RECORDED",
+        "FIX_VERIFIED",
+        "REPAIR_CLAIM_REJECTED",
+        "ISSUE_RECURRED"
+      ]
+    },
+    "verificationBasis": {
+      "enum": [
+        "CITIZEN_ATTESTATION",
+        "CITIZEN_PHOTO",
+        "MUNICIPAL_ACKNOWLEDGEMENT",
+        "NONE"
+      ]
+    }
+  }
+}

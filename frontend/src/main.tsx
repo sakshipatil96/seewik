@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { signInAnonymously } from 'firebase/auth';
-import { collection, doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import { getBytes, ref, uploadBytes } from 'firebase/storage';
 import { auth, db, storage } from './firebase';
 import './styles.css';
@@ -116,6 +116,31 @@ type ComplaintDraftResult = {
   message?: string;
 };
 
+type LifecycleResponse = {
+  status: 'TRANSITION_RECORDED' | 'POSSIBLE_DUPLICATE';
+  eventId?: string;
+  reportId: string;
+  fromStatus: string;
+  toStatus: string;
+  eventType?: string;
+  verificationBasis: string;
+  occurredAt: string;
+  dedupeDisposition?: string;
+  measuredDistanceMeters?: number;
+  pointsAwarded: number;
+  pointsWeight: number;
+  errorCode?: string;
+  message?: string;
+};
+
+type TimelineItem = {
+  eventType: string;
+  toStatus: string;
+  occurredAt: string;
+  verificationBasis: string;
+  pointsAwarded: number;
+};
+
 const ISSUE_VALUES = new Set<string>(ISSUE_TYPES.map(([value]) => value));
 
 function issueLabel(value: string) {
@@ -148,6 +173,15 @@ function App() {
   const [draftStatus, setDraftStatus] = useState('');
   const [draftDocumentId, setDraftDocumentId] = useState<string | null>(null);
   const [draftReviewed, setDraftReviewed] = useState(false);
+  const [currentCoordinates, setCurrentCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [reportStatus, setReportStatus] = useState('DRAFT');
+  const [timeline, setTimeline] = useState<TimelineItem[]>([]);
+  const [lifecycleStatus, setLifecycleStatus] = useState('');
+  const [duplicateWarning, setDuplicateWarning] = useState<LifecycleResponse | null>(null);
+  const [filingChannelId, setFilingChannelId] = useState('');
+  const [acknowledgementId, setAcknowledgementId] = useState('');
+  const [pointsTotal, setPointsTotal] = useState(0);
+  const [demoStep, setDemoStep] = useState(0);
   const add = (line: string) => setDetails((old) => [...old, line]);
 
   function resetDraft() {
@@ -157,6 +191,12 @@ function App() {
     setDraftStatus('');
     setDraftDocumentId(null);
     setDraftReviewed(false);
+    setReportStatus('DRAFT');
+    setTimeline([]);
+    setLifecycleStatus('');
+    setDuplicateWarning(null);
+    setFilingChannelId('');
+    setAcknowledgementId('');
   }
 
   useEffect(() => {
@@ -202,8 +242,11 @@ function App() {
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (position) => resolveCoordinates(position.coords.latitude, position.coords.longitude)
-        .catch((error) => setLocationStatus(error.message)),
+      (position) => {
+        setCurrentCoordinates({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+        resolveCoordinates(position.coords.latitude, position.coords.longitude)
+          .catch((error) => setLocationStatus(error.message));
+      },
       () => setLocationStatus('Location permission was not provided. Select your prabhag manually.'),
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
     );
@@ -301,6 +344,7 @@ function App() {
     if (!response.ok) throw new Error(`Routing request failed (${response.status})`);
     const result: RouteResult = await response.json();
     setRouteResult(result);
+    setFilingChannelId(result.officialChannels?.[0]?.channelId ?? '');
     if (result.status === 'SUPPORTED_ROUTE' && !complaintFacts.trim()) {
       setComplaintFacts(evidenceText.trim() || classification?.description || '');
     }
@@ -328,6 +372,8 @@ function App() {
       updatedAt: serverTimestamp(),
     });
     setDraftDocumentId(reportRef.id);
+    setReportStatus('DRAFT');
+    setTimeline([{ eventType: 'DRAFT_SAVED', toStatus: 'DRAFT', occurredAt: new Date().toISOString(), verificationBasis: 'NONE', pointsAwarded: 0 }]);
     return reportRef.id;
   }
 
@@ -399,6 +445,75 @@ function App() {
     await navigator.clipboard.writeText(`${recipient}\n\n${draftSubject.trim()}\n\n${draftBody.trim()}`);
     setDraftStatus('Reviewed complaint copied. No complaint was submitted automatically.');
   }
+
+  async function refreshDerivedPoints() {
+    const credential = auth.currentUser ? { user: auth.currentUser } : await signInAnonymously(auth);
+    const snapshot = await getDocs(query(
+      collection(db, 'pointsLedger'),
+      where('ownerUid', '==', credential.user.uid),
+    ));
+    setPointsTotal(snapshot.docs.reduce((total, item) => total + Number(item.data().awardedPoints ?? 0), 0));
+  }
+
+  async function transitionReport(toStatus: string, dedupeOverride = false) {
+    if (!draftDocumentId) {
+      setLifecycleStatus('Save a draft before changing its lifecycle.');
+      return;
+    }
+    const credential = auth.currentUser ? { user: auth.currentUser } : await signInAnonymously(auth);
+    const idToken = await credential.user.getIdToken();
+    setLifecycleStatus(`Recording ${toStatus.replaceAll('_', ' ').toLowerCase()}…`);
+    const isFiling = toStatus === 'FILED';
+    const response = await fetch(`${API_URL}/api/reports/${draftDocumentId}/transitions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify({
+        toStatus,
+        idempotencyKey: crypto.randomUUID(),
+        verificationBasis: toStatus === 'OVERDUE' ? 'NONE' : 'CITIZEN_ATTESTATION',
+        filingChannelId: isFiling && filingChannelId ? filingChannelId : null,
+        acknowledgementId: isFiling && acknowledgementId.trim() ? acknowledgementId.trim() : null,
+        evidenceReference: null,
+        note: null,
+        latitude: isFiling ? currentCoordinates?.latitude ?? null : null,
+        longitude: isFiling ? currentCoordinates?.longitude ?? null : null,
+        dedupeOverride: isFiling && dedupeOverride,
+      }),
+    });
+    const result: LifecycleResponse = await response.json();
+    if (response.status === 409 && result.status === 'POSSIBLE_DUPLICATE') {
+      setDuplicateWarning(result);
+      setLifecycleStatus(`Possible duplicate found ${result.measuredDistanceMeters?.toFixed(1)} m away. Review before overriding.`);
+      return;
+    }
+    if (!response.ok || result.status !== 'TRANSITION_RECORDED') {
+      setLifecycleStatus(result.message ?? `Lifecycle update failed (${response.status}).`);
+      return;
+    }
+    setDuplicateWarning(null);
+    setReportStatus(result.toStatus);
+    setTimeline((items) => [...items, {
+      eventType: result.eventType ?? result.toStatus,
+      toStatus: result.toStatus,
+      occurredAt: result.occurredAt,
+      verificationBasis: result.verificationBasis,
+      pointsAwarded: result.pointsAwarded,
+    }]);
+    const dedupeNote = isFiling
+      ? ` · ${result.dedupeDisposition}${result.measuredDistanceMeters != null ? ` at ${result.measuredDistanceMeters.toFixed(1)} m` : ''}`
+      : '';
+    setLifecycleStatus(`${result.toStatus.replaceAll('_', ' ')} recorded${result.pointsAwarded ? ` · +${result.pointsAwarded} points` : ''}${dedupeNote}`);
+    await refreshDerivedPoints();
+  }
+
+  const demoStates = [
+    ['DRAFT', 'Draft saved; nothing submitted'],
+    ['FILED', 'Citizen confirms manual filing · +5 demo points'],
+    ['OVERDUE', 'Synthetic verified dueAt passes on the simulated clock'],
+    ['CLAIMED_FIXED', 'Repair claim recorded'],
+    ['VERIFIED_FIXED', 'Citizen attestation recorded · +40 demo points'],
+    ['REOPENED', 'Issue recurred; no points awarded'],
+  ];
 
   return <main>
     <section className="hero"><span className="eyebrow">SEEWIK</span><h1>A Civic Intelligence Platform</h1></section>
@@ -511,7 +626,56 @@ function App() {
           </div>
           <small>No complaint is submitted automatically. The saved Firestore record remains a DRAFT owned by your anonymous account.</small>
         </div>}
+        {draftDocumentId && <div className="lifecycle-panel">
+          <div className="lifecycle-heading">
+            <div><small>Report lifecycle</small><strong>{reportStatus.replaceAll('_', ' ')}</strong></div>
+            <div className="points-pill"><span>Derived points</span><b>{pointsTotal}</b></div>
+          </div>
+          <p>Confirm real-world actions here. Seewik records them but never files a complaint for you.</p>
+          {reportStatus === 'DRAFT' && <>
+            {(routeResult.officialChannels?.length ?? 0) > 0 && <label>Channel you used<select value={filingChannelId} onChange={(event) => setFilingChannelId(event.target.value)}>
+              <option value="">Not recorded</option>
+              {routeResult.officialChannels?.map((channel) => <option key={channel.channelId} value={channel.channelId}>{channel.label}</option>)}
+            </select></label>}
+            <label>Acknowledgement / tracking ID (optional)<input maxLength={200} value={acknowledgementId} onChange={(event) => setAcknowledgementId(event.target.value)} placeholder="Leave blank if none was provided" /></label>
+            <button onClick={() => transitionReport('FILED').catch((error) => setLifecycleStatus(error.message))}>I filed this complaint</button>
+            {!currentCoordinates && <small>Dedupe will be marked DEDUPE_NOT_EVALUATED because no coordinates are available.</small>}
+          </>}
+          {duplicateWarning && <div className="duplicate-warning">
+            <b>Possible duplicate</b>
+            <span>A same-category report is {duplicateWarning.measuredDistanceMeters?.toFixed(1)} m away. The 75 m threshold is an MVP heuristic, not a civic boundary.</span>
+            <button className="secondary" onClick={() => transitionReport('FILED', true).catch((error) => setLifecycleStatus(error.message))}>This is a different issue — file with 0 points</button>
+          </div>}
+          {['FILED', 'OVERDUE', 'REOPENED'].includes(reportStatus) && <>
+            {reportStatus === 'FILED' && <div className="overdue-unknown"><b>Overdue: unknown</b><span>No verified SLA or due date exists in Civic Pack v0.2, so Seewik will not invent one.</span></div>}
+            <button onClick={() => transitionReport('CLAIMED_FIXED').catch((error) => setLifecycleStatus(error.message))}>Record a repair claim</button>
+          </>}
+          {reportStatus === 'CLAIMED_FIXED' && <div className="lifecycle-actions">
+            <button onClick={() => transitionReport('VERIFIED_FIXED').catch((error) => setLifecycleStatus(error.message))}>Verify fixed by citizen attestation</button>
+            <button className="secondary" onClick={() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message))}>Reject repair claim</button>
+          </div>}
+          {reportStatus === 'VERIFIED_FIXED' && <button className="secondary" onClick={() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message))}>Report that the issue recurred</button>}
+          {lifecycleStatus && <div aria-live="polite" className="status-panel state-warning">{lifecycleStatus}</div>}
+          <ol className="timeline">
+            {timeline.map((item, index) => <li key={`${item.occurredAt}-${index}`}>
+              <span>{index + 1}</span><div><b>{item.toStatus.replaceAll('_', ' ')}</b><small>{item.eventType} · {item.verificationBasis}{item.pointsAwarded ? ` · +${item.pointsAwarded}` : ''}</small></div>
+            </li>)}
+          </ol>
+        </div>}
       </>}
+    </section>
+    <section className="card demo-card">
+      <div className="demo-banner">DEMO DATA · SYNTHETIC CLOCK · EXCLUDED FROM ANALYTICS AND REWARDS</div>
+      <h2>90-second lifecycle demo</h2>
+      <p>This local walkthrough demonstrates every state without creating a report or changing your real points.</p>
+      <div className="demo-current"><small>Simulated report state</small><strong>{demoStates[demoStep][0]}</strong><span>{demoStates[demoStep][1]}</span></div>
+      <ol className="timeline compact">
+        {demoStates.slice(0, demoStep + 1).map(([state, description], index) => <li key={state}><span>{index + 1}</span><div><b>{state}</b><small>{description}</small></div></li>)}
+      </ol>
+      <div className="lifecycle-actions">
+        <button disabled={demoStep === demoStates.length - 1} onClick={() => setDemoStep((step) => Math.min(step + 1, demoStates.length - 1))}>Next simulated transition</button>
+        <button className="secondary" disabled={demoStep === 0} onClick={() => setDemoStep(0)}>Reset demo</button>
+      </div>
     </section>
     <section className="card systems"><h2>{status}</h2><p>The secure cloud path remains available for technical validation.</p><button onClick={() => verifyFirebase().catch((error) => add(`Firebase check failed: ${error.message}`))}>Verify Firebase services</button>{details.length > 0 && <ul>{details.map((detail, index) => <li key={`${index}-${detail}`}>{detail}</li>)}</ul>}</section>
     <footer>Built for local civic action</footer>

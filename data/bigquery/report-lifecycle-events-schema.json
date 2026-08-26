@@ -1,0 +1,21 @@
+[
+  {"name":"event_id","type":"STRING","mode":"REQUIRED"},
+  {"name":"report_id_hash","type":"STRING","mode":"REQUIRED"},
+  {"name":"owner_id_hash","type":"STRING","mode":"REQUIRED"},
+  {"name":"from_status","type":"STRING","mode":"REQUIRED"},
+  {"name":"to_status","type":"STRING","mode":"REQUIRED"},
+  {"name":"event_type","type":"STRING","mode":"REQUIRED"},
+  {"name":"verification_basis","type":"STRING","mode":"REQUIRED"},
+  {"name":"issue_type","type":"STRING","mode":"REQUIRED"},
+  {"name":"prabhag_id","type":"STRING","mode":"REQUIRED"},
+  {"name":"occurred_at","type":"TIMESTAMP","mode":"REQUIRED"},
+  {"name":"pack_version","type":"STRING","mode":"NULLABLE"},
+  {"name":"schema_version","type":"STRING","mode":"REQUIRED"},
+  {"name":"route_snapshot_hash","type":"STRING","mode":"NULLABLE"},
+  {"name":"demo_mode","type":"BOOLEAN","mode":"REQUIRED"},
+  {"name":"points_awarded","type":"INTEGER","mode":"REQUIRED"},
+  {"name":"dedupe_disposition","type":"STRING","mode":"NULLABLE"},
+  {"name":"dedupe_distance_meters","type":"FLOAT","mode":"NULLABLE"},
+  {"name":"overdue_eligible","type":"BOOLEAN","mode":"REQUIRED"},
+  {"name":"exported_at","type":"TIMESTAMP","mode":"REQUIRED"}
+]

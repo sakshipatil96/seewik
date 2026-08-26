@@ -1,0 +1,15 @@
+[
+  {"name":"evaluation_id","type":"STRING","mode":"REQUIRED"},
+  {"name":"report_id_hash","type":"STRING","mode":"REQUIRED"},
+  {"name":"owner_id_hash","type":"STRING","mode":"REQUIRED"},
+  {"name":"candidate_report_id_hash","type":"STRING","mode":"NULLABLE"},
+  {"name":"issue_type","type":"STRING","mode":"REQUIRED"},
+  {"name":"prabhag_id","type":"STRING","mode":"REQUIRED"},
+  {"name":"disposition","type":"STRING","mode":"REQUIRED"},
+  {"name":"measured_distance_meters","type":"FLOAT","mode":"NULLABLE"},
+  {"name":"threshold_meters","type":"FLOAT","mode":"REQUIRED"},
+  {"name":"heuristic_version","type":"STRING","mode":"REQUIRED"},
+  {"name":"occurred_at","type":"TIMESTAMP","mode":"REQUIRED"},
+  {"name":"demo_mode","type":"BOOLEAN","mode":"REQUIRED"},
+  {"name":"exported_at","type":"TIMESTAMP","mode":"REQUIRED"}
+]

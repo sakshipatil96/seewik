@@ -32,7 +32,7 @@ public class ApiController {
         return civicRouterService.route(request);
     }
 
-    @GetMapping({"/healthz", "/health"})
+    @GetMapping(value = {"/healthz", "/health"}, produces = "application/json")
     public Map<String, String> health() {
         return Map.of("status", "ok", "service", "seewik-api");
     }

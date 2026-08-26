@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://seewik.web.app/schemas/points-ledger-v0.1.json",
+  "title": "Seewik immutable points ledger entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ledgerEntryId", "ownerUid", "reportId", "triggerEventId", "triggeringEvent", "reason", "basePoints", "weight", "awardedPoints", "occurredAt", "packVersion", "lifecycleSchemaVersion", "schemaVersion", "demoMode"],
+  "properties": {
+    "ledgerEntryId": {"type":"string"},
+    "ownerUid": {"type":"string"},
+    "reportId": {"type":"string"},
+    "triggerEventId": {"type":"string"},
+    "triggeringEvent": {"enum":["REPORT_FILED","FIX_VERIFIED"]},
+    "reason": {"enum":["REPORT_FILED","FIX_VERIFIED"]},
+    "basePoints": {"enum":[5,40]},
+    "weight": {"enum":[0.0,1.0]},
+    "awardedPoints": {"enum":[0,5,40]},
+    "occurredAt": {},
+    "packVersion": {"type":"string"},
+    "lifecycleSchemaVersion": {"const":"report-lifecycle-v0.1"},
+    "schemaVersion": {"const":"points-ledger-v0.1"},
+    "demoMode": {"type":"boolean"}
+  }
+}

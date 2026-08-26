@@ -4,6 +4,13 @@ All notable changes to the versioned Civic Pack and its deterministic routing im
 
 ## Unreleased
 
+- Added authenticated, server-guarded report lifecycle transitions with immutable events: `DRAFT -> FILED -> CLAIMED_FIXED -> VERIFIED_FIXED`, honest `OVERDUE_UNKNOWN`, and distinct repair-rejection and recurrence reopen events.
+- Frozen Civic Pack route facts on first filing so later pack changes cannot rewrite previously filed recipients, departments, channels, limitations, SLA, escalation, or provenance.
+- Added append-only `points-ledger-v0.1`: +5 for the first filing and +40 for the first verified fix, with totals derived from ledger entries and no repeat award after reopening or re-verification.
+- Added the `same-category-75m-v0.1` duplicate heuristic with measured distance recorded on every evaluation, explicit `DEDUPE_NOT_EVALUATED`, and zero filing points for citizen overrides.
+- Added privacy-safe BigQuery lifecycle and dedupe event exports in `asia-south1`; only hashed report/user identifiers and analytical dimensions leave Firestore, while bodies, photos, tracking IDs, and raw identifiers remain excluded.
+- Added owner-only Firestore reads for lifecycle events, dedupe evaluations, and points; all corresponding client writes and all analytics-outbox client access are denied.
+- Added a citizen timeline/action panel and an explicitly synthetic, browser-local lifecycle demo excluded from Firestore, analytics, and real rewards.
 - Added the standalone Gemini `gemini-3.7-flash` civic classifier with Vertex structured output, Civic Pack v0.2 prompt definitions, strict local schema validation, and explicit model-call versus schema-failure reporting.
 - Added transient JPEG/PNG/WebP image input and optional text input with a 5 MB image ceiling; report evidence is not persisted by the classifier.
 - Added citizen confirmation/correction between Gemini category suggestion and deterministic routing. Numeric confidence remains an internal control signal and is not rendered in the citizen UI.

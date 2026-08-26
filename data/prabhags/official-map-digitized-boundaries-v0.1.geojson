@@ -1,0 +1,1208 @@
+{
+  "type": "FeatureCollection",
+  "name": "Nandurbar prabhag boundaries digitised from official 2025 map image",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+    }
+  },
+  "metadata": {
+    "datasetVersion": "official-map-digitized-v0.1",
+    "prabhagCount": 20,
+    "sourceDocumentOfficial": true,
+    "geometryOfficialDigital": false,
+    "digitisationMethod": "manual simplified trace of visible ward lines from photographed/scanned official final map",
+    "georeferencingMethod": "approximate affine registration using the railway corridor, Nandurbar station area and major-road pattern",
+    "coordinateOrder": "longitude, latitude",
+    "accuracy": "unknown; visual-review draft only",
+    "fitnessForUse": "geojson.io inspection and correction; not production routing, legal boundary determination or survey use",
+    "requiresCitizenConfirmation": true
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "id": "PRABHAG-01",
+      "properties": {
+        "prabhagId": "PRABHAG-01",
+        "prabhagName": "Prabhag 1",
+        "wardNumber": 1,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.216,
+              21.3872934
+            ],
+            [
+              74.2199863,
+              21.3843301
+            ],
+            [
+              74.2329416,
+              21.3850709
+            ],
+            [
+              74.2379244,
+              21.3843301
+            ],
+            [
+              74.2365292,
+              21.3887751
+            ],
+            [
+              74.2349347,
+              21.3961834
+            ],
+            [
+              74.2339381,
+              21.40211
+            ],
+            [
+              74.2169966,
+              21.40211
+            ],
+            [
+              74.216,
+              21.3872934
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PRABHAG-02",
+      "properties": {
+        "prabhagId": "PRABHAG-02",
+        "prabhagName": "Prabhag 2",
+        "wardNumber": 2,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.2349347,
+              21.3961834
+            ],
+            [
+              74.2365292,
+              21.3887751
+            ],
+            [
+              74.2379244,
+              21.3843301
+            ],
+            [
+              74.2409141,
+              21.3872934
+            ],
+            [
+              74.2454983,
+              21.3902567
+            ],
+            [
+              74.24789,
+              21.3961834
+            ],
+            [
+              74.2498832,
+              21.40211
+            ],
+            [
+              74.2339381,
+              21.40211
+            ],
+            [
+              74.2349347,
+              21.3961834
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PRABHAG-03",
+      "properties": {
+        "prabhagId": "PRABHAG-03",
+        "prabhagName": "Prabhag 3",
+        "wardNumber": 3,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.24789,
+              21.3961834
+            ],
+            [
+              74.2454983,
+              21.3902567
+            ],
+            [
+              74.2538694,
+              21.3887751
+            ],
+            [
+              74.2598488,
+              21.3858118
+            ],
+            [
+              74.270811,
+              21.3821076
+            ],
+            [
+              74.270811,
+              21.3887751
+            ],
+            [
+              74.2726048,
+              21.3917384
+            ],
+            [
+              74.2688179,
+              21.3909976
+            ],
+            [
+              74.2688179,
+              21.3972205
+            ],
+            [
+              74.2648316,
+              21.3973687
+            ],
+            [
+              74.2678213,
+              21.40211
+            ],
+            [
+              74.2498832,
+              21.40211
+            ],
+            [
+              74.24789,
+              21.3961834
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PRABHAG-04",
+      "properties": {
+        "prabhagId": "PRABHAG-04",
+        "prabhagName": "Prabhag 4",
+        "wardNumber": 4,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.2518763,
+              21.3828484
+            ],
+            [
+              74.2558625,
+              21.3739585
+            ],
+            [
+              74.2688179,
+              21.3732176
+            ],
+            [
+              74.2688179,
+              21.3732176
+            ],
+            [
+              74.270811,
+              21.3821076
+            ],
+            [
+              74.2598488,
+              21.3858118
+            ],
+            [
+              74.2538694,
+              21.3887751
+            ],
+            [
+              74.2518763,
+              21.3828484
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PRABHAG-05",
+      "properties": {
+        "prabhagId": "PRABHAG-05",
+        "prabhagName": "Prabhag 5",
+        "wardNumber": 5,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.2379244,
+              21.3739585
+            ],
+            [
+              74.2439038,
+              21.3732176
+            ],
+            [
+              74.2558625,
+              21.3739585
+            ],
+            [
+              74.2518763,
+              21.3828484
+            ],
+            [
+              74.2538694,
+              21.3887751
+            ],
+            [
+              74.2454983,
+              21.3902567
+            ],
+            [
+              74.2409141,
+              21.3872934
+            ],
+            [
+              74.2379244,
+              21.3843301
+            ],
+            [
+              74.2379244,
+              21.3739585
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PRABHAG-06",
+      "properties": {
+        "prabhagId": "PRABHAG-06",
+        "prabhagName": "Prabhag 6",
+        "wardNumber": 6,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.216,
+              21.3739585
+            ],
+            [
+              74.2299519,
+              21.3732176
+            ],
+            [
+              74.2379244,
+              21.3739585
+            ],
+            [
+              74.2379244,
+              21.3843301
+            ],
+            [
+              74.2329416,
+              21.3850709
+            ],
+            [
+              74.2199863,
+              21.3843301
+            ],
+            [
+              74.216,
+              21.3872934
+            ],
+            [
+              74.216,
+              21.3739585
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PRABHAG-07",
+      "properties": {
+        "prabhagId": "PRABHAG-07",
+        "prabhagName": "Prabhag 7",
+        "wardNumber": 7,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.216,
+              21.3702543
+            ],
+            [
+              74.2179931,
+              21.3680318
+            ],
+            [
+              74.2289553,
+              21.3665502
+            ],
+            [
+              74.2349347,
+              21.3665502
+            ],
+            [
+              74.2419107,
+              21.3680318
+            ],
+            [
+              74.2439038,
+              21.3732176
+            ],
+            [
+              74.2379244,
+              21.3739585
+            ],
+            [
+              74.2299519,
+              21.3732176
+            ],
+            [
+              74.216,
+              21.3739585
+            ],
+            [
+              74.216,
+              21.3702543
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PRABHAG-08",
+      "properties": {
+        "prabhagId": "PRABHAG-08",
+        "prabhagName": "Prabhag 8",
+        "wardNumber": 8,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.2419107,
+              21.3680318
+            ],
+            [
+              74.2518763,
+              21.3665502
+            ],
+            [
+              74.2598488,
+              21.367291
+            ],
+            [
+              74.2678213,
+              21.3680318
+            ],
+            [
+              74.2688179,
+              21.3732176
+            ],
+            [
+              74.2688179,
+              21.3732176
+            ],
+            [
+              74.2558625,
+              21.3739585
+            ],
+            [
+              74.2439038,
+              21.3732176
+            ],
+            [
+              74.2419107,
+              21.3680318
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PRABHAG-09",
+      "properties": {
+        "prabhagId": "PRABHAG-09",
+        "prabhagName": "Prabhag 9",
+        "wardNumber": 9,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.2498832,
+              21.3606235
+            ],
+            [
+              74.2578557,
+              21.3606235
+            ],
+            [
+              74.2678213,
+              21.3606235
+            ],
+            [
+              74.2688179,
+              21.3658093
+            ],
+            [
+              74.2738007,
+              21.367291
+            ],
+            [
+              74.2678213,
+              21.3680318
+            ],
+            [
+              74.2598488,
+              21.367291
+            ],
+            [
+              74.2518763,
+              21.3665502
+            ],
+            [
+              74.2498832,
+              21.3606235
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PRABHAG-10",
+      "properties": {
+        "prabhagId": "PRABHAG-10",
+        "prabhagName": "Prabhag 10",
+        "wardNumber": 10,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.2419107,
+              21.3613643
+            ],
+            [
+              74.2498832,
+              21.3606235
+            ],
+            [
+              74.2518763,
+              21.3665502
+            ],
+            [
+              74.2419107,
+              21.3665502
+            ],
+            [
+              74.2419107,
+              21.3613643
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PRABHAG-11",
+      "properties": {
+        "prabhagId": "PRABHAG-11",
+        "prabhagName": "Prabhag 11",
+        "wardNumber": 11,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.238323,
+              21.3618088
+            ],
+            [
+              74.2419107,
+              21.3613643
+            ],
+            [
+              74.2419107,
+              21.3665502
+            ],
+            [
+              74.238323,
+              21.3665502
+            ],
+            [
+              74.238323,
+              21.3618088
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PRABHAG-12",
+      "properties": {
+        "prabhagId": "PRABHAG-12",
+        "prabhagName": "Prabhag 12",
+        "wardNumber": 12,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.2349347,
+              21.3621052
+            ],
+            [
+              74.238323,
+              21.3618088
+            ],
+            [
+              74.238323,
+              21.3665502
+            ],
+            [
+              74.2349347,
+              21.3665502
+            ],
+            [
+              74.2349347,
+              21.3621052
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PRABHAG-13",
+      "properties": {
+        "prabhagId": "PRABHAG-13",
+        "prabhagName": "Prabhag 13",
+        "wardNumber": 13,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.2299519,
+              21.3635868
+            ],
+            [
+              74.2289553,
+              21.3606235
+            ],
+            [
+              74.2329416,
+              21.3606235
+            ],
+            [
+              74.2349347,
+              21.3621052
+            ],
+            [
+              74.2349347,
+              21.3665502
+            ],
+            [
+              74.2289553,
+              21.3665502
+            ],
+            [
+              74.2299519,
+              21.3635868
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PRABHAG-14",
+      "properties": {
+        "prabhagId": "PRABHAG-14",
+        "prabhagName": "Prabhag 14",
+        "wardNumber": 14,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.216,
+              21.3665502
+            ],
+            [
+              74.216,
+              21.358401
+            ],
+            [
+              74.2289553,
+              21.3606235
+            ],
+            [
+              74.2299519,
+              21.3635868
+            ],
+            [
+              74.2289553,
+              21.3665502
+            ],
+            [
+              74.2179931,
+              21.3680318
+            ],
+            [
+              74.216,
+              21.3665502
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PRABHAG-15",
+      "properties": {
+        "prabhagId": "PRABHAG-15",
+        "prabhagName": "Prabhag 15",
+        "wardNumber": 15,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.2289553,
+              21.3591419
+            ],
+            [
+              74.2369278,
+              21.3591419
+            ],
+            [
+              74.238323,
+              21.3618088
+            ],
+            [
+              74.2349347,
+              21.3621052
+            ],
+            [
+              74.2329416,
+              21.3606235
+            ],
+            [
+              74.2289553,
+              21.3606235
+            ],
+            [
+              74.2289553,
+              21.3591419
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PRABHAG-16",
+      "properties": {
+        "prabhagId": "PRABHAG-16",
+        "prabhagName": "Prabhag 16",
+        "wardNumber": 16,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.2369278,
+              21.3591419
+            ],
+            [
+              74.2419107,
+              21.3591419
+            ],
+            [
+              74.2488866,
+              21.3591419
+            ],
+            [
+              74.2498832,
+              21.3606235
+            ],
+            [
+              74.2419107,
+              21.3613643
+            ],
+            [
+              74.238323,
+              21.3618088
+            ],
+            [
+              74.2369278,
+              21.3591419
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PRABHAG-17",
+      "properties": {
+        "prabhagId": "PRABHAG-17",
+        "prabhagName": "Prabhag 17",
+        "wardNumber": 17,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.2279588,
+              21.3576602
+            ],
+            [
+              74.2289553,
+              21.3532152
+            ],
+            [
+              74.2339381,
+              21.3546969
+            ],
+            [
+              74.2369278,
+              21.3576602
+            ],
+            [
+              74.2369278,
+              21.3591419
+            ],
+            [
+              74.2289553,
+              21.3591419
+            ],
+            [
+              74.2289553,
+              21.3606235
+            ],
+            [
+              74.216,
+              21.358401
+            ],
+            [
+              74.2279588,
+              21.3576602
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PRABHAG-18",
+      "properties": {
+        "prabhagId": "PRABHAG-18",
+        "prabhagName": "Prabhag 18",
+        "wardNumber": 18,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.2369278,
+              21.3576602
+            ],
+            [
+              74.2339381,
+              21.3546969
+            ],
+            [
+              74.2359313,
+              21.3532152
+            ],
+            [
+              74.2419107,
+              21.3517335
+            ],
+            [
+              74.2429072,
+              21.3546969
+            ],
+            [
+              74.2429072,
+              21.3569194
+            ],
+            [
+              74.2419107,
+              21.3591419
+            ],
+            [
+              74.2369278,
+              21.3591419
+            ],
+            [
+              74.2369278,
+              21.3576602
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PRABHAG-19",
+      "properties": {
+        "prabhagId": "PRABHAG-19",
+        "prabhagName": "Prabhag 19",
+        "wardNumber": 19,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.2429072,
+              21.3569194
+            ],
+            [
+              74.2429072,
+              21.3546969
+            ],
+            [
+              74.2488866,
+              21.3546969
+            ],
+            [
+              74.2488866,
+              21.3561785
+            ],
+            [
+              74.2488866,
+              21.3591419
+            ],
+            [
+              74.2419107,
+              21.3591419
+            ],
+            [
+              74.2429072,
+              21.3569194
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PRABHAG-20",
+      "properties": {
+        "prabhagId": "PRABHAG-20",
+        "prabhagName": "Prabhag 20",
+        "wardNumber": 20,
+        "geometryType": "POLYGON",
+        "resolutionQuality": "APPROXIMATE_DIGITISED_OFFICIAL_MAP_IMAGE",
+        "requiresCitizenConfirmation": true,
+        "sourceReference": "Nandurbar Municipal Council General Election 2025 FINAL MAP; photographed copy received from Nagar Parishad on 2026-08-24",
+        "sourceStatus": "OFFICIAL_SOURCE_IMAGE",
+        "reviewStatus": "REVIEW_PENDING_GEOREFERENCE",
+        "datasetVersion": "official-map-digitized-v0.1",
+        "generatorVersion": "manual-visible-line-trace-v1",
+        "generatorSeed": "NOT_APPLICABLE",
+        "generatedAt": "2026-08-25T00:00:00Z",
+        "isActive": false
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              74.2488866,
+              21.3591419
+            ],
+            [
+              74.2488866,
+              21.3561785
+            ],
+            [
+              74.2488866,
+              21.3546969
+            ],
+            [
+              74.2598488,
+              21.3569194
+            ],
+            [
+              74.2678213,
+              21.3576602
+            ],
+            [
+              74.2678213,
+              21.3606235
+            ],
+            [
+              74.2578557,
+              21.3606235
+            ],
+            [
+              74.2498832,
+              21.3606235
+            ],
+            [
+              74.2488866,
+              21.3591419
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}
