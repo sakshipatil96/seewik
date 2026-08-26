@@ -1,0 +1,194 @@
+{
+  "answerKeyVersion": "human-baseline-answer-key-v0.1",
+  "surveyUrl": "https://nandurbar-survey.netlify.app/",
+  "frozenAt": "2026-08-26T20:04:36Z",
+  "frozenBeforeResponsesOpened": true,
+  "contentSha256": "b7b6404e07dc42de7d093261d681341d0e2886234e1d1acbee913f5483e53931",
+  "scoringPurpose": "Measure whether a respondent identifies the responsible municipal local body. Department knowledge is not scored.",
+  "authorityScoring": {
+    "canonicalAuthority": "Nandurbar Municipal Council",
+    "primaryMetric": "MUNICIPAL_LOCAL_BODY_IDENTIFIED",
+    "secondaryMetric": "EXACT_NANDURBAR_AUTHORITY_NAMED",
+    "departmentScored": false,
+    "caseInsensitive": true,
+    "ignorePunctuationAndSpacing": true,
+    "acceptedPrimaryAuthorityWording": [
+      "Nandurbar Municipal Council",
+      "Nandurbar Nagar Parishad",
+      "Nandurbar Nagarparishad",
+      "Nandurbar Nagarpalika",
+      "Nandurbar Municipality",
+      "NMC when used in the Nandurbar survey context",
+      "नंदुरबार नगर परिषद",
+      "नंदुरबार नगरपरिषद",
+      "नंदुरबार नगरपालिका",
+      "नंदुरबार नगर पालिका",
+      "Municipal Council",
+      "Nagar Parishad",
+      "Nagarparishad",
+      "Nagarpalika",
+      "Municipality",
+      "Municipal office",
+      "City council",
+      "नगर परिषद",
+      "नगरपरिषद",
+      "नगरपालिका",
+      "नगर पालिका",
+      "नगरपालिका कार्यालय"
+    ],
+    "exactNameWording": [
+      "Nandurbar Municipal Council",
+      "Nandurbar Nagar Parishad",
+      "Nandurbar Nagarparishad",
+      "Nandurbar Nagarpalika",
+      "Nandurbar Municipality",
+      "NMC when used in the Nandurbar survey context",
+      "नंदुरबार नगर परिषद",
+      "नंदुरबार नगरपरिषद",
+      "नंदुरबार नगरपालिका",
+      "नंदुरबार नगर पालिका"
+    ],
+    "acceptedCombinationRules": [
+      "A correct municipal-local-body term plus a department is primary-authority correct; the department is ignored.",
+      "A correct municipal-local-body term plus corporator, councillor, ward member or nagarsevak is primary-authority correct because the institution was identified.",
+      "A municipal department written explicitly as belonging to the municipality, for example municipal water department, is primary-authority correct.",
+      "Spelling variants and transliterations are accepted when they unambiguously mean Municipal Council, Nagar Parishad, Nagarpalika or municipality."
+    ],
+    "rejectedWhenAlone": [
+      "Corporator",
+      "Councillor",
+      "Ward member",
+      "Nagarsevak",
+      "नगरसेवक",
+      "पार्षद",
+      "MLA",
+      "MP",
+      "Police",
+      "Collector",
+      "District administration",
+      "State government",
+      "Central government",
+      "Zilla Parishad",
+      "Panchayat Samiti",
+      "Gram Panchayat",
+      "PWD or Public Works Department without an explicit municipal qualifier",
+      "A department name without an explicit municipal-local-body qualifier",
+      "A complaint channel, application, phone number or website without naming the authority",
+      "Government or sarkar without identifying the municipal local body",
+      "Do not know or blank"
+    ],
+    "wrongAuthorityTypes": [
+      "Municipal Corporation or Mahanagarpalika because Nandurbar is a Municipal Council",
+      "Nagar Panchayat because it is a different urban-local-body tier",
+      "Zilla Parishad or Panchayat bodies because they are not Nandurbar city municipal wards"
+    ],
+    "ambiguityRules": [
+      "Municipality plus another person or department as a contact or escalation remains correct.",
+      "A list of uncertain alternatives such as municipality or PWD is marked AMBIGUOUS and is not counted as primary-authority correct.",
+      "A wrong authority corrected later in the same response to the municipality is counted correct only when the final answer is unambiguous.",
+      "Department accuracy, phone numbers, filing channels, SLAs and escalation paths never add or remove authority points."
+    ]
+  },
+  "scenarioKeys": [
+    {
+      "n": 1,
+      "id": "garbage",
+      "tagEn": "Waste",
+      "expectedIssueType": "GARBAGE_SOLID_WASTE",
+      "expectedAuthority": "Nandurbar Municipal Council",
+      "en": "You see a large pile of household garbage overflowing beside a public road in Nandurbar.",
+      "mr": "नंदुरबारमधील एका सार्वजनिक रस्त्याच्या कडेला घरगुती कचऱ्याचा मोठा ढीग साचलेला तुम्ही पाहता.",
+      "hi": "नंदुरबार में एक सार्वजनिक सड़क के किनारे घरेलू कचरे का बड़ा ढेर जमा हुआ आप देखते हैं।"
+    },
+    {
+      "n": 2,
+      "id": "pothole",
+      "tagEn": "Roads",
+      "expectedIssueType": "POTHOLE_ROAD_DAMAGE",
+      "expectedAuthority": "Nandurbar Municipal Council",
+      "en": "There is a large pothole on a public city road that is making driving dangerous.",
+      "mr": "शहरातील सार्वजनिक रस्त्यावर मोठा खड्डा पडला आहे आणि त्यामुळे वाहन चालवणे धोकादायक झाले आहे.",
+      "hi": "शहर की सार्वजनिक सड़क पर एक बड़ा गड्ढा है जिससे गाड़ी चलाना खतरनाक हो गया है।"
+    },
+    {
+      "n": 3,
+      "id": "streetlight",
+      "tagEn": "Streetlights",
+      "expectedIssueType": "STREETLIGHT",
+      "expectedAuthority": "Nandurbar Municipal Council",
+      "en": "A streetlight in your neighbourhood has not been working for several nights.",
+      "mr": "तुमच्या भागातील एक पथदिवा (streetlight) गेले अनेक दिवस बंद आहे.",
+      "hi": "आपके इलाके की एक स्ट्रीट लाइट कई रातों से बंद पड़ी है।"
+    },
+    {
+      "n": 4,
+      "id": "drainage",
+      "tagEn": "Drainage",
+      "expectedIssueType": "DRAINAGE_SEWAGE",
+      "expectedAuthority": "Nandurbar Municipal Council",
+      "en": "Dirty sewage or drainage water is overflowing onto a public street.",
+      "mr": "गटाराचे किंवा सांडपाणी सार्वजनिक रस्त्यावर वाहत आहे.",
+      "hi": "गंदा सीवेज या नाली का पानी सार्वजनिक सड़क पर बह रहा है।"
+    },
+    {
+      "n": 5,
+      "id": "water",
+      "tagEn": "Water supply",
+      "expectedIssueType": "WATER_SUPPLY",
+      "expectedAuthority": "Nandurbar Municipal Council",
+      "en": "Your neighbourhood has a problem with the municipal water supply.",
+      "mr": "तुमच्या भागात नगरपालिकेच्या नळपाणी पुरवठ्यात अडचण आहे.",
+      "hi": "आपके इलाके में नगरपालिका की जल आपूर्ति में दिक्कत है।"
+    },
+    {
+      "n": 6,
+      "id": "mosquito",
+      "tagEn": "Health",
+      "expectedIssueType": "MOSQUITO_FOGGING",
+      "expectedAuthority": "Nandurbar Municipal Council",
+      "en": "There is heavy mosquito breeding in your locality and residents want fogging or mosquito-control action.",
+      "mr": "तुमच्या परिसरात डासांचा मोठा प्रादुर्भाव झाला आहे आणि रहिवाशांना धूर फवारणी किंवा डास-नियंत्रणाची कारवाई हवी आहे.",
+      "hi": "आपके इलाके में मच्छरों का भारी प्रकोप है और लोग फॉगिंग या मच्छर नियंत्रण की कार्रवाई चाहते हैं।"
+    },
+    {
+      "n": 7,
+      "id": "deadanimal",
+      "tagEn": "Sanitation",
+      "expectedIssueType": "DEAD_ANIMAL_REMOVAL",
+      "expectedAuthority": "Nandurbar Municipal Council",
+      "en": "A dead animal is lying on a public road and needs to be removed.",
+      "mr": "सार्वजनिक रस्त्यावर एक मृत जनावर पडले आहे आणि ते उचलणे आवश्यक आहे.",
+      "hi": "सार्वजनिक सड़क पर एक मरा हुआ जानवर पड़ा है और उसे हटाया जाना ज़रूरी है।"
+    },
+    {
+      "n": 8,
+      "id": "toilet",
+      "tagEn": "Sanitation",
+      "expectedIssueType": "PUBLIC_TOILET_SANITATION",
+      "expectedAuthority": "Nandurbar Municipal Council",
+      "en": "A municipal or public toilet is extremely dirty or unusable.",
+      "mr": "नगरपालिकेचे किंवा सार्वजनिक शौचालय अत्यंत अस्वच्छ आहे किंवा वापरण्यायोग्य नाही.",
+      "hi": "नगरपालिका का या सार्वजनिक शौचालय बेहद गंदा या इस्तेमाल लायक नहीं है।"
+    },
+    {
+      "n": 9,
+      "id": "dumping",
+      "tagEn": "Waste",
+      "expectedIssueType": "ILLEGAL_DUMPING",
+      "expectedAuthority": "Nandurbar Municipal Council",
+      "en": "People are repeatedly dumping garbage at a public place that is not meant for it.",
+      "mr": "काही लोक वारंवार अशा सार्वजनिक ठिकाणी कचरा टाकत आहेत जिथे कचरा टाकण्यास परवानगी नाही.",
+      "hi": "कुछ लोग बार-बार ऐसी सार्वजनिक जगह पर कचरा डाल रहे हैं जहाँ कचरा डालने की अनुमति नहीं है।"
+    },
+    {
+      "n": 10,
+      "id": "cleanliness",
+      "tagEn": "Public spaces",
+      "expectedIssueType": "PUBLIC_AREA_CLEANLINESS",
+      "expectedAuthority": "Nandurbar Municipal Council",
+      "en": "A public place in the city — a market, garden, ground or square — has remained unclean for several days and needs cleaning.",
+      "mr": "शहरातील एखादे सार्वजनिक ठिकाण — जसे बाजारपेठ, बगीचा, मैदान किंवा चौक — अनेक दिवसांपासून अस्वच्छ आहे आणि ते साफ करणे गरजेचे आहे.",
+      "hi": "शहर की कोई सार्वजनिक जगह — जैसे बाज़ार, बग़ीचा, मैदान या चौक — कई दिनों से गंदी पड़ी है और उसकी सफ़ाई ज़रूरी है।"
+    }
+  ]
+}

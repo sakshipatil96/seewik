@@ -70,6 +70,28 @@ class EvaluationCaseSetTest {
     }
 
     @Test
+    void humanBaselineKeyWasFrozenBeforeResponsesAndCoversTheTenSurveyScenarios() throws Exception {
+        JsonNode root = mapper.readTree(Files.readString(
+                REPO_ROOT.resolve("data/eval/human-baseline-answer-key-v0.1.json")));
+        assertEquals("human-baseline-answer-key-v0.1", root.path("answerKeyVersion").asText());
+        assertTrue(root.path("frozenBeforeResponsesOpened").asBoolean());
+        assertTrue(root.path("contentSha256").asText().matches("^[a-f0-9]{64}$"));
+        assertEquals("Nandurbar Municipal Council",
+                root.path("authorityScoring").path("canonicalAuthority").asText());
+        assertFalse(root.path("authorityScoring").path("departmentScored").asBoolean());
+        assertEquals(10, root.path("scenarioKeys").size());
+
+        Set<String> ids = new HashSet<>();
+        for (JsonNode scenario : root.path("scenarioKeys")) {
+            assertTrue(ids.add(scenario.path("id").asText()));
+            assertEquals("Nandurbar Municipal Council", scenario.path("expectedAuthority").asText());
+            assertTrue(scenario.path("en").asText().length() > 20);
+            assertTrue(scenario.path("mr").asText().length() > 20);
+            assertTrue(scenario.path("hi").asText().length() > 20);
+        }
+    }
+
+    @Test
     void routingCasesMatchTheDeterministicRouterAndContainNoModelFields() throws Exception {
         JsonNode root = mapper.readTree(Files.readString(REPO_ROOT.resolve("data/eval/routing-cases-v0.1.json")));
         CivicRouterService router = new CivicRouterService(mapper);
