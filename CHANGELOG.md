@@ -4,6 +4,11 @@ All notable changes to the versioned Civic Pack and its deterministic routing im
 
 ## Unreleased
 
+- Added URL-backed Home, New Report, Complaint Review, My Reports, Report Detail, and My Points screens with desktop navigation, a mobile bottom bar, refresh-safe deep links, and browser Back/Forward support.
+- Added an owner-scoped saved-report workspace: Firestore `DRAFT` reports can be reopened and edited, while filed and later reports open as immutable records with their frozen route facts, timeline, lifecycle actions, and derived points.
+- Added explicit stale-draft checks across issue type, prabhag, route, and Civic Pack version before filing; changing evidence or route inputs clears dependent results instead of reusing stale facts.
+- Added a Start Over action that clears only the current unsaved workflow and explicitly preserves saved Firestore reports.
+- Extended the live two-user Firebase verification to cover owner-scoped report listing and to prove that a `FILED` report cannot be edited, resumed as a draft, directly status-mutated, or deleted.
 - Added authenticated, server-guarded report lifecycle transitions with immutable events: `DRAFT -> FILED -> CLAIMED_FIXED -> VERIFIED_FIXED`, honest `OVERDUE_UNKNOWN`, and distinct repair-rejection and recurrence reopen events.
 - Frozen Civic Pack route facts on first filing so later pack changes cannot rewrite previously filed recipients, departments, channels, limitations, SLA, escalation, or provenance.
 - Added append-only `points-ledger-v0.1`: +5 for the first filing and +40 for the first verified fix, with totals derived from ledger entries and no repeat award after reopening or re-verification.
