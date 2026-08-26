@@ -3,7 +3,8 @@
   "surveyUrl": "https://nandurbar-survey.netlify.app/",
   "frozenAt": "2026-08-26T20:04:36Z",
   "frozenBeforeResponsesOpened": true,
-  "contentSha256": "b7b6404e07dc42de7d093261d681341d0e2886234e1d1acbee913f5483e53931",
+  "checksumMethod": "SHA-256 of compact UTF-8 JSON in document order after deleting contentSha256",
+  "contentSha256": "548ab65f2ef49ee8310e5a86af77d3d47c06bc5aa9730fdc8dad0be1a3eb662a",
   "scoringPurpose": "Measure whether a respondent identifies the responsible municipal local body. Department knowledge is not scored.",
   "authorityScoring": {
     "canonicalAuthority": "Nandurbar Municipal Council",

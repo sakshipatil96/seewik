@@ -33,6 +33,7 @@ clarification=0
 model_call_errors=0
 schema_errors=0
 transport_errors=0
+http_errors=0
 evaluated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 while IFS= read -r case_json; do
@@ -43,21 +44,30 @@ while IFS= read -r case_json; do
   image_ref="$(jq -r '.image_ref // ""' <<<"$case_json")"
 
   curl_exit=0
+  curl_payload=""
   if [[ -n "$image_ref" ]]; then
     image_path="$evaluation_dir/$image_ref"
-    response="$(curl -sS --connect-timeout 10 --max-time 180 \
+    curl_payload="$(curl -sS --connect-timeout 10 --max-time 180 \
       -H "Authorization: Bearer $firebase_id_token" \
       -F "image=@$image_path;type=image/jpeg" \
       -F "text=$input_text" \
+      -w $'\n__HTTP_STATUS__:%{http_code}' \
       "$endpoint")" || curl_exit=$?
   else
-    response="$(curl -sS --connect-timeout 10 --max-time 180 \
+    curl_payload="$(curl -sS --connect-timeout 10 --max-time 180 \
       -H "Authorization: Bearer $firebase_id_token" \
       -F "text=$input_text" \
+      -w $'\n__HTTP_STATUS__:%{http_code}' \
       "$endpoint")" || curl_exit=$?
   fi
 
-  if ! jq -e . >/dev/null 2>&1 <<<"${response:-}"; then
+  http_status="${curl_payload##*$'\n__HTTP_STATUS__:'}"
+  raw_response="${curl_payload%$'\n__HTTP_STATUS__:'*}"
+  if [[ "$http_status" == "$curl_payload" || ! "$http_status" =~ ^[0-9]{3}$ ]]; then http_status=0; fi
+  response="$raw_response"
+  response_is_json=true
+  if ! jq -e . >/dev/null 2>&1 <<<"${raw_response:-}"; then
+    response_is_json=false
     response='{"status":"INVALID_RESPONSE","errorCode":"INVALID_RESPONSE"}'
   fi
   status="$(jq -r '.status // "NO_RESPONSE"' <<<"$response")"
@@ -78,6 +88,7 @@ while IFS= read -r case_json; do
   if [[ "$error_code" == "MODEL_CALL_FAILED" ]]; then model_call_errors=$((model_call_errors + 1)); fi
   if [[ "$error_code" == "SCHEMA_VALIDATION_FAILED" ]]; then schema_errors=$((schema_errors + 1)); fi
   if [[ "$curl_exit" -ne 0 || "$status" == "INVALID_RESPONSE" || "$status" == "NO_RESPONSE" ]]; then transport_errors=$((transport_errors + 1)); fi
+  if [[ "$http_status" -lt 200 || "$http_status" -ge 300 ]]; then http_errors=$((http_errors + 1)); fi
   total=$((total + 1))
 
   jq -nc \
@@ -95,8 +106,10 @@ while IFS= read -r case_json; do
     --argjson correct "$is_correct" \
     --argjson languageCorrect "$is_language_correct" \
     --argjson curlExit "$curl_exit" \
-    --argjson rawResponse "$response" \
-    '{case_id:$case_id,expectedIssueType:$expectedIssueType,actualIssueType:$actualIssueType,correct:$correct,expectedLanguage:$expectedLanguage,detectedLanguage:$detectedLanguage,languageCorrect:$languageCorrect,status:$status,confidence:$confidence,latencyMs:$latencyMs,modelVersion:$modelVersion,responseId:$responseId,errorCode:$errorCode,curlExit:$curlExit,rawResponse:$rawResponse}' \
+    --argjson httpStatus "$http_status" \
+    --arg rawResponseText "$raw_response" \
+    --argjson rawResponse "$([[ "$response_is_json" == true ]] && printf '%s' "$raw_response" || printf 'null')" \
+    '{case_id:$case_id,expectedIssueType:$expectedIssueType,actualIssueType:$actualIssueType,correct:$correct,expectedLanguage:$expectedLanguage,detectedLanguage:$detectedLanguage,languageCorrect:$languageCorrect,status:$status,confidence:$confidence,latencyMs:$latencyMs,modelVersion:$modelVersion,responseId:$responseId,errorCode:$errorCode,curlExit:$curlExit,httpStatus:$httpStatus,rawResponseText:$rawResponseText,rawResponse:$rawResponse}' \
     >> "$result_file"
   printf '%s expected=%s actual=%s language=%s status=%s correct=%s\n' "$case_id" "$expected" "${actual:-NONE}" "${language:-NONE}" "$status" "$is_correct"
 done < <(jq -c '.cases[]' "$case_file")
@@ -134,11 +147,12 @@ jq -n \
   --argjson modelCallErrors "$model_call_errors" \
   --argjson schemaValidationErrors "$schema_errors" \
   --argjson transportErrors "$transport_errors" \
+  --argjson httpErrors "$http_errors" \
   --argjson minLatencyMs "$min_latency_ms" \
   --argjson medianLatencyMs "$median_latency_ms" \
   --argjson p95LatencyMs "$p95_latency_ms" \
   --argjson maxLatencyMs "$max_latency_ms" \
-  '{evaluatedAt:$evaluatedAt,endpoint:$endpoint,region:$region,runLabel:$runLabel,gitSha:$gitSha,caseSetVersion:$caseSetVersion,casesSha256:$casesSha256,promptVersion:$promptVersion,schemaVersion:$schemaVersion,packVersion:$packVersion,modelVersion:$modelVersion,total:$total,correct:$correct,accuracy:$accuracy,languageCorrect:$languageCorrect,languageAccuracy:$languageAccuracy,classified:$classified,clarificationRequired:$clarificationRequired,failures:{modelCall:$modelCallErrors,schemaValidation:$schemaValidationErrors,transport:$transportErrors},latencyMs:{min:$minLatencyMs,median:$medianLatencyMs,p95:$p95LatencyMs,max:$maxLatencyMs},resultsFile:$resultsFile}' \
+  '{evaluatedAt:$evaluatedAt,endpoint:$endpoint,region:$region,runLabel:$runLabel,gitSha:$gitSha,caseSetVersion:$caseSetVersion,casesSha256:$casesSha256,promptVersion:$promptVersion,schemaVersion:$schemaVersion,packVersion:$packVersion,modelVersion:$modelVersion,total:$total,correct:$correct,accuracy:$accuracy,languageCorrect:$languageCorrect,languageAccuracy:$languageAccuracy,classified:$classified,clarificationRequired:$clarificationRequired,failures:{modelCall:$modelCallErrors,schemaValidation:$schemaValidationErrors,transport:$transportErrors,http:$httpErrors},latencyMs:{min:$minLatencyMs,median:$medianLatencyMs,p95:$p95LatencyMs,max:$maxLatencyMs},resultsFile:$resultsFile}' \
   > "$summary_file"
 
 jq . "$summary_file"

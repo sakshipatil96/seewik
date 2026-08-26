@@ -12,6 +12,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Set;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import org.junit.jupiter.api.Test;
 
 class EvaluationCaseSetTest {
@@ -76,6 +78,12 @@ class EvaluationCaseSetTest {
         assertEquals("human-baseline-answer-key-v0.1", root.path("answerKeyVersion").asText());
         assertTrue(root.path("frozenBeforeResponsesOpened").asBoolean());
         assertTrue(root.path("contentSha256").asText().matches("^[a-f0-9]{64}$"));
+        String declaredSha = root.path("contentSha256").asText();
+        ((com.fasterxml.jackson.databind.node.ObjectNode) root).remove("contentSha256");
+        String canonical = mapper.writeValueAsString(root);
+        String computedSha = HexFormat.of().formatHex(
+                MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        assertEquals(declaredSha, computedSha);
         assertEquals("Nandurbar Municipal Council",
                 root.path("authorityScoring").path("canonicalAuthority").asText());
         assertFalse(root.path("authorityScoring").path("departmentScored").asBoolean());

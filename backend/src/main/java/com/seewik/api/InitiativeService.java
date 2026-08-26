@@ -152,11 +152,13 @@ public class InitiativeService {
         entry.put("ownerUid", ownerUid);
         entry.put("sourceType", "INITIATIVE");
         entry.put("sourceId", initiativeId);
+        entry.put("triggerEventId", eventId);
         entry.put("triggeringEventId", eventId);
         entry.put("triggeringEvent", eventType);
         entry.put("reason", eventType);
         entry.put("basePoints", 0);
         entry.put("weight", 0.0);
+        entry.put("awardedPoints", 0);
         entry.put("pointsAwarded", 0);
         entry.put("policyStatus", "RECORDED_NOT_REWARDED");
         entry.put("occurredAt", occurredAt.toString());

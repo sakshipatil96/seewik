@@ -32,6 +32,7 @@ class InitiativeServiceTest {
         assertEquals(1, result.participantCount());
         assertEquals("INITIATIVE_CREATED", gateway.event.get("eventType"));
         assertEquals("ORGANISER", gateway.participation.get("role"));
+        assertEquals(0, gateway.ledger.get("awardedPoints"));
         assertEquals(0, gateway.ledger.get("pointsAwarded"));
         assertEquals("RECORDED_NOT_REWARDED", gateway.ledger.get("policyStatus"));
         assertEquals("points-ledger-v0.2", gateway.ledger.get("schemaVersion"));
