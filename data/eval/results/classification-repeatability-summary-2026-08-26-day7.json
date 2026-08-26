@@ -1,0 +1,74 @@
+{
+  "evaluatedAt": "2026-08-26T23:37:21Z",
+  "endpoint": "https://seewik-api-528138216934.asia-south1.run.app/api/civic/classify",
+  "region": "asia-south1",
+  "deployedRevision": "seewik-api-00014-txh",
+  "gitSha": "3f66e386369ae92a0cb86c03410df16dda444820",
+  "caseSetVersion": "classification-cases-v0.2",
+  "casesSha256": "c68a3c6441745f9422544ccc833bc8ae3d0ba2c8c10408bfbb6555ea7f5302f0",
+  "promptVersion": "classification-prompt-v0.1",
+  "schemaVersion": "classification-v0.1",
+  "packVersion": "v0.2",
+  "modelVersion": "gemini-3.7-flash",
+  "runs": 2,
+  "casesPerRun": 60,
+  "calls": 120,
+  "categoryCorrect": 120,
+  "categoryAccuracy": 1.0,
+  "languageCorrect": 120,
+  "languageAccuracy": 1.0,
+  "stableCases": 60,
+  "categoryStability": 1.0,
+  "statusStability": 1.0,
+  "languageStability": 1.0,
+  "clarification": {
+    "expectedUnknownCasesPerRun": 4,
+    "clarificationRequiredPerRun": 4,
+    "correctAcrossCalls": 8,
+    "incorrectClarificationsAcrossCalls": 0
+  },
+  "failuresAcrossCalls": {
+    "modelCall": 0,
+    "schemaValidation": 0,
+    "transport": 0,
+    "http": 0
+  },
+  "confusionPairs": [],
+  "latencyMs": {
+    "run1": {
+      "min": 2221,
+      "median": 3065,
+      "p95": 3984,
+      "max": 6602
+    },
+    "run2": {
+      "min": 2352,
+      "median": 3108.5,
+      "p95": 4002,
+      "max": 4886
+    }
+  },
+  "perCategory": [
+    {"issueType": "DEAD_ANIMAL_REMOVAL", "casesPerRun": 5, "calls": 10, "correct": 10, "accuracy": 1.0},
+    {"issueType": "DRAINAGE_SEWAGE", "casesPerRun": 5, "calls": 10, "correct": 10, "accuracy": 1.0},
+    {"issueType": "GARBAGE_SOLID_WASTE", "casesPerRun": 6, "calls": 12, "correct": 12, "accuracy": 1.0},
+    {"issueType": "ILLEGAL_DUMPING", "casesPerRun": 5, "calls": 10, "correct": 10, "accuracy": 1.0},
+    {"issueType": "MOSQUITO_FOGGING", "casesPerRun": 5, "calls": 10, "correct": 10, "accuracy": 1.0},
+    {"issueType": "POTHOLE_ROAD_DAMAGE", "casesPerRun": 5, "calls": 10, "correct": 10, "accuracy": 1.0},
+    {"issueType": "PUBLIC_AREA_CLEANLINESS", "casesPerRun": 5, "calls": 10, "correct": 10, "accuracy": 1.0},
+    {"issueType": "PUBLIC_ROAD_OBSTRUCTION", "casesPerRun": 5, "calls": 10, "correct": 10, "accuracy": 1.0},
+    {"issueType": "PUBLIC_TOILET_SANITATION", "casesPerRun": 5, "calls": 10, "correct": 10, "accuracy": 1.0},
+    {"issueType": "STREETLIGHT", "casesPerRun": 5, "calls": 10, "correct": 10, "accuracy": 1.0},
+    {"issueType": "UNKNOWN", "casesPerRun": 4, "calls": 8, "correct": 8, "accuracy": 1.0},
+    {"issueType": "WATER_SUPPLY", "casesPerRun": 5, "calls": 10, "correct": 10, "accuracy": 1.0}
+  ],
+  "rawResultFiles": [
+    "classification-results-2026-08-26-day7-run1.ndjson",
+    "classification-results-2026-08-26-day7-run2.ndjson"
+  ],
+  "runSummaryFiles": [
+    "classification-summary-2026-08-26-day7-run1.json",
+    "classification-summary-2026-08-26-day7-run2.json"
+  ],
+  "temporaryEvaluationUserDeleted": true
+}

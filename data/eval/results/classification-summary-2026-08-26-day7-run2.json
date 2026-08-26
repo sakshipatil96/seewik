@@ -1,0 +1,33 @@
+{
+  "evaluatedAt": "2026-08-26T23:37:21Z",
+  "endpoint": "https://seewik-api-528138216934.asia-south1.run.app/api/civic/classify",
+  "region": "asia-south1",
+  "runLabel": "2026-08-26-day7-run2",
+  "gitSha": "3f66e386369ae92a0cb86c03410df16dda444820",
+  "caseSetVersion": "classification-cases-v0.2",
+  "casesSha256": "c68a3c6441745f9422544ccc833bc8ae3d0ba2c8c10408bfbb6555ea7f5302f0",
+  "promptVersion": "classification-prompt-v0.1",
+  "schemaVersion": "classification-v0.1",
+  "packVersion": "v0.2",
+  "modelVersion": "gemini-3.7-flash",
+  "total": 60,
+  "correct": 60,
+  "accuracy": 1.0000,
+  "languageCorrect": 60,
+  "languageAccuracy": 1.0000,
+  "classified": 56,
+  "clarificationRequired": 4,
+  "failures": {
+    "modelCall": 0,
+    "schemaValidation": 0,
+    "transport": 0,
+    "http": 0
+  },
+  "latencyMs": {
+    "min": 2352,
+    "median": 3108.5,
+    "p95": 4002,
+    "max": 4886
+  },
+  "resultsFile": "classification-results-2026-08-26-day7-run2.ndjson"
+}

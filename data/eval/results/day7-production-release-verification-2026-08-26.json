@@ -1,0 +1,56 @@
+{
+  "verifiedAt": "2026-08-26T23:25:00Z",
+  "project": "seewik",
+  "region": "asia-south1",
+  "implementationGitSha": "3f66e386369ae92a0cb86c03410df16dda444820",
+  "backend": {
+    "revision": "seewik-api-00014-txh",
+    "trafficPercent": 100,
+    "url": "https://seewik-api-528138216934.asia-south1.run.app",
+    "healthStatus": 200,
+    "healthBody": {"service": "seewik-api", "status": "ok"},
+    "maxInstances": 20,
+    "concurrency": 80,
+    "timeoutSeconds": 300,
+    "memory": "512Mi",
+    "cpu": 1
+  },
+  "frontend": {
+    "url": "https://seewik.web.app",
+    "routesChecked": ["/", "/initiatives", "/initiatives/new", "/report/new", "/reports", "/points"],
+    "desktopConsoleErrors": 0,
+    "mobileConsoleErrors": 0,
+    "desktopInitiateScreenshot": "day7-initiatives-production-desktop.png",
+    "mobileNavigationLayoutVerified": true
+  },
+  "authentication": {
+    "classificationWithoutTokenStatus": 401,
+    "draftWithoutTokenStatus": 401,
+    "errorCode": "AUTHENTICATION_REQUIRED",
+    "authenticatedClassificationPassed": true,
+    "authenticatedDraftPassed": true,
+    "classifiedIssueType": "POTHOLE_ROAD_DAMAGE",
+    "draftAuthority": "Nandurbar Municipal Council"
+  },
+  "initiatives": {
+    "creatorInitialCount": 1,
+    "secondUserDiscoveryPassed": true,
+    "firstJoinResult": "JOINED",
+    "countAfterFirstJoin": 2,
+    "secondJoinResult": "ALREADY_JOINED",
+    "countAfterSecondJoin": 2,
+    "privateCoordinatesExcluded": true,
+    "ledgerEntries": 2,
+    "pointsAwarded": 0,
+    "temporaryActivityRemoved": true,
+    "temporaryParticipationRemoved": true,
+    "temporaryEventsRemoved": true,
+    "temporaryLedgerEntriesRemoved": true,
+    "temporaryUsersDeleted": true
+  },
+  "logInspection": {
+    "revisionErrorsFound": 0,
+    "firebaseTokensFound": 0,
+    "testComplaintTextFound": 0
+  }
+}

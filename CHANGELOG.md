@@ -4,6 +4,13 @@ All notable changes to the versioned Civic Pack and its deterministic routing im
 
 ## Unreleased
 
+- Protected classification and complaint drafting with server-verified Firebase identity tokens, rejecting unauthenticated calls before paid model work begins.
+- Added Initiate activity creation, nearby Haversine discovery, idempotent joining, live participant counts, and append-only zero-point contribution records pending verified participation.
+- Added refresh-safe `/initiatives` and `/initiatives/new` screens to desktop navigation, mobile navigation, and the homepage.
+- Froze the 60-case multilingual Track A contract and evaluation policy, then preserved two deployed raw runs with 120/120 category matches, 120/120 language matches, 100% two-run category stability, correct clarification on every unknown control, and no call/schema/transport/HTTP failure.
+- Froze the ten-scenario human-baseline answer key before response inspection, including municipal-authority synonyms, exact-authority secondary scoring, ambiguity rules, and representative-versus-institution rules.
+- Added Day 7 BigQuery evidence with production smoke exclusion and controlled aggregation fixtures kept strictly separate.
+- Deployed backend revision `seewik-api-00014-txh` at 100% traffic in `asia-south1` and published the Initiate frontend to Firebase Hosting.
 - Added URL-backed Home, New Report, Complaint Review, My Reports, Report Detail, and My Points screens with desktop navigation, a mobile bottom bar, refresh-safe deep links, and browser Back/Forward support.
 - Added an owner-scoped saved-report workspace: Firestore `DRAFT` reports can be reopened and edited, while filed and later reports open as immutable records with their frozen route facts, timeline, lifecycle actions, and derived points.
 - Added explicit stale-draft checks across issue type, prabhag, route, and Civic Pack version before filing; changing evidence or route inputs clears dependent results instead of reusing stale facts.
