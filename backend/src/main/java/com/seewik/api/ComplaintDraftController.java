@@ -6,21 +6,32 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/civic")
 public class ComplaintDraftController {
     private final ComplaintDraftService complaintDraftService;
+    private final CitizenIdentityVerifier identityVerifier;
 
-    public ComplaintDraftController(ComplaintDraftService complaintDraftService) {
+    public ComplaintDraftController(
+            ComplaintDraftService complaintDraftService,
+            CitizenIdentityVerifier identityVerifier) {
         this.complaintDraftService = complaintDraftService;
+        this.identityVerifier = identityVerifier;
     }
 
     @PostMapping(value = "/draft-complaint", consumes = "application/json", produces = "application/json")
-    public ResponseEntity<?> draft(@RequestBody(required = false) ComplaintDraftService.ComplaintDraftRequest request) {
+    public ResponseEntity<?> draft(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody(required = false) ComplaintDraftService.ComplaintDraftRequest request) {
         try {
+            identityVerifier.verifyBearer(authorization);
             return ResponseEntity.ok(complaintDraftService.draft(request));
+        } catch (CitizenIdentityVerifier.AuthenticationException exception) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(error("AUTHENTICATION_REQUIRED", exception.getMessage()));
         } catch (ComplaintDraftService.ComplaintDraftInputException exception) {
             HttpStatus status = switch (exception.code()) {
                 case "UNSUPPORTED_ROUTE" -> HttpStatus.UNPROCESSABLE_ENTITY;

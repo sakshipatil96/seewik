@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -13,19 +14,28 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/civic")
 public class ClassificationController {
     private final CivicClassificationService classificationService;
+    private final CitizenIdentityVerifier identityVerifier;
 
-    public ClassificationController(CivicClassificationService classificationService) {
+    public ClassificationController(
+            CivicClassificationService classificationService,
+            CitizenIdentityVerifier identityVerifier) {
         this.classificationService = classificationService;
+        this.identityVerifier = identityVerifier;
     }
 
     @PostMapping(value = "/classify", consumes = "multipart/form-data", produces = "application/json")
     public ResponseEntity<?> classify(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestParam(value = "image", required = false) MultipartFile image,
             @RequestParam(value = "text", required = false) String text) {
         try {
+            identityVerifier.verifyBearer(authorization);
             byte[] bytes = image == null || image.isEmpty() ? null : image.getBytes();
             String mimeType = bytes == null ? null : image.getContentType();
             return ResponseEntity.ok(classificationService.classify(bytes, mimeType, text));
+        } catch (CitizenIdentityVerifier.AuthenticationException exception) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(error("AUTHENTICATION_REQUIRED", exception.getMessage()));
         } catch (CivicClassificationService.ClassificationInputException exception) {
             return ResponseEntity.badRequest().body(error(exception.code(), exception.getMessage()));
         } catch (CivicClassificationService.ClassificationExecutionException exception) {

@@ -43,6 +43,33 @@ class EvaluationCaseSetTest {
     }
 
     @Test
+    void frozenTrackATextSetHasSixtyClassifierOnlyCasesAndOneInjectionCase() throws Exception {
+        JsonNode root = mapper.readTree(Files.readString(REPO_ROOT.resolve("data/eval/classification-cases-v0.2.json")));
+        ClassificationSchemaValidator validator = new ClassificationSchemaValidator(mapper);
+        assertEquals("classification-cases-v0.2", root.path("case_set_version").asText());
+        assertEquals("TRACK_A_TEXT_MULTILINGUAL", root.path("track").asText());
+        assertEquals(ClassificationPromptFactory.PROMPT_VERSION, root.path("prompt_version").asText());
+        assertTrue(root.path("frozen_before_scored_run").asBoolean());
+        assertEquals(60, root.path("cases").size());
+        assertTrue(root.path("cases_sha256").asText().matches("^[a-f0-9]{64}$"));
+
+        Set<String> ids = new HashSet<>();
+        int injectionCases = 0;
+        Set<String> expectedLanguages = Set.of("MR", "HI", "EN", "MIXED", "UNKNOWN");
+        for (JsonNode testCase : root.path("cases")) {
+            assertTrue(ids.add(testCase.path("case_id").asText()));
+            assertTrue(testCase.path("image_ref").isNull());
+            assertTrue(testCase.path("input_text").asText().length() > 5);
+            assertTrue(validator.allowedIssueTypes().contains(testCase.path("expected_issueType").asText()));
+            assertTrue(expectedLanguages.contains(testCase.path("expectedLanguage").asText()));
+            assertTrue(testCase.hasNonNull("source"));
+            assertFalse(testCase.has("expected_authority"));
+            if (testCase.path("case_id").asText().contains("INJECTION")) injectionCases++;
+        }
+        assertEquals(1, injectionCases);
+    }
+
+    @Test
     void routingCasesMatchTheDeterministicRouterAndContainNoModelFields() throws Exception {
         JsonNode root = mapper.readTree(Files.readString(REPO_ROOT.resolve("data/eval/routing-cases-v0.1.json")));
         CivicRouterService router = new CivicRouterService(mapper);

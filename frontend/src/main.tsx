@@ -164,6 +164,30 @@ type SavedReport = {
   routeSnapshot?: RouteResult;
 };
 
+type Initiative = {
+  initiativeId: string;
+  title: string;
+  category: string;
+  description: string;
+  startAt: string;
+  placeName: string;
+  needs: string;
+  status: string;
+  participantCount: number;
+  distanceKm: number;
+  joined: boolean;
+  schemaVersion: string;
+};
+
+type InitiativeDiscovery = {
+  status: string;
+  radiusKm: number;
+  count: number;
+  initiatives: Initiative[];
+  errorCode?: string;
+  message?: string;
+};
+
 const ISSUE_VALUES = new Set<string>(ISSUE_TYPES.map(([value]) => value));
 
 function issueLabel(value: string) {
@@ -247,6 +271,16 @@ function App() {
   const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
   const [reportsStatus, setReportsStatus] = useState('');
   const [selectedReport, setSelectedReport] = useState<SavedReport | null>(null);
+  const [initiatives, setInitiatives] = useState<Initiative[]>([]);
+  const [initiativeStatus, setInitiativeStatus] = useState('');
+  const [initiativeCoordinates, setInitiativeCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [initiativeRadiusKm, setInitiativeRadiusKm] = useState(5);
+  const [initiativeTitle, setInitiativeTitle] = useState('');
+  const [initiativeCategory, setInitiativeCategory] = useState('CLEANUP');
+  const [initiativeDescription, setInitiativeDescription] = useState('');
+  const [initiativeStartAt, setInitiativeStartAt] = useState('');
+  const [initiativePlaceName, setInitiativePlaceName] = useState('');
+  const [initiativeNeeds, setInitiativeNeeds] = useState('');
   const add = (line: string) => setDetails((old) => [...old, line]);
 
   function navigate(nextScreen: AppScreen, replace = false, reportId?: string) {
@@ -328,7 +362,108 @@ function App() {
         loadReportById(reportId, true).catch((error) => setDraftStatus(`Draft could not be resumed: ${error.message}`));
       }
     }
+    if (screen === 'initiatives' && initiativeCoordinates) {
+      discoverInitiatives(false).catch((error) => setInitiativeStatus(`Activities could not be loaded: ${error.message}`));
+    }
   }, [screen, locationKey]);
+
+  useEffect(() => {
+    if (screen !== 'initiatives' || !initiativeCoordinates) return;
+    const interval = window.setInterval(() => {
+      discoverInitiatives(true).catch(() => undefined);
+    }, 5000);
+    return () => window.clearInterval(interval);
+  }, [screen, initiativeCoordinates, initiativeRadiusKm]);
+
+  async function authenticatedToken() {
+    const credential = auth.currentUser ? { user: auth.currentUser } : await signInAnonymously(auth);
+    return credential.user.getIdToken();
+  }
+
+  async function discoverInitiatives(background = false) {
+    if (!initiativeCoordinates) {
+      setInitiativeStatus('Share your location to discover activities nearby.');
+      return;
+    }
+    if (!background) setInitiativeStatus('Finding nearby activities…');
+    const idToken = await authenticatedToken();
+    const response = await fetch(`${API_URL}/api/initiatives/nearby`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify({ ...initiativeCoordinates, radiusKm: initiativeRadiusKm }),
+    });
+    const result: InitiativeDiscovery = await response.json();
+    if (!response.ok) throw new Error(result.message ?? `Discovery failed (${response.status})`);
+    setInitiatives(result.initiatives);
+    if (!background) setInitiativeStatus(result.count ? `${result.count} upcoming activities within ${result.radiusKm} km.` : `No upcoming activities found within ${result.radiusKm} km.`);
+  }
+
+  function locateForInitiatives(afterLocation: 'DISCOVER' | 'CREATE') {
+    setInitiativeStatus('Checking your location…');
+    if (!navigator.geolocation) {
+      setInitiativeStatus('Location is unavailable in this browser.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coordinates = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+        setInitiativeCoordinates(coordinates);
+        setInitiativeStatus(afterLocation === 'CREATE' ? 'Activity location captured. Confirm the public place name below.' : 'Location captured. Finding activities…');
+      },
+      () => setInitiativeStatus('Location permission was not provided.'),
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+    );
+  }
+
+  async function createInitiative() {
+    if (!initiativeCoordinates) {
+      setInitiativeStatus('Capture the activity location before publishing.');
+      return;
+    }
+    if (!initiativeStartAt) {
+      setInitiativeStatus('Choose the activity date and time.');
+      return;
+    }
+    setInitiativeStatus('Publishing activity…');
+    const idToken = await authenticatedToken();
+    const response = await fetch(`${API_URL}/api/initiatives`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify({
+        title: initiativeTitle,
+        category: initiativeCategory,
+        description: initiativeDescription,
+        startAt: new Date(initiativeStartAt).toISOString(),
+        placeName: initiativePlaceName,
+        ...initiativeCoordinates,
+        needs: initiativeNeeds,
+      }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message ?? `Publish failed (${response.status})`);
+    setInitiativeTitle('');
+    setInitiativeDescription('');
+    setInitiativeStartAt('');
+    setInitiativePlaceName('');
+    setInitiativeNeeds('');
+    setInitiativeStatus('Activity published. You are included as the organiser.');
+    navigate('initiatives');
+  }
+
+  async function joinInitiative(initiativeId: string) {
+    setInitiativeStatus('Joining activity…');
+    const idToken = await authenticatedToken();
+    const response = await fetch(`${API_URL}/api/initiatives/${encodeURIComponent(initiativeId)}/join`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message ?? `Join failed (${response.status})`);
+    setInitiatives((items) => items.map((item) => item.initiativeId === initiativeId
+      ? { ...item, participantCount: result.participantCount, joined: true }
+      : item));
+    setInitiativeStatus(result.status === 'ALREADY_JOINED' ? 'You already joined this activity.' : 'You joined. The live participant count has been updated.');
+  }
 
   async function verifyFirebase() {
     setDetails([]);
@@ -423,7 +558,13 @@ function App() {
     const form = new FormData();
     if (evidenceImage) form.append('image', evidenceImage);
     if (evidenceText.trim()) form.append('text', evidenceText.trim());
-    const response = await fetch(`${API_URL}/api/civic/classify`, { method: 'POST', body: form });
+    const credential = auth.currentUser ? { user: auth.currentUser } : await signInAnonymously(auth);
+    const idToken = await credential.user.getIdToken();
+    const response = await fetch(`${API_URL}/api/civic/classify`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${idToken}` },
+      body: form,
+    });
     const result: ClassificationResult = await response.json();
     setClassification(result);
     if (!complaintFacts.trim()) setComplaintFacts(evidenceText.trim() || result.description || '');
@@ -532,9 +673,11 @@ function App() {
     }
     resetDraft();
     setDraftStatus(`Creating ${draftLanguage === 'MR' ? 'Marathi' : 'English'} complaint draft…`);
+    const credential = auth.currentUser ? { user: auth.currentUser } : await signInAnonymously(auth);
+    const idToken = await credential.user.getIdToken();
     const response = await fetch(`${API_URL}/api/civic/draft-complaint`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
       body: JSON.stringify({
         issueType,
         prabhagId,
@@ -808,19 +951,56 @@ function App() {
         <button className={screen === 'home' ? 'active' : ''} onClick={() => navigate('home')}>Home</button>
         <button className={screen === 'new-report' || screen === 'review' ? 'active' : ''} onClick={() => navigate('new-report')}>Report an issue</button>
         <button className={screen === 'reports' || screen === 'report-detail' ? 'active' : ''} onClick={() => navigate('reports')}>My reports</button>
+        <button className={screen === 'initiatives' || screen === 'new-initiative' ? 'active' : ''} onClick={() => navigate('initiatives')}>Initiate</button>
         <button className={screen === 'points' ? 'active' : ''} onClick={() => navigate('points')}>My points</button>
       </nav>
     </header>
-    {screen !== 'home' && <div className="page-tools"><span>Saved reports are not deleted by Start over.</span><button className="secondary" onClick={startOver}>Start over</button></div>}
+    {['new-report', 'review', 'reports', 'report-detail'].includes(screen) && <div className="page-tools"><span>Saved reports are not deleted by Start over.</span><button className="secondary" onClick={startOver}>Start over</button></div>}
 
     {screen === 'home' && <>
       <section className="hero"><span className="eyebrow">LOCAL CIVIC ACTION</span><h1>A Civic Intelligence Platform</h1><p>Identify a civic issue, find the confirmed route, prepare a complaint and track the outcome.</p></section>
       <section className="home-actions" aria-label="Start using Seewik">
         <article><span>01</span><h2>Report an issue</h2><p>Describe the problem, confirm its category and find the deterministic civic route.</p><button onClick={() => navigate('new-report')}>Start a report</button></article>
-        <article><span>02</span><h2>My reports</h2><p>Resume drafts and inspect filed reports without rewriting their frozen facts.</p><button className="secondary" onClick={() => navigate('reports')}>Open my reports</button></article>
-        <article><span>03</span><h2>My points</h2><p>See rewards derived from filing and verified outcomes, never complaint volume alone.</p><button className="secondary" onClick={() => navigate('points')}>View my points</button></article>
+        <article><span>02</span><h2>Initiate something good</h2><p>Create a useful local activity, discover what is nearby and join neighbours taking action.</p><button onClick={() => navigate('initiatives')}>Explore activities</button></article>
+        <article><span>03</span><h2>My reports</h2><p>Resume drafts and inspect filed reports without rewriting their frozen facts.</p><button className="secondary" onClick={() => navigate('reports')}>Open my reports</button></article>
+        <article><span>04</span><h2>My points</h2><p>See rewards derived from filing and verified outcomes, never complaint volume alone.</p><button className="secondary" onClick={() => navigate('points')}>View my points</button></article>
       </section>
     </>}
+
+    {screen === 'initiatives' && <>
+      <section className="hero page-hero initiative-hero"><span className="eyebrow">INITIATE WHAT IS GOOD</span><h1>Take action with neighbours</h1><p>Discover upcoming civic activities near you, join once, and see the participant count update.</p></section>
+      <section className="initiative-toolbar card">
+        <div><h2>Nearby activities</h2><p>Distance is calculated from the location you choose to share. Your coordinates are used for this request and are not shown to other citizens.</p></div>
+        <button onClick={() => navigate('new-initiative')}>Create an activity</button>
+        <label>Search radius<select value={initiativeRadiusKm} onChange={(event) => setInitiativeRadiusKm(Number(event.target.value))}><option value={2}>2 km</option><option value={5}>5 km</option><option value={10}>10 km</option><option value={25}>25 km</option></select></label>
+        <button className="secondary" onClick={() => initiativeCoordinates ? discoverInitiatives(false).catch((error) => setInitiativeStatus(error.message)) : locateForInitiatives('DISCOVER')}>{initiativeCoordinates ? 'Refresh nearby' : 'Use my location'}</button>
+        {initiativeStatus && <div className="status-panel state-warning" aria-live="polite">{initiativeStatus}</div>}
+      </section>
+      <section className="initiative-list" aria-live="polite">
+        {initiatives.map((initiative) => <article className="card initiative-card" key={initiative.initiativeId}>
+          <div className="initiative-card-top"><span className="status-chip">{initiative.category.replaceAll('_', ' ')}</span><span className="live-count"><i />LIVE · {initiative.participantCount} {initiative.participantCount === 1 ? 'person' : 'people'}</span></div>
+          <h2>{initiative.title}</h2><p>{initiative.description}</p>
+          <dl><div><dt>When</dt><dd>{timestampLabel(initiative.startAt)}</dd></div><div><dt>Where</dt><dd>{initiative.placeName}</dd></div><div><dt>Distance</dt><dd>{initiative.distanceKm.toFixed(2)} km</dd></div><div><dt>What is needed</dt><dd>{initiative.needs || 'Just bring yourself'}</dd></div></dl>
+          <button disabled={initiative.joined} onClick={() => joinInitiative(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message))}>{initiative.joined ? 'Joined' : 'Join this activity'}</button>
+          <small>Creating or joining is recorded in the contribution ledger but earns no points until participation can be verified.</small>
+        </article>)}
+        {!initiatives.length && initiativeCoordinates && !initiativeStatus.startsWith('Finding') && <div className="card empty-state"><b>No nearby activity is listed yet.</b><p>You can create the first one without inventing an impact claim.</p><button onClick={() => navigate('new-initiative')}>Create an activity</button></div>}
+      </section>
+    </>}
+
+    {screen === 'new-initiative' && <section className="card page-card initiative-form">
+      <span className="eyebrow">CREATE AN ACTIVITY</span><h2>Start something useful nearby</h2><p>Publish the real date, public meeting place and what neighbours should bring. Seewik does not claim participation or impact until it happens.</p>
+      <label>Activity type<select value={initiativeCategory} onChange={(event) => setInitiativeCategory(event.target.value)}><option value="CLEANUP">Neighbourhood clean-up</option><option value="PLANTATION">Plantation</option><option value="DONATION">Donation activity</option><option value="COMMUNITY_FITNESS">Community fitness</option><option value="OTHER_CIVIC_ACTIVITY">Other civic activity</option></select></label>
+      <label>Title<input maxLength={100} value={initiativeTitle} onChange={(event) => setInitiativeTitle(event.target.value)} placeholder="Sunday neighbourhood clean-up" /></label>
+      <label>Description<textarea maxLength={1200} value={initiativeDescription} onChange={(event) => setInitiativeDescription(event.target.value)} placeholder="What will happen and how can neighbours help?" /></label>
+      <label>Date and time<input type="datetime-local" value={initiativeStartAt} onChange={(event) => setInitiativeStartAt(event.target.value)} /></label>
+      <label>Public meeting place<input maxLength={200} value={initiativePlaceName} onChange={(event) => setInitiativePlaceName(event.target.value)} placeholder="Name a public, safe meeting place" /></label>
+      <label>Supplies or volunteers needed (optional)<textarea maxLength={500} value={initiativeNeeds} onChange={(event) => setInitiativeNeeds(event.target.value)} placeholder="For example: 5 volunteers, gloves, reusable water bottles" /></label>
+      <button className="secondary" onClick={() => locateForInitiatives('CREATE')}>{initiativeCoordinates ? 'Activity location captured' : 'Use my location for discovery'}</button>
+      <small>Coordinates support nearby discovery. Other citizens see the public place name and distance, not your raw coordinates.</small>
+      <div className="draft-actions"><button className="secondary" onClick={() => navigate('initiatives')}>Cancel</button><button disabled={!initiativeCoordinates || !initiativeTitle.trim() || !initiativeDescription.trim() || !initiativePlaceName.trim() || !initiativeStartAt} onClick={() => createInitiative().catch((error) => setInitiativeStatus(error.message))}>Publish activity</button></div>
+      {initiativeStatus && <div className="status-panel state-warning" aria-live="polite">{initiativeStatus}</div>}
+    </section>}
 
     {screen === 'new-report' && <>
     <section className="hero page-hero"><span className="eyebrow">NEW REPORT</span><h1>Find the right civic route</h1><p>Gemini may suggest a category. You confirm it, and Civic Pack determines the route.</p></section>
@@ -1043,7 +1223,7 @@ function App() {
     <section className="card systems"><h2>{status}</h2><p>The secure cloud path remains available for technical validation.</p><button onClick={() => verifyFirebase().catch((error) => add(`Firebase check failed: ${error.message}`))}>Verify Firebase services</button>{details.length > 0 && <ul>{details.map((detail, index) => <li key={`${index}-${detail}`}>{detail}</li>)}</ul>}</section>
     </>}
     <footer>Built for local civic action</footer>
-    <nav className="mobile-nav" aria-label="Mobile navigation"><button className={screen === 'home' ? 'active' : ''} onClick={() => navigate('home')}><span>⌂</span>Home</button><button className={screen === 'new-report' || screen === 'review' ? 'active' : ''} onClick={() => navigate('new-report')}><span>＋</span>Report</button><button className={screen === 'reports' || screen === 'report-detail' ? 'active' : ''} onClick={() => navigate('reports')}><span>≡</span>Reports</button><button className={screen === 'points' ? 'active' : ''} onClick={() => navigate('points')}><span>◆</span>Points</button></nav>
+    <nav className="mobile-nav" aria-label="Mobile navigation"><button className={screen === 'home' ? 'active' : ''} onClick={() => navigate('home')}><span>⌂</span>Home</button><button className={screen === 'new-report' || screen === 'review' ? 'active' : ''} onClick={() => navigate('new-report')}><span>＋</span>Report</button><button className={screen === 'initiatives' || screen === 'new-initiative' ? 'active' : ''} onClick={() => navigate('initiatives')}><span>◎</span>Initiate</button><button className={screen === 'reports' || screen === 'report-detail' ? 'active' : ''} onClick={() => navigate('reports')}><span>≡</span>Reports</button><button className={screen === 'points' ? 'active' : ''} onClick={() => navigate('points')}><span>◆</span>Points</button></nav>
   </main>;
 }
 

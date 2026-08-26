@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class ClassificationPromptFactory {
+    public static final String PROMPT_VERSION = "classification-prompt-v0.1";
     private static final int MAX_CITIZEN_TEXT_LENGTH = 2000;
     private final List<CivicRouterService.RouteDefinition> routes;
 

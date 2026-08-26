@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 class ClassificationControllerTest {
+    private static final String AUTHORIZATION = "Bearer valid-token";
     private static final String VALID = """
             {
               "issueType": "POTHOLE_ROAD_DAMAGE",
@@ -32,7 +33,7 @@ class ClassificationControllerTest {
     @Test
     void textOnlyClassificationReturnsValidatedMetadata() throws Exception {
         MockMvc mvc = mvcReturning(VALID);
-        mvc.perform(multipart("/api/civic/classify").param("text", "रस्त्यावर खड्डा आहे"))
+        mvc.perform(multipart("/api/civic/classify").header("Authorization", AUTHORIZATION).param("text", "रस्त्यावर खड्डा आहे"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CLASSIFIED"))
                 .andExpect(jsonPath("$.issueType").value("POTHOLE_ROAD_DAMAGE"))
@@ -45,14 +46,14 @@ class ClassificationControllerTest {
     @Test
     void imageClassificationAcceptsSafeMimeTypes() throws Exception {
         MockMultipartFile image = new MockMultipartFile("image", "road.png", "image/png", new byte[] {1});
-        mvcReturning(VALID).perform(multipart("/api/civic/classify").file(image))
+        mvcReturning(VALID).perform(multipart("/api/civic/classify").file(image).header("Authorization", AUTHORIZATION))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CLASSIFIED"));
     }
 
     @Test
     void emptyEvidenceReturnsControlledClientError() throws Exception {
-        mvcReturning(VALID).perform(multipart("/api/civic/classify"))
+        mvcReturning(VALID).perform(multipart("/api/civic/classify").header("Authorization", AUTHORIZATION))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value("CLASSIFICATION_ERROR"))
                 .andExpect(jsonPath("$.errorCode").value("EMPTY_EVIDENCE"));
@@ -60,7 +61,7 @@ class ClassificationControllerTest {
 
     @Test
     void malformedModelOutputReturnsControlledGatewayErrorWithoutRawOutput() throws Exception {
-        mvcReturning("not json").perform(multipart("/api/civic/classify").param("text", "test"))
+        mvcReturning("not json").perform(multipart("/api/civic/classify").header("Authorization", AUTHORIZATION).param("text", "test"))
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.status").value("CLASSIFICATION_ERROR"))
                 .andExpect(jsonPath("$.errorCode").value("SCHEMA_VALIDATION_FAILED"))
@@ -72,11 +73,18 @@ class ClassificationControllerTest {
         MultipartFile image = mock(MultipartFile.class);
         when(image.isEmpty()).thenReturn(false);
         when(image.getBytes()).thenThrow(new IOException("test read failure"));
-        var response = controllerReturning(VALID).classify(image, null);
+        var response = controllerReturning(VALID).classify(AUTHORIZATION, image, null);
         assertEquals(400, response.getStatusCode().value());
         @SuppressWarnings("unchecked")
         Map<String, String> body = (Map<String, String>) response.getBody();
         assertEquals("IMAGE_READ_FAILED", body.get("errorCode"));
+    }
+
+    @Test
+    void missingFirebaseTokenIsRejectedBeforeCallingTheModel() throws Exception {
+        mvcReturning(VALID).perform(multipart("/api/civic/classify").param("text", "test"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.errorCode").value("AUTHENTICATION_REQUIRED"));
     }
 
     private static MockMvc mvcReturning(String output) throws Exception {
@@ -92,6 +100,12 @@ class ClassificationControllerTest {
                 new ClassificationPromptFactory(mapper),
                 new ClassificationSchemaValidator(mapper),
                 mapper);
-        return new ClassificationController(service);
+        CitizenIdentityVerifier verifier = authorization -> {
+            if (!AUTHORIZATION.equals(authorization)) {
+                throw new CitizenIdentityVerifier.AuthenticationException("A Firebase ID token is required");
+            }
+            return new CitizenIdentityVerifier.AuthenticatedCitizen("test-owner");
+        };
+        return new ClassificationController(service, verifier);
     }
 }
