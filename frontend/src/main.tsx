@@ -175,9 +175,12 @@ type Initiative = {
   placeName: string;
   needs: string;
   status: string;
+  cancellationReason: string;
   participantCount: number;
   distanceKm: number;
   joined: boolean;
+  role: string;
+  canManage: boolean;
   schemaVersion: string;
 };
 
@@ -275,7 +278,9 @@ function App() {
   const [reportsStatus, setReportsStatus] = useState('');
   const [selectedReport, setSelectedReport] = useState<SavedReport | null>(null);
   const [initiatives, setInitiatives] = useState<Initiative[]>([]);
+  const [myInitiatives, setMyInitiatives] = useState<Initiative[]>([]);
   const [initiativeStatus, setInitiativeStatus] = useState('');
+  const [cancellationReasons, setCancellationReasons] = useState<Record<string, string>>({});
   const [initiativeCoordinates, setInitiativeCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
   const [initiativeRadiusKm, setInitiativeRadiusKm] = useState(5);
   const [initiativeTitle, setInitiativeTitle] = useState('');
@@ -366,8 +371,11 @@ function App() {
         loadReportById(reportId, true).catch((error) => setDraftStatus(`Draft could not be resumed: ${error.message}`));
       }
     }
-    if (screen === 'initiatives' && initiativeCoordinates) {
-      discoverInitiatives(false).catch((error) => setInitiativeStatus(`Activities could not be loaded: ${error.message}`));
+    if (screen === 'initiatives') {
+      loadMyInitiatives().catch((error) => setInitiativeStatus(`Your activities could not be loaded: ${error.message}`));
+      if (initiativeCoordinates) {
+        discoverInitiatives(false).catch((error) => setInitiativeStatus(`Activities could not be loaded: ${error.message}`));
+      }
     }
   }, [screen, locationKey]);
 
@@ -375,6 +383,7 @@ function App() {
     if (screen !== 'initiatives' || !initiativeCoordinates) return;
     const interval = window.setInterval(() => {
       discoverInitiatives(true).catch(() => undefined);
+      loadMyInitiatives(true).catch(() => undefined);
     }, 5000);
     return () => window.clearInterval(interval);
   }, [screen, initiativeCoordinates, initiativeRadiusKm]);
@@ -400,6 +409,17 @@ function App() {
     if (!response.ok) throw new Error(result.message ?? `Discovery failed (${response.status})`);
     setInitiatives(result.initiatives);
     if (!background) setInitiativeStatus(result.count ? `${result.count} upcoming activities within ${result.radiusKm} km.` : `No upcoming activities found within ${result.radiusKm} km.`);
+  }
+
+  async function loadMyInitiatives(background = false) {
+    const idToken = await authenticatedToken();
+    const response = await fetch(`${API_URL}/api/initiatives/mine`, {
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    const result: InitiativeDiscovery = await response.json();
+    if (!response.ok) throw new Error(result.message ?? `Your activities could not be loaded (${response.status})`);
+    setMyInitiatives(result.initiatives);
+    if (!background && result.count > 0) setInitiativeStatus(`${result.count} joined or organised ${result.count === 1 ? 'activity' : 'activities'} loaded.`);
   }
 
   function locateForInitiatives(afterLocation: 'DISCOVER' | 'CREATE') {
@@ -467,6 +487,34 @@ function App() {
       ? { ...item, participantCount: result.participantCount, joined: true }
       : item));
     setInitiativeStatus(result.status === 'ALREADY_JOINED' ? 'You already joined this activity.' : 'You joined. The live participant count has been updated.');
+    await loadMyInitiatives(true);
+  }
+
+  async function changeInitiativeStatus(initiativeId: string, target: 'CANCELLED' | 'COMPLETED') {
+    const reason = cancellationReasons[initiativeId]?.trim() ?? '';
+    if (target === 'CANCELLED' && !reason) {
+      setInitiativeStatus('Add a short cancellation reason first.');
+      return;
+    }
+    setInitiativeStatus(target === 'CANCELLED' ? 'Cancelling activity…' : 'Marking activity completed…');
+    const idToken = await authenticatedToken();
+    const response = await fetch(`${API_URL}/api/initiatives/${encodeURIComponent(initiativeId)}/${target === 'CANCELLED' ? 'cancel' : 'complete'}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+        ...(target === 'CANCELLED' ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: target === 'CANCELLED' ? JSON.stringify({ reason }) : undefined,
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message ?? `Activity update failed (${response.status})`);
+    setMyInitiatives((items) => items.map((item) => item.initiativeId === initiativeId
+      ? { ...item, status: target, cancellationReason: target === 'CANCELLED' ? reason : item.cancellationReason }
+      : item));
+    setInitiatives((items) => items.filter((item) => item.initiativeId !== initiativeId));
+    setInitiativeStatus(result.idempotentReplay
+      ? `This activity was already ${target.toLowerCase()}.`
+      : `Activity ${target.toLowerCase()}. No points were awarded.`);
   }
 
   async function verifyFirebase() {
@@ -991,6 +1039,29 @@ function App() {
 
     {screen === 'initiatives' && <>
       <section className="hero page-hero initiative-hero"><span className="eyebrow">INITIATE WHAT IS GOOD</span><h1>Take action with neighbours</h1><p>Discover upcoming civic activities near you, join once, and see the participant count update.</p></section>
+      <section className="card initiative-memberships">
+        <h2>My activities</h2>
+        <p>Activities you organise or join stay here after cancellation or completion, so their final status remains clear.</p>
+        {!myInitiatives.length && <div className="empty-state"><b>No joined activities yet.</b><p>Create an activity or join one nearby.</p></div>}
+        <div className="initiative-list compact-list" aria-live="polite">
+          {myInitiatives.map((initiative) => <article className="card initiative-card" key={`mine-${initiative.initiativeId}`}>
+            <div className="initiative-card-top"><span className={`status-chip status-${initiative.status.toLowerCase()}`}>{initiative.status.replaceAll('_', ' ')}</span><span>{initiative.role === 'ORGANISER' ? 'Organiser' : 'Joined'}</span></div>
+            <h3>{initiative.title}</h3>
+            <p>{timestampLabel(initiative.startAt)} · {initiative.placeName}</p>
+            {initiative.status === 'CANCELLED' && initiative.cancellationReason && <p><b>Cancellation reason:</b> {initiative.cancellationReason}</p>}
+            {initiative.canManage && initiative.status === 'PUBLISHED' && <div className="initiative-manage">
+              <label htmlFor={`cancel-reason-${initiative.initiativeId}`}>Cancellation reason
+                <input id={`cancel-reason-${initiative.initiativeId}`} maxLength={300} value={cancellationReasons[initiative.initiativeId] ?? ''} onChange={(event) => setCancellationReasons((values) => ({ ...values, [initiative.initiativeId]: event.target.value }))} placeholder="Required only when cancelling" />
+              </label>
+              <div className="draft-actions">
+                <button className="secondary" disabled={!cancellationReasons[initiative.initiativeId]?.trim()} onClick={() => changeInitiativeStatus(initiative.initiativeId, 'CANCELLED').catch((error) => setInitiativeStatus(error.message))}>Cancel activity</button>
+                <button disabled={Date.now() < Date.parse(initiative.startAt)} title={Date.now() < Date.parse(initiative.startAt) ? 'Available after the scheduled activity time' : undefined} onClick={() => changeInitiativeStatus(initiative.initiativeId, 'COMPLETED').catch((error) => setInitiativeStatus(error.message))}>Mark completed</button>
+              </div>
+            </div>}
+            <small>Activity status changes and participation do not earn points.</small>
+          </article>)}
+        </div>
+      </section>
       <section className="initiative-toolbar card">
         <div><h2>Nearby activities</h2><p>Distance is calculated from the location you choose to share. Your coordinates are used for this request and are not shown to other citizens.</p></div>
         <button onClick={() => navigate('new-initiative')}>Create an activity</button>

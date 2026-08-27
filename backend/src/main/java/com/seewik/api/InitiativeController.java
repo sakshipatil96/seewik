@@ -4,6 +4,7 @@ import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -43,7 +44,53 @@ public class InitiativeController {
             @RequestBody(required = false) InitiativeService.DiscoveryRequest request) {
         try {
             identityVerifier.verifyBearer(authorization);
-            return ResponseEntity.ok(initiativeService.discover(request));
+            var citizen = identityVerifier.verifyBearer(authorization);
+            InitiativeService.DiscoveryRequest ownedRequest = request == null
+                    ? new InitiativeService.DiscoveryRequest(citizen.uid(), null, null, null)
+                    : request.withOwnerUid(citizen.uid());
+            return ResponseEntity.ok(initiativeService.discover(ownedRequest));
+        } catch (CitizenIdentityVerifier.AuthenticationException exception) {
+            return unauthorized(exception);
+        } catch (InitiativeService.InitiativeException exception) {
+            return failure(exception);
+        }
+    }
+
+    @GetMapping(value = "/mine", produces = "application/json")
+    public ResponseEntity<?> mine(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        try {
+            var citizen = identityVerifier.verifyBearer(authorization);
+            return ResponseEntity.ok(initiativeService.mine(citizen.uid()));
+        } catch (CitizenIdentityVerifier.AuthenticationException exception) {
+            return unauthorized(exception);
+        } catch (InitiativeService.InitiativeException exception) {
+            return failure(exception);
+        }
+    }
+
+    @PostMapping(value = "/{initiativeId}/cancel", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> cancel(
+            @PathVariable String initiativeId,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody(required = false) InitiativeService.CancelRequest request) {
+        try {
+            var citizen = identityVerifier.verifyBearer(authorization);
+            return ResponseEntity.ok(initiativeService.cancel(citizen.uid(), initiativeId, request));
+        } catch (CitizenIdentityVerifier.AuthenticationException exception) {
+            return unauthorized(exception);
+        } catch (InitiativeService.InitiativeException exception) {
+            return failure(exception);
+        }
+    }
+
+    @PostMapping(value = "/{initiativeId}/complete", produces = "application/json")
+    public ResponseEntity<?> complete(
+            @PathVariable String initiativeId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        try {
+            var citizen = identityVerifier.verifyBearer(authorization);
+            return ResponseEntity.ok(initiativeService.complete(citizen.uid(), initiativeId));
         } catch (CitizenIdentityVerifier.AuthenticationException exception) {
             return unauthorized(exception);
         } catch (InitiativeService.InitiativeException exception) {
@@ -74,7 +121,8 @@ public class InitiativeController {
     private static ResponseEntity<Map<String, String>> failure(InitiativeService.InitiativeException exception) {
         HttpStatus status = switch (exception.code()) {
             case "INITIATIVE_NOT_FOUND" -> HttpStatus.NOT_FOUND;
-            case "INITIATIVE_NOT_JOINABLE" -> HttpStatus.CONFLICT;
+            case "INITIATIVE_NOT_JOINABLE", "INITIATIVE_INVALID_TRANSITION", "INITIATIVE_NOT_STARTED" -> HttpStatus.CONFLICT;
+            case "INITIATIVE_FORBIDDEN" -> HttpStatus.FORBIDDEN;
             case "INITIATIVE_STORE_FAILED", "INITIATIVE_STORE_INTERRUPTED" -> HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.BAD_REQUEST;
         };

@@ -72,7 +72,7 @@ public class InitiativeService {
                 ledgerEntryId, initiativeId, eventId, ownerUid, "INITIATIVE_CREATED", now);
         Map<String, Object> saved = gateway.create(
                 ownerUid, initiativeId, initiative, event, participation, ledger);
-        return view(saved, 0.0, true);
+        return view(saved, 0.0, "ORGANISER");
     }
 
     public DiscoveryResponse discover(DiscoveryRequest request) {
@@ -86,7 +86,8 @@ public class InitiativeService {
         }
         Instant now = clock.instant();
         List<InitiativeView> nearby = new ArrayList<>();
-        for (Map<String, Object> initiative : gateway.listPublished()) {
+        for (InitiativeGateway.CitizenInitiative item : gateway.listPublished(request.ownerUid())) {
+            Map<String, Object> initiative = item.initiative();
             Instant startAt = instant(initiative.get("startAt"));
             if (startAt == null || startAt.isBefore(now)) continue;
             double distanceKm = haversineKm(
@@ -94,7 +95,7 @@ public class InitiativeService {
                     longitude,
                     number(initiative.get("latitude")),
                     number(initiative.get("longitude")));
-            if (distanceKm <= radiusKm) nearby.add(view(initiative, distanceKm, false));
+            if (distanceKm <= radiusKm) nearby.add(view(initiative, distanceKm, item.role()));
         }
         nearby.sort(Comparator.comparingDouble(InitiativeView::distanceKm)
                 .thenComparing(InitiativeView::startAt));
@@ -109,6 +110,41 @@ public class InitiativeService {
                 cleanId,
                 integer(result.initiative().get("participantCount")),
                 result.alreadyJoined());
+    }
+
+    public MyInitiativesResponse mine(String ownerUid) {
+        List<InitiativeView> activities = gateway.listForCitizen(ownerUid).stream()
+                .map(item -> view(item.initiative(), 0.0, item.role()))
+                .sorted(Comparator.comparing(InitiativeView::startAt).reversed())
+                .toList();
+        return new MyInitiativesResponse("MY_INITIATIVES", activities.size(), activities);
+    }
+
+    public TransitionResponse cancel(String ownerUid, String initiativeId, CancelRequest request) {
+        String cleanId = clean(initiativeId, 80, "INVALID_INITIATIVE_ID", "Initiative ID is required");
+        String reason = clean(
+                request == null ? null : request.reason(),
+                300,
+                "CANCELLATION_REASON_REQUIRED",
+                "Add a short cancellation reason");
+        return transition(ownerUid, cleanId, "CANCELLED", reason);
+    }
+
+    public TransitionResponse complete(String ownerUid, String initiativeId) {
+        String cleanId = clean(initiativeId, 80, "INVALID_INITIATIVE_ID", "Initiative ID is required");
+        return transition(ownerUid, cleanId, "COMPLETED", "");
+    }
+
+    private TransitionResponse transition(
+            String ownerUid, String initiativeId, String targetStatus, String cancellationReason) {
+        InitiativeGateway.TransitionResult result = gateway.transition(
+                ownerUid, initiativeId, targetStatus, cancellationReason, clock.instant());
+        return new TransitionResponse(
+                result.idempotentReplay() ? "TRANSITION_ALREADY_RECORDED" : "TRANSITION_RECORDED",
+                initiativeId,
+                targetStatus,
+                result.idempotentReplay(),
+                0);
     }
 
     static Map<String, Object> event(
@@ -263,7 +299,7 @@ public class InitiativeService {
         return 6371.0088 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
-    private static InitiativeView view(Map<String, Object> data, double distanceKm, boolean joined) {
+    private static InitiativeView view(Map<String, Object> data, double distanceKm, String role) {
         return new InitiativeView(
                 String.valueOf(data.get("initiativeId")),
                 String.valueOf(data.get("title")),
@@ -273,9 +309,12 @@ public class InitiativeService {
                 String.valueOf(data.get("placeName")),
                 String.valueOf(data.getOrDefault("needs", "")),
                 String.valueOf(data.get("status")),
+                String.valueOf(data.getOrDefault("cancellationReason", "")),
                 integer(data.get("participantCount")),
                 Math.round(distanceKm * 100.0) / 100.0,
-                joined,
+                role != null && !role.isBlank(),
+                role == null ? "" : role,
+                "ORGANISER".equals(role),
                 String.valueOf(data.get("schemaVersion")));
     }
 
@@ -299,7 +338,17 @@ public class InitiativeService {
             Double longitude,
             String needs) {}
 
-    public record DiscoveryRequest(Double latitude, Double longitude, Double radiusKm) {}
+    public record DiscoveryRequest(String ownerUid, Double latitude, Double longitude, Double radiusKm) {
+        public DiscoveryRequest(Double latitude, Double longitude, Double radiusKm) {
+            this(null, latitude, longitude, radiusKm);
+        }
+
+        DiscoveryRequest withOwnerUid(String value) {
+            return new DiscoveryRequest(value, latitude, longitude, radiusKm);
+        }
+    }
+
+    public record CancelRequest(String reason) {}
 
     public record InitiativeView(
             String initiativeId,
@@ -310,9 +359,12 @@ public class InitiativeService {
             String placeName,
             String needs,
             String status,
+            String cancellationReason,
             int participantCount,
             double distanceKm,
             boolean joined,
+            String role,
+            boolean canManage,
             String schemaVersion) {}
 
     public record DiscoveryResponse(
@@ -320,6 +372,15 @@ public class InitiativeService {
 
     public record JoinResponse(
             String status, String initiativeId, int participantCount, boolean idempotentReplay) {}
+
+    public record MyInitiativesResponse(String status, int count, List<InitiativeView> initiatives) {}
+
+    public record TransitionResponse(
+            String status,
+            String initiativeId,
+            String initiativeStatus,
+            boolean idempotentReplay,
+            int pointsAwarded) {}
 
     public static final class InitiativeException extends RuntimeException {
         private final String code;

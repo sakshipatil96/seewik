@@ -172,6 +172,16 @@ button.text-action { margin-top: var(--space-3); color: var(--color-teal-ink); t
 .initiative-card dd { margin: 0; font-size: .82rem; line-height: 1.4; }
 .initiative-card button { margin-top: auto; }
 .initiative-card > small, .initiative-form > small { display: block; margin-top: var(--space-3); color: var(--color-muted); line-height: 1.45; }
+.initiative-memberships { max-width: 980px; }
+.initiative-memberships > .compact-list { width: 100%; margin-top: var(--space-4); }
+.initiative-memberships > .empty-state { padding: var(--space-4) 0 0; }
+.initiative-card h3 { margin: var(--space-4) 0 var(--space-2); font-size: 1.05rem; }
+.initiative-manage { display: grid; gap: var(--space-3); margin-top: var(--space-3); }
+.initiative-manage label { margin: 0; }
+.initiative-manage .draft-actions { margin-top: 0; }
+.initiative-manage button { margin-top: 0; }
+.status-cancelled { color: #7a271a !important; background: #fee4e2 !important; }
+.status-completed { color: #175cd3 !important; background: #eff8ff !important; }
 .initiative-form input[type="datetime-local"] { width: 100%; min-height: 52px; margin-top: var(--space-2); padding: 13px 14px; border: 1.5px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text); }
 
 .hero { max-width: 620px; margin: clamp(36px, 7vh, 72px) auto var(--space-8); width: 100%; }

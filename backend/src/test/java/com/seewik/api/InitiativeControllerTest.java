@@ -37,13 +37,28 @@ class InitiativeControllerTest {
             }
 
             @Override
-            public List<Map<String, Object>> listPublished() {
+            public List<CitizenInitiative> listPublished(String ownerUid) {
+                return List.of();
+            }
+
+            @Override
+            public List<CitizenInitiative> listForCitizen(String ownerUid) {
                 return List.of();
             }
 
             @Override
             public JoinResult join(String ownerUid, String initiativeId, Instant occurredAt) {
                 return new JoinResult(Map.of("participantCount", 2), false);
+            }
+
+            @Override
+            public TransitionResult transition(
+                    String ownerUid,
+                    String initiativeId,
+                    String targetStatus,
+                    String cancellationReason,
+                    Instant occurredAt) {
+                return new TransitionResult(Map.of("status", targetStatus), false);
             }
         };
         mvc = MockMvcBuilders.standaloneSetup(
@@ -73,5 +88,22 @@ class InitiativeControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("JOINED"))
                 .andExpect(jsonPath("$.participantCount").value(2));
+    }
+
+    @Test
+    void organiserLifecycleEndpointsReturnZeroPointTransitions() throws Exception {
+        mvc.perform(post("/api/initiatives/init-1/cancel")
+                        .header("Authorization", "Bearer valid")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Heavy rain\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.initiativeStatus").value("CANCELLED"))
+                .andExpect(jsonPath("$.pointsAwarded").value(0));
+
+        mvc.perform(post("/api/initiatives/init-1/complete")
+                        .header("Authorization", "Bearer valid"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.initiativeStatus").value("COMPLETED"))
+                .andExpect(jsonPath("$.pointsAwarded").value(0));
     }
 }
