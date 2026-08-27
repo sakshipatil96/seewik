@@ -10,6 +10,7 @@ public class PrabhagResolverService {
     public static final String DATASET_VERSION = "synthetic-v0.1";
     public static final String RESOLUTION_METHOD = "BIGQUERY_ST_COVERS";
     public static final String SNAPSHOT_RESOLUTION_METHOD = "SNAPSHOT_POINT_IN_POLYGON";
+    public static final String MANUAL_RESOLUTION_METHOD = "MANUAL_SELECTION_REQUIRED";
     public static final String RESOLUTION_QUALITY = "SYNTHETIC_BOUNDARY";
     private final PrabhagBoundaryGateway boundaryGateway;
     private final LastKnownGoodPrabhagSnapshot snapshot;
@@ -42,6 +43,11 @@ public class PrabhagResolverService {
         if (!validCoordinates(latitude, longitude)) {
             metrics.increment("prabhag.invalid_coordinates");
             return PrabhagResolution.invalid();
+        }
+        if (!snapshot.available()) {
+            metrics.increment("prabhag.snapshot_unavailable");
+            metrics.increment("prabhag.manual_resolution_required");
+            return PrabhagResolution.manualSelectionRequired();
         }
 
         long startedAt = System.nanoTime();
@@ -175,6 +181,14 @@ public class PrabhagResolverService {
                     "INVALID_COORDINATES", null, null, null, null, false, null, null, null,
                     DATASET_VERSION, null, null, null, null, null,
                     "Provide valid latitude and longitude values.");
+        }
+
+        static PrabhagResolution manualSelectionRequired() {
+            return new PrabhagResolution(
+                    "MANUAL_SELECTION_REQUIRED", null, null, MANUAL_RESOLUTION_METHOD, null,
+                    false, null, null, null, DATASET_VERSION, null,
+                    null, "SNAPSHOT_UNAVAILABLE", null, null,
+                    "Automatic prabhag suggestion is unavailable. Select Prabhag 1-20 manually.");
         }
 
         static PrabhagResolution outside(

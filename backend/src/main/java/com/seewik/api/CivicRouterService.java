@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -21,8 +22,11 @@ public class CivicRouterService {
     private final CivicPack pack;
     private final Map<String, RouteDefinition> routesByIssueType;
     private final Map<String, DepartmentDefinition> departmentsById;
+    private final OperationalMetrics metrics;
 
-    public CivicRouterService(ObjectMapper objectMapper) throws IOException {
+    @Autowired
+    public CivicRouterService(ObjectMapper objectMapper, OperationalMetrics metrics) throws IOException {
+        this.metrics = metrics;
         try (InputStream input = CivicRouterService.class.getResourceAsStream("/civic-pack-v0.2.json")) {
             if (input == null) {
                 throw new IOException("Missing Civic Pack resource civic-pack-v0.2.json");
@@ -51,18 +55,22 @@ public class CivicRouterService {
         this.routesByIssueType = Map.copyOf(indexed);
     }
 
+    public CivicRouterService(ObjectMapper objectMapper) throws IOException {
+        this(objectMapper, new OperationalMetrics(objectMapper, "test"));
+    }
+
     public CivicRouteResponse route(CivicRouteRequest request) {
         String issueType = normalizeIssueType(request == null ? null : request.issueType());
         String prabhagId = request == null ? "" : firstNonBlank(request.prabhagId(), request.wardId());
         RouteDefinition route = routesByIssueType.get(issueType);
         if (route == null || !SUPPORTED_PRABHAG_IDS.contains(prabhagId)) {
-            return CivicRouteResponse.unsupported(prabhagId.isBlank() ? null : prabhagId, PACK_VERSION);
+            return unsupported(prabhagId.isBlank() ? null : prabhagId);
         }
         String requestedMethod = normalizeResolutionMethod(request == null ? null : request.resolutionMethod());
         boolean syntheticCandidate = PrabhagResolverService.RESOLUTION_METHOD.equals(requestedMethod)
                 || PrabhagResolverService.SNAPSHOT_RESOLUTION_METHOD.equals(requestedMethod);
         if (!requestedMethod.isBlank() && !"SELF_REPORTED".equals(requestedMethod) && !syntheticCandidate) {
-            return CivicRouteResponse.unsupported(prabhagId, PACK_VERSION);
+            return unsupported(prabhagId);
         }
         if (syntheticCandidate
                 && (!Boolean.TRUE.equals(request.citizenConfirmed())
@@ -91,6 +99,11 @@ public class CivicRouterService {
                 route.sourceStatus(),
                 route.reviewStatus(),
                 pack.packVersion());
+    }
+
+    private CivicRouteResponse unsupported(String prabhagId) {
+        metrics.increment("unsupported_route_total");
+        return CivicRouteResponse.unsupported(prabhagId, PACK_VERSION);
     }
 
     private static String normalizeIssueType(String issueType) {

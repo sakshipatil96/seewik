@@ -102,6 +102,10 @@ public class CivicClassificationService {
         }
         metrics.increment("model.classification.success");
         metrics.recordLatency("model.classification", latencyMs);
+        if (classification.needsClarification()
+                && classification.confidence() < ClassificationSchemaValidator.CONFIDENCE_THRESHOLD) {
+            metrics.increment("low_confidence_clarification_total");
+        }
 
         String status = classification.needsClarification() ? "CLARIFICATION_REQUIRED" : "CLASSIFIED";
         return new ClassificationResult(

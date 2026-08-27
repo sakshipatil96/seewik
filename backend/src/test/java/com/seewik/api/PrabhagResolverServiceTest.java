@@ -65,6 +65,36 @@ class PrabhagResolverServiceTest {
     }
 
     @Test
+    void unavailableSnapshotStartsDegradedAndRequiresManualSelectionWithoutGuessing() {
+        AtomicInteger primaryCalls = new AtomicInteger();
+        ObjectMapper json = new ObjectMapper();
+        OperationalMetrics metrics = new OperationalMetrics(json, "test");
+        LastKnownGoodPrabhagSnapshot unavailable = new LastKnownGoodPrabhagSnapshot(
+                json, "/missing-prabhag-snapshot.geojson", LastKnownGoodPrabhagSnapshot.CHECKSUM);
+        PrabhagResolverService service = new PrabhagResolverService(
+                (latitude, longitude) -> {
+                    primaryCalls.incrementAndGet();
+                    throw new IllegalStateException("primary unavailable");
+                },
+                unavailable,
+                new PrabhagCircuitBreaker(3, Duration.ofSeconds(30), System::nanoTime),
+                metrics);
+
+        var result = service.resolve(new PrabhagResolverService.PrabhagResolutionRequest(
+                21.363778, 74.2411418));
+
+        assertEquals("MANUAL_SELECTION_REQUIRED", result.status());
+        assertEquals("MANUAL_SELECTION_REQUIRED", result.resolutionMethod());
+        assertNull(result.prabhagId());
+        assertEquals("SNAPSHOT_UNAVAILABLE", result.fallbackReason());
+        assertEquals(0, primaryCalls.get());
+        @SuppressWarnings("unchecked")
+        var counters = (java.util.Map<String, Long>) metrics.snapshot().get("counters");
+        assertEquals(1L, counters.get("prabhag.snapshot_unavailable"));
+        assertEquals(1L, counters.get("prabhag.manual_resolution_required"));
+    }
+
+    @Test
     void repeatedFailuresOpenCircuitAndSkipDependency() {
         AtomicInteger calls = new AtomicInteger();
         PrabhagResolverService service = service((latitude, longitude) -> {

@@ -10,34 +10,49 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 public final class LastKnownGoodPrabhagSnapshot {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LastKnownGoodPrabhagSnapshot.class);
     public static final String RESOURCE = "/prabhag-snapshot-synthetic-v0.1.geojson";
     public static final String DATASET_VERSION = "synthetic-v0.1";
     public static final String CHECKSUM = "059533c8988334e7a268482c83bac9693e74783081c5b3a8cb51061bda4e100a";
     public static final String PROVENANCE = "Packaged last-known-good copy of fixed-seed synthetic-boundaries-v0.1";
     private final List<PolygonBoundary> boundaries;
+    private final boolean available;
 
+    @Autowired
     public LastKnownGoodPrabhagSnapshot(ObjectMapper json) {
-        try (InputStream input = LastKnownGoodPrabhagSnapshot.class.getResourceAsStream(RESOURCE)) {
+        this(json, RESOURCE, CHECKSUM);
+    }
+
+    LastKnownGoodPrabhagSnapshot(ObjectMapper json, String resource, String expectedChecksum) {
+        List<PolygonBoundary> loaded = new ArrayList<>();
+        boolean loadedSuccessfully = false;
+        try (InputStream input = LastKnownGoodPrabhagSnapshot.class.getResourceAsStream(resource)) {
             if (input == null) throw new IOException("Missing packaged prabhag snapshot");
             byte[] bytes = input.readAllBytes();
-            if (!CHECKSUM.equals(sha256(bytes))) throw new IOException("Prabhag snapshot checksum mismatch");
+            if (!expectedChecksum.equals(sha256(bytes))) throw new IOException("Prabhag snapshot checksum mismatch");
             JsonNode root = json.readTree(bytes);
             if (!"FeatureCollection".equals(root.path("type").asText()) || root.path("features").size() != 20) {
                 throw new IOException("Prabhag snapshot must contain exactly 20 polygon features");
             }
-            List<PolygonBoundary> loaded = new ArrayList<>();
             for (JsonNode feature : root.path("features")) loaded.add(parse(feature));
-            this.boundaries = List.copyOf(loaded);
-        } catch (IOException exception) {
-            throw new IllegalStateException("The packaged prabhag snapshot is invalid", exception);
+            loadedSuccessfully = true;
+        } catch (IOException | RuntimeException exception) {
+            loaded.clear();
+            LOGGER.warn("Packaged prabhag snapshot unavailable; manual selection mode enabled");
         }
+        this.boundaries = List.copyOf(loaded);
+        this.available = loadedSuccessfully;
     }
 
     public Optional<PrabhagBoundaryGateway.BoundaryMatch> findCoveringBoundary(double latitude, double longitude) {
+        if (!available) return Optional.empty();
         for (PolygonBoundary boundary : boundaries) {
             if (covers(boundary.ring(), longitude, latitude)) return Optional.of(boundary.match());
         }
@@ -46,6 +61,10 @@ public final class LastKnownGoodPrabhagSnapshot {
 
     int boundaryCount() {
         return boundaries.size();
+    }
+
+    boolean available() {
+        return available;
     }
 
     private static PolygonBoundary parse(JsonNode feature) throws IOException {

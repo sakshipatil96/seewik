@@ -26,4 +26,17 @@ class OperationalMetricsTest {
         assertFalse(serialized.contains("coordinates"));
         assertFalse(serialized.contains("complaintBody"));
     }
+
+    @Test
+    void unsupportedDeterministicRouteHasAnOperationalCounter() throws Exception {
+        OperationalMetrics metrics = new OperationalMetrics(new ObjectMapper(), "test");
+        CivicRouterService router = new CivicRouterService(new ObjectMapper(), metrics);
+
+        router.route(new CivicRouterService.CivicRouteRequest(
+                "NOT_IN_CIVIC_PACK", "PRABHAG-01", null, "SELF_REPORTED", false, null));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Long> counters = (Map<String, Long>) metrics.snapshot().get("counters");
+        assertEquals(1L, counters.get("unsupported_route_total"));
+    }
 }

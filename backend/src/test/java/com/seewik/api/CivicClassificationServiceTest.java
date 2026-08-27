@@ -50,19 +50,41 @@ class CivicClassificationServiceTest {
 
     @Test
     void lowConfidenceOutputStopsForClarification() {
-        var result = serviceReturning(clarification("WATER_SUPPLY", "MIXED", 0.72))
-                .classify(null, null, "Paani कमी pressure ने येत आहे");
+        OperationalMetrics metrics = new OperationalMetrics(mapper, "test");
+        CivicClassificationService service = new CivicClassificationService(
+                (prompt, image, mime, schema) -> generated(clarification("WATER_SUPPLY", "MIXED", 0.72)),
+                promptFactory,
+                validator,
+                vertexSchema,
+                Clock.fixed(Instant.parse("2026-08-24T18:00:00Z"), ZoneOffset.UTC),
+                new ModelCallExecutor(Duration.ofSeconds(1), Duration.ofSeconds(1)),
+                metrics);
+        var result = service.classify(null, null, "Paani कमी pressure ने येत आहे");
         assertEquals("CLARIFICATION_REQUIRED", result.status());
         assertTrue(result.needsClarification());
         assertFalse(result.clarificationQuestion().isBlank());
+        @SuppressWarnings("unchecked")
+        var counters = (java.util.Map<String, Long>) metrics.snapshot().get("counters");
+        assertEquals(1L, counters.get("low_confidence_clarification_total"));
     }
 
     @Test
     void unknownAlwaysStopsForClarification() {
-        var result = serviceReturning(clarification("UNKNOWN", "EN", 0.95))
-                .classify(null, null, "Something is wrong");
+        OperationalMetrics metrics = new OperationalMetrics(mapper, "test");
+        CivicClassificationService service = new CivicClassificationService(
+                (prompt, image, mime, schema) -> generated(clarification("UNKNOWN", "EN", 0.95)),
+                promptFactory,
+                validator,
+                vertexSchema,
+                Clock.fixed(Instant.parse("2026-08-24T18:00:00Z"), ZoneOffset.UTC),
+                new ModelCallExecutor(Duration.ofSeconds(1), Duration.ofSeconds(1)),
+                metrics);
+        var result = service.classify(null, null, "Something is wrong");
         assertEquals("CLARIFICATION_REQUIRED", result.status());
         assertEquals("UNKNOWN", result.issueType());
+        @SuppressWarnings("unchecked")
+        var counters = (java.util.Map<String, Long>) metrics.snapshot().get("counters");
+        assertFalse(counters.containsKey("low_confidence_clarification_total"));
     }
 
     @Test

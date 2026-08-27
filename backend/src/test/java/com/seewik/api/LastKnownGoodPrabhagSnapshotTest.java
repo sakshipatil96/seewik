@@ -1,6 +1,7 @@
 package com.seewik.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,6 +12,7 @@ class LastKnownGoodPrabhagSnapshotTest {
 
     @Test
     void packagedSnapshotHasFrozenIntegrityAndTwentyPolygons() {
+        assertTrue(snapshot.available());
         assertEquals(20, snapshot.boundaryCount());
         assertEquals("059533c8988334e7a268482c83bac9693e74783081c5b3a8cb51061bda4e100a",
                 LastKnownGoodPrabhagSnapshot.CHECKSUM);
@@ -24,5 +26,24 @@ class LastKnownGoodPrabhagSnapshotTest {
         assertEquals("UNSOURCED", match.orElseThrow().sourceStatus());
         assertTrue(match.orElseThrow().requiresCitizenConfirmation());
         assertTrue(snapshot.findCoveringBoundary(20.9042, 74.7749).isEmpty());
+    }
+
+    @Test
+    void missingSnapshotEnablesDegradedManualModeInsteadOfFailingStartup() {
+        LastKnownGoodPrabhagSnapshot unavailable = new LastKnownGoodPrabhagSnapshot(
+                new ObjectMapper(), "/missing-prabhag-snapshot.geojson", LastKnownGoodPrabhagSnapshot.CHECKSUM);
+
+        assertFalse(unavailable.available());
+        assertEquals(0, unavailable.boundaryCount());
+        assertTrue(unavailable.findCoveringBoundary(21.363778, 74.2411418).isEmpty());
+    }
+
+    @Test
+    void corruptOrWrongSnapshotEnablesTheSameDegradedManualMode() {
+        LastKnownGoodPrabhagSnapshot unavailable = new LastKnownGoodPrabhagSnapshot(
+                new ObjectMapper(), "/civic-pack-v0.2.json", LastKnownGoodPrabhagSnapshot.CHECKSUM);
+
+        assertFalse(unavailable.available());
+        assertEquals(0, unavailable.boundaryCount());
     }
 }

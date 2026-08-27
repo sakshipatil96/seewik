@@ -494,6 +494,13 @@ function App() {
     const result: PrabhagResolution = await response.json();
     setResolution(result);
     setLocationStatus(result.message);
+    if (result.status === 'MANUAL_SELECTION_REQUIRED') {
+      setSelectionMethod('SELF_REPORTED');
+      setCitizenConfirmed(false);
+      setBoundaryDatasetVersion(undefined);
+      setRouteResult(null);
+      resetDraft();
+    }
   }
 
   function useMyLocation() {
