@@ -8,6 +8,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import java.util.concurrent.atomic.AtomicInteger;
 
 class ComplaintDraftControllerTest {
     private static final String AUTHORIZATION = "Bearer valid-token";
@@ -72,23 +74,77 @@ class ComplaintDraftControllerTest {
                 .andExpect(jsonPath("$.errorCode").value("AUTHENTICATION_REQUIRED"));
     }
 
+    @Test
+    void rateLimitedDraftReturns429AndDoesNotInvokeDrafting() throws Exception {
+        AtomicInteger modelCalls = new AtomicInteger();
+        ComplaintDraftService service = service((prompt, image, mime, schema) -> {
+            modelCalls.incrementAndGet();
+            return generated(ComplaintDraftValidatorTest.validDraft());
+        });
+        PaidEndpointRateLimiter limiter = (uid, endpoint) -> {
+            throw new PaidEndpointRateLimiter.RateLimitedException("global", 9);
+        };
+        ComplaintDraftController controller = new ComplaintDraftController(
+                service, validVerifier(), limiter,
+                new OperationalMetrics(new ObjectMapper(), "test"));
+
+        MockMvcBuilders.standaloneSetup(controller).build().perform(post("/api/civic/draft-complaint")
+                        .header("Authorization", AUTHORIZATION)
+                        .contentType("application/json").content(validRequest()))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Retry-After", "9"))
+                .andExpect(jsonPath("$.errorCode").value("RATE_LIMITED"));
+        assertEquals(0, modelCalls.get());
+    }
+
+    @Test
+    void draftTimeoutReturns504AndPreservesManualWritingMessage() throws Exception {
+        ComplaintDraftService service = service((prompt, image, mime, schema) -> {
+            throw new GeminiGateway.ModelTransportTimeoutException(new java.net.http.HttpTimeoutException("deadline"));
+        });
+        ComplaintDraftController controller = new ComplaintDraftController(
+                service, validVerifier(), (uid, endpoint) -> {},
+                new OperationalMetrics(new ObjectMapper(), "test"));
+
+        MockMvcBuilders.standaloneSetup(controller).build().perform(post("/api/civic/draft-complaint")
+                        .header("Authorization", AUTHORIZATION)
+                        .contentType("application/json").content(validRequest()))
+                .andExpect(status().isGatewayTimeout())
+                .andExpect(jsonPath("$.errorCode").value("MODEL_TIMEOUT"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("write or copy")));
+    }
+
     private static MockMvc mvcReturning(String output) throws Exception {
+        ComplaintDraftService service = service((prompt, image, mime, schema) -> generated(output));
         ObjectMapper mapper = new ObjectMapper();
-        GeminiGateway gateway = (prompt, image, mime, schema) ->
-                new GeminiGateway.GeneratedContent(output, "gemini-test", "response-test", 1L, 2L, 3L);
-        ComplaintDraftService service = new ComplaintDraftService(
+        CitizenIdentityVerifier verifier = validVerifier();
+        PaidEndpointRateLimiter limiter = (uid, endpoint) -> {};
+        return MockMvcBuilders.standaloneSetup(new ComplaintDraftController(
+                service, verifier, limiter, new OperationalMetrics(mapper, "test"))).build();
+    }
+
+    private static ComplaintDraftService service(GeminiGateway gateway) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        return new ComplaintDraftService(
                 gateway,
                 new ComplaintPromptFactory(),
                 new ComplaintDraftValidator(mapper),
                 new CivicRouterService(mapper),
                 mapper);
-        CitizenIdentityVerifier verifier = authorization -> {
+    }
+
+    private static GeminiGateway.GeneratedContent generated(String output) {
+        return new GeminiGateway.GeneratedContent(output, "gemini-test", "response-test", 1L, 2L, 3L);
+    }
+
+    private static CitizenIdentityVerifier validVerifier() {
+        return authorization -> {
             if (!AUTHORIZATION.equals(authorization)) {
                 throw new CitizenIdentityVerifier.AuthenticationException("A Firebase ID token is required");
             }
             return new CitizenIdentityVerifier.AuthenticatedCitizen("test-owner");
         };
-        return MockMvcBuilders.standaloneSetup(new ComplaintDraftController(service, verifier)).build();
     }
 
     private static String validRequest() {

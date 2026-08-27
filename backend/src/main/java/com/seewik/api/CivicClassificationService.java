@@ -21,14 +21,28 @@ public class CivicClassificationService {
     private final ClassificationSchemaValidator validator;
     private final JsonNode responseSchema;
     private final Clock clock;
+    private final ModelCallExecutor modelCalls;
+    private final OperationalMetrics metrics;
 
     @Autowired
     public CivicClassificationService(
             GeminiGateway geminiGateway,
             ClassificationPromptFactory promptFactory,
             ClassificationSchemaValidator validator,
+            ObjectMapper objectMapper,
+            ModelCallExecutor modelCalls,
+            OperationalMetrics metrics) throws IOException {
+        this(geminiGateway, promptFactory, validator, loadResponseSchema(objectMapper), Clock.systemUTC(), modelCalls, metrics);
+    }
+
+    CivicClassificationService(
+            GeminiGateway geminiGateway,
+            ClassificationPromptFactory promptFactory,
+            ClassificationSchemaValidator validator,
             ObjectMapper objectMapper) throws IOException {
-        this(geminiGateway, promptFactory, validator, loadResponseSchema(objectMapper), Clock.systemUTC());
+        this(geminiGateway, promptFactory, validator, loadResponseSchema(objectMapper), Clock.systemUTC(),
+                new ModelCallExecutor(ModelCallExecutor.DEFAULT_CLASSIFICATION_TIMEOUT, ModelCallExecutor.DEFAULT_DRAFTING_TIMEOUT),
+                new OperationalMetrics(objectMapper, "test"));
     }
 
     CivicClassificationService(
@@ -37,11 +51,26 @@ public class CivicClassificationService {
             ClassificationSchemaValidator validator,
             JsonNode responseSchema,
             Clock clock) {
+        this(geminiGateway, promptFactory, validator, responseSchema, clock,
+                new ModelCallExecutor(ModelCallExecutor.DEFAULT_CLASSIFICATION_TIMEOUT, ModelCallExecutor.DEFAULT_DRAFTING_TIMEOUT),
+                new OperationalMetrics(new ObjectMapper(), "test"));
+    }
+
+    CivicClassificationService(
+            GeminiGateway geminiGateway,
+            ClassificationPromptFactory promptFactory,
+            ClassificationSchemaValidator validator,
+            JsonNode responseSchema,
+            Clock clock,
+            ModelCallExecutor modelCalls,
+            OperationalMetrics metrics) {
         this.geminiGateway = geminiGateway;
         this.promptFactory = promptFactory;
         this.validator = validator;
         this.responseSchema = responseSchema;
         this.clock = clock;
+        this.modelCalls = modelCalls;
+        this.metrics = metrics;
     }
 
     public ClassificationResult classify(byte[] image, String mimeType, String citizenText) {
@@ -50,8 +79,14 @@ public class CivicClassificationService {
         long started = System.nanoTime();
         GeminiGateway.GeneratedContent generated;
         try {
-            generated = geminiGateway.generateStructured(prompt, image, mimeType, responseSchema);
+            generated = modelCalls.classification(() -> geminiGateway.generateStructured(
+                    prompt, image, mimeType, responseSchema, 512, modelCalls.classificationTimeout()));
+        } catch (ModelCallExecutor.ModelTimeoutException | GeminiGateway.ModelTransportTimeoutException exception) {
+            metrics.increment("model.classification.timeout");
+            throw new ClassificationExecutionException(
+                    "MODEL_TIMEOUT", "The classification model exceeded its deadline", exception);
         } catch (Exception exception) {
+            metrics.increment("model.classification.failure");
             throw new ClassificationExecutionException(
                     "MODEL_CALL_FAILED", "The classification model is temporarily unavailable", exception);
         }
@@ -61,9 +96,12 @@ public class CivicClassificationService {
         try {
             classification = validator.validate(generated.text());
         } catch (ClassificationSchemaValidator.ClassificationValidationException exception) {
+            metrics.increment("model.classification.schema_failure");
             throw new ClassificationExecutionException(
                     "SCHEMA_VALIDATION_FAILED", "The model returned an invalid classification", exception);
         }
+        metrics.increment("model.classification.success");
+        metrics.recordLatency("model.classification", latencyMs);
 
         String status = classification.needsClarification() ? "CLARIFICATION_REQUIRED" : "CLASSIFIED";
         return new ClassificationResult(

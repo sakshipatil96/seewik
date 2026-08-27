@@ -5,18 +5,28 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @RestController
 @RequestMapping
 public class ApiController {
     private final CivicRouterService civicRouterService;
     private final PrabhagResolverService prabhagResolverService;
+    private final OperationalMetrics metrics;
 
+    @Autowired
     public ApiController(
             CivicRouterService civicRouterService,
-            PrabhagResolverService prabhagResolverService) {
+            PrabhagResolverService prabhagResolverService,
+            OperationalMetrics metrics) {
         this.civicRouterService = civicRouterService;
         this.prabhagResolverService = prabhagResolverService;
+        this.metrics = metrics;
+    }
+
+    ApiController(CivicRouterService civicRouterService, PrabhagResolverService prabhagResolverService) {
+        this(civicRouterService, prabhagResolverService,
+                new OperationalMetrics(new com.fasterxml.jackson.databind.ObjectMapper(), "test"));
     }
 
     @PostMapping(value = "/api/civic/resolve-prabhag", consumes = "application/json", produces = "application/json")
@@ -29,7 +39,12 @@ public class ApiController {
     @PostMapping(value = "/api/civic/route", consumes = "application/json", produces = "application/json")
     public CivicRouterService.CivicRouteResponse civicRoute(
             @org.springframework.web.bind.annotation.RequestBody CivicRouterService.CivicRouteRequest request) {
-        return civicRouterService.route(request);
+        CivicRouterService.CivicRouteResponse response = civicRouterService.route(request);
+        if ("SUPPORTED_ROUTE".equals(response.status())
+                && "SELF_REPORTED".equals(response.resolutionMethod())) {
+            metrics.increment("prabhag.manual_resolution");
+        }
+        return response;
     }
 
     @GetMapping(value = {"/healthz", "/health"}, produces = "application/json")

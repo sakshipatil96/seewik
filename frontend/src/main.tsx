@@ -74,10 +74,12 @@ type PrabhagResolution = {
   status: string;
   prabhagId?: string;
   prabhagName?: string;
+  resolutionMethod?: string;
   resolutionQuality?: string;
   requiresCitizenConfirmation: boolean;
   datasetVersion?: string;
   queryLatencyMs?: number;
+  fallbackReason?: string;
   message: string;
 };
 
@@ -256,6 +258,7 @@ function App() {
   const [complaintDraft, setComplaintDraft] = useState<ComplaintDraftResult | null>(null);
   const [draftSubject, setDraftSubject] = useState('');
   const [draftBody, setDraftBody] = useState('');
+  const [manualComplaintBody, setManualComplaintBody] = useState('');
   const [draftStatus, setDraftStatus] = useState('');
   const [draftDocumentId, setDraftDocumentId] = useState<string | null>(null);
   const [draftReviewed, setDraftReviewed] = useState(false);
@@ -296,6 +299,7 @@ function App() {
     setComplaintDraft(null);
     setDraftSubject('');
     setDraftBody('');
+    setManualComplaintBody('');
     setDraftStatus('');
     setDraftDocumentId(null);
     setDraftReviewed(false);
@@ -514,7 +518,7 @@ function App() {
   function confirmCandidate() {
     if (!resolution?.prabhagId || !resolution.datasetVersion) return;
     setPrabhagId(resolution.prabhagId);
-    setSelectionMethod('BIGQUERY_ST_COVERS');
+    setSelectionMethod(resolution.resolutionMethod ?? 'BIGQUERY_ST_COVERS');
     setCitizenConfirmed(true);
     setBoundaryDatasetVersion(resolution.datasetVersion);
     setLocationStatus(`${resolution.prabhagName} confirmed. You can still choose a different prabhag manually.`);
@@ -693,6 +697,7 @@ function App() {
     const result: ComplaintDraftResult = await response.json();
     setComplaintDraft(result);
     if (!response.ok || result.status !== 'DRAFT_READY' || !result.subject || !result.body) {
+      setManualComplaintBody(complaintFacts.trim());
       setDraftStatus(result.message ?? 'The complaint draft could not be created. Your confirmed route is unchanged.');
       return;
     }
@@ -706,6 +711,16 @@ function App() {
     } catch (error) {
       setDraftStatus(`Draft created but could not be saved: ${(error as Error).message}`);
     }
+  }
+
+  async function copyManualComplaint() {
+    if (!manualComplaintBody.trim()) {
+      setDraftStatus('Write the complaint text before copying it.');
+      return;
+    }
+    const recipient = routeResult?.authority ?? 'Confirmed civic authority';
+    await navigator.clipboard.writeText(`${recipient}\n\n${manualComplaintBody.trim()}`);
+    setDraftStatus('Your manually written complaint and confirmed recipient were copied.');
   }
 
   async function saveDraftEdits() {
@@ -1038,7 +1053,7 @@ function App() {
       <p>Location can suggest a prabhag using synthetic development boundaries. The suggestion is never official and must be confirmed. Manual selection always overrides it.</p>
       <button className="secondary" onClick={useMyLocation}>Suggest from my location</button>
       {locationStatus && <div aria-live="polite" className={`status-panel ${resolution?.status === 'CANDIDATE_PRABHAG' ? 'state-success' : resolution?.status === 'OUTSIDE_SUPPORTED_AREA' || resolution?.status === 'RESOLUTION_UNAVAILABLE' || resolution?.status === 'INVALID_COORDINATES' ? 'state-error' : 'state-warning'}`}>{locationStatus}</div>}
-      {resolution?.status === 'CANDIDATE_PRABHAG' && resolution.prabhagId && <div className="candidate"><strong>{resolution.prabhagName}</strong><span>{resolution.resolutionQuality} · {resolution.datasetVersion}</span><span>BigQuery lookup: {resolution.queryLatencyMs} ms</span><button onClick={confirmCandidate}>Confirm this suggested prabhag</button></div>}
+      {resolution?.status === 'CANDIDATE_PRABHAG' && resolution.prabhagId && <div className="candidate"><strong>{resolution.prabhagName}</strong><span>{resolution.resolutionQuality} · {resolution.datasetVersion}</span><span>{resolution.resolutionMethod === 'SNAPSHOT_POINT_IN_POLYGON' ? 'Synthetic snapshot fallback' : 'BigQuery lookup'}: {resolution.queryLatencyMs} ms</span>{resolution.fallbackReason && <small>{resolution.fallbackReason}</small>}<button onClick={confirmCandidate}>Confirm this suggested prabhag</button></div>}
       <label>Official prabhag number<select value={prabhagId} onChange={(event) => selectManualPrabhag(event.target.value)}>{PRABHAGS.map((value, index) => <option key={value} value={value}>Prabhag {index + 1}</option>)}</select></label>
       <div className="flow-step"><span>3</span><b>Get the deterministic route</b></div>
       <button disabled={!classificationConfirmed} onClick={() => findCivicRoute().catch((error) => setRouteResult({ status: `Routing failed: ${error.message}` }))}>Find official route</button>
@@ -1095,6 +1110,12 @@ function App() {
         }}><option value="MR">Marathi</option><option value="EN">English</option></select></label>
         <button onClick={() => createComplaintDraft().catch((error) => setDraftStatus(`Drafting failed: ${error.message}`))}>Create complaint draft</button>
         {draftStatus && <div aria-live="polite" className={`status-panel ${complaintDraft?.status === 'DRAFT_ERROR' || draftStatus.includes('could not') || draftStatus.includes('failed') ? 'state-error' : 'state-warning'}`}>{draftStatus}</div>}
+        {complaintDraft?.status === 'DRAFT_ERROR' && <div className="draft-panel">
+          <div className="draft-heading"><div><small>Confirmed recipient</small><strong>{routeResult.authority}</strong></div><span>Manual fallback</span></div>
+          <p>Automatic drafting is unavailable. Write or edit your complaint below; the confirmed route above is unchanged.</p>
+          <label>Complaint body<textarea className="draft-body" maxLength={2500} value={manualComplaintBody} onChange={(event) => setManualComplaintBody(event.target.value)} /></label>
+          <button className="secondary" onClick={() => copyManualComplaint().catch((error) => setDraftStatus(`Copy failed: ${error.message}`))}>Copy manual complaint</button>
+        </div>}
         {complaintDraft?.status === 'DRAFT_READY' && <div className="draft-panel">
           <div className="draft-heading"><div><small>Recipient</small><strong>{complaintDraft.authorityLocalName || complaintDraft.authority}</strong></div><span>{complaintDraft.language} · {complaintDraft.draftVersion}</span></div>
           {(complaintDraft.missingDetails?.length ?? 0) > 0 && <div className="missing-facts"><b>Missing fact</b><span>Add a location or landmark before submitting if one is available. It was not invented in this draft.</span></div>}

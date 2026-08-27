@@ -12,6 +12,9 @@ import java.io.InputStream;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
@@ -111,6 +114,16 @@ class ComplaintDraftServiceTest {
     }
 
     @Test
+    void confirmedSnapshotCandidateCanDraftWithoutChangingTheDeterministicRoute() {
+        var request = new ComplaintDraftService.ComplaintDraftRequest(
+                "STREETLIGHT", "PRABHAG-11", "SNAPSHOT_POINT_IN_POLYGON", true, "synthetic-v0.1",
+                true, "स्ट्रीट लाईट बंद आहे", "मुख्य रस्त्यावर", "MR");
+        var result = serviceReturning(ComplaintDraftValidatorTest.validDraft()).draft(request);
+        assertEquals("NMC-PW-STREETLIGHT-v0.2", result.routeId());
+        assertEquals("Nandurbar Municipal Council", result.authority());
+    }
+
+    @Test
     void blankCitizenFactsAreRejectedBeforeModelCall() {
         assertInputCode(() -> serviceReturning(ComplaintDraftValidatorTest.validDraft())
                 .draft(manualRequest("   ", "बस स्थानकाजवळ")), "MISSING_CITIZEN_FACTS");
@@ -139,6 +152,31 @@ class ComplaintDraftServiceTest {
                 ComplaintDraftService.ComplaintDraftExecutionException.class,
                 () -> service(failing).draft(manualRequest("रस्त्यावर खड्डा आहे", null)));
         assertEquals("MODEL_CALL_FAILED", exception.code());
+    }
+
+    @Test
+    void delayedDraftTimesOutAndCannotReturnLateDraft() throws Exception {
+        CountDownLatch interrupted = new CountDownLatch(1);
+        GeminiGateway delayed = (prompt, image, mime, schema) -> {
+            try {
+                Thread.sleep(5_000);
+                return generated(ComplaintDraftValidatorTest.validDraft());
+            } catch (InterruptedException exception) {
+                interrupted.countDown();
+                throw exception;
+            }
+        };
+        ModelCallExecutor calls = new ModelCallExecutor(Duration.ofSeconds(1), Duration.ofMillis(25));
+        ComplaintDraftService service = new ComplaintDraftService(
+                delayed, promptFactory, validator, router, vertexSchema,
+                Clock.fixed(Instant.parse("2026-08-24T20:00:00Z"), ZoneOffset.UTC),
+                calls, new OperationalMetrics(mapper, "test"));
+
+        var error = assertThrows(ComplaintDraftService.ComplaintDraftExecutionException.class,
+                () -> service.draft(manualRequest("रस्त्यावर खड्डा आहे", null)));
+        assertEquals("MODEL_TIMEOUT", error.code());
+        assertTrue(interrupted.await(1, TimeUnit.SECONDS));
+        calls.close();
     }
 
     private ComplaintDraftService serviceReturning(String raw) {

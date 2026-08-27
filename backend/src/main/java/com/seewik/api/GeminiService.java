@@ -7,6 +7,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
@@ -59,11 +61,36 @@ public class GeminiService implements GeminiGateway {
         return invoke(prompt, image, mimeType, generationConfig);
     }
 
+    @Override
+    public GeneratedContent generateStructured(
+            String prompt,
+            byte[] image,
+            String mimeType,
+            JsonNode responseSchema,
+            int maxOutputTokens,
+            Duration timeout) throws Exception {
+        Map<String, Object> generationConfig = new HashMap<>();
+        generationConfig.put("maxOutputTokens", maxOutputTokens);
+        generationConfig.put("temperature", 0.0);
+        generationConfig.put("responseMimeType", "application/json");
+        generationConfig.put("responseSchema", responseSchema);
+        return invoke(prompt, image, mimeType, generationConfig, timeout);
+    }
+
     private GeneratedContent invoke(
             String prompt,
             byte[] image,
             String mimeType,
             Map<String, Object> generationConfig) throws Exception {
+        return invoke(prompt, image, mimeType, generationConfig, null);
+    }
+
+    private GeneratedContent invoke(
+            String prompt,
+            byte[] image,
+            String mimeType,
+            Map<String, Object> generationConfig,
+            Duration timeout) throws Exception {
         GoogleCredentials credentials = GoogleCredentials.getApplicationDefault()
                 .createScoped("https://www.googleapis.com/auth/cloud-platform");
         credentials.refreshIfExpired();
@@ -84,9 +111,15 @@ public class GeminiService implements GeminiGateway {
         HttpRequest request = HttpRequest.newBuilder(URI.create(endpoint))
                 .header("Authorization", "Bearer " + credentials.getAccessToken().getTokenValue())
                 .header("Content-Type", "application/json")
+                .timeout(timeout == null ? Duration.ofSeconds(30) : timeout)
                 .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body)))
                 .build();
-        HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response;
+        try {
+            response = http.send(request, HttpResponse.BodyHandlers.ofString());
+        } catch (HttpTimeoutException exception) {
+            throw new GeminiGateway.ModelTransportTimeoutException(exception);
+        }
         if (response.statusCode() / 100 != 2) {
             throw new IllegalStateException("Vertex AI request failed with status " + response.statusCode());
         }

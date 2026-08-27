@@ -20,6 +20,8 @@ public class ComplaintDraftService {
     private final CivicRouterService router;
     private final JsonNode responseSchema;
     private final Clock clock;
+    private final ModelCallExecutor modelCalls;
+    private final OperationalMetrics metrics;
 
     @Autowired
     public ComplaintDraftService(
@@ -27,8 +29,21 @@ public class ComplaintDraftService {
             ComplaintPromptFactory promptFactory,
             ComplaintDraftValidator validator,
             CivicRouterService router,
+            ObjectMapper objectMapper,
+            ModelCallExecutor modelCalls,
+            OperationalMetrics metrics) throws IOException {
+        this(geminiGateway, promptFactory, validator, router, loadResponseSchema(objectMapper), Clock.systemUTC(), modelCalls, metrics);
+    }
+
+    ComplaintDraftService(
+            GeminiGateway geminiGateway,
+            ComplaintPromptFactory promptFactory,
+            ComplaintDraftValidator validator,
+            CivicRouterService router,
             ObjectMapper objectMapper) throws IOException {
-        this(geminiGateway, promptFactory, validator, router, loadResponseSchema(objectMapper), Clock.systemUTC());
+        this(geminiGateway, promptFactory, validator, router, loadResponseSchema(objectMapper), Clock.systemUTC(),
+                new ModelCallExecutor(ModelCallExecutor.DEFAULT_CLASSIFICATION_TIMEOUT, ModelCallExecutor.DEFAULT_DRAFTING_TIMEOUT),
+                new OperationalMetrics(objectMapper, "test"));
     }
 
     ComplaintDraftService(
@@ -38,12 +53,28 @@ public class ComplaintDraftService {
             CivicRouterService router,
             JsonNode responseSchema,
             Clock clock) {
+        this(geminiGateway, promptFactory, validator, router, responseSchema, clock,
+                new ModelCallExecutor(ModelCallExecutor.DEFAULT_CLASSIFICATION_TIMEOUT, ModelCallExecutor.DEFAULT_DRAFTING_TIMEOUT),
+                new OperationalMetrics(new ObjectMapper(), "test"));
+    }
+
+    ComplaintDraftService(
+            GeminiGateway geminiGateway,
+            ComplaintPromptFactory promptFactory,
+            ComplaintDraftValidator validator,
+            CivicRouterService router,
+            JsonNode responseSchema,
+            Clock clock,
+            ModelCallExecutor modelCalls,
+            OperationalMetrics metrics) {
         this.geminiGateway = geminiGateway;
         this.promptFactory = promptFactory;
         this.validator = validator;
         this.router = router;
         this.responseSchema = responseSchema;
         this.clock = clock;
+        this.modelCalls = modelCalls;
+        this.metrics = metrics;
     }
 
     public ComplaintDraftResponse draft(ComplaintDraftRequest request) {
@@ -74,8 +105,14 @@ public class ComplaintDraftService {
         long started = System.nanoTime();
         GeminiGateway.GeneratedContent generated;
         try {
-            generated = geminiGateway.generateStructured(prompt, null, null, responseSchema, 2048);
+            generated = modelCalls.drafting(() -> geminiGateway.generateStructured(
+                    prompt, null, null, responseSchema, 2048, modelCalls.draftingTimeout()));
+        } catch (ModelCallExecutor.ModelTimeoutException | GeminiGateway.ModelTransportTimeoutException exception) {
+            metrics.increment("model.drafting.timeout");
+            throw new ComplaintDraftExecutionException(
+                    "MODEL_TIMEOUT", "The complaint drafting model exceeded its deadline", exception);
         } catch (Exception exception) {
+            metrics.increment("model.drafting.failure");
             throw new ComplaintDraftExecutionException(
                     "MODEL_CALL_FAILED", "The complaint drafting model is temporarily unavailable", exception);
         }
@@ -85,9 +122,12 @@ public class ComplaintDraftService {
         try {
             draft = validator.validate(generated.text(), input.draftLanguage());
         } catch (ComplaintDraftValidator.ComplaintDraftValidationException exception) {
+            metrics.increment("model.drafting.schema_failure");
             throw new ComplaintDraftExecutionException(
                     "SCHEMA_VALIDATION_FAILED", "The model returned an invalid complaint draft", exception);
         }
+        metrics.increment("model.drafting.success");
+        metrics.recordLatency("model.drafting", latencyMs);
 
         List<String> missingDetails = input.locationProvided()
                 ? List.of()

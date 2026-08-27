@@ -1,0 +1,1103 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.0811418,
+              21.2958045
+            ],
+            [
+              74.0811418,
+              21.203778
+            ],
+            [
+              74.157371,
+              21.203778
+            ],
+            [
+              74.1591927,
+              21.2464348
+            ],
+            [
+              74.0811418,
+              21.2958045
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-01",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-01",
+        "prabhagName": "Prabhag 1",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.2424467,
+          "lng": 74.1060037
+        }
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.1651866,
+              21.253824
+            ],
+            [
+              74.1591927,
+              21.2464348
+            ],
+            [
+              74.157371,
+              21.203778
+            ],
+            [
+              74.244085,
+              21.203778
+            ],
+            [
+              74.237577,
+              21.2676229
+            ],
+            [
+              74.1651866,
+              21.253824
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-02",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-02",
+        "prabhagName": "Prabhag 2",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.2379263,
+          "lng": 74.2118481
+        }
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.2454232,
+              21.2799475
+            ],
+            [
+              74.237577,
+              21.2676229
+            ],
+            [
+              74.244085,
+              21.203778
+            ],
+            [
+              74.3180275,
+              21.203778
+            ],
+            [
+              74.3136284,
+              21.2709431
+            ],
+            [
+              74.2454232,
+              21.2799475
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-03",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-03",
+        "prabhagName": "Prabhag 3",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.2437285,
+          "lng": 74.2687686
+        }
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.326971,
+              21.2899864
+            ],
+            [
+              74.3136284,
+              21.2709431
+            ],
+            [
+              74.3180275,
+              21.203778
+            ],
+            [
+              74.4011418,
+              21.203778
+            ],
+            [
+              74.4011418,
+              21.2543234
+            ],
+            [
+              74.326971,
+              21.2899864
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-04",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-04",
+        "prabhagName": "Prabhag 4",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.2498123,
+          "lng": 74.3616546
+        }
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.1593332,
+              21.3352953
+            ],
+            [
+              74.0811418,
+              21.3309704
+            ],
+            [
+              74.0811418,
+              21.2958045
+            ],
+            [
+              74.1591927,
+              21.2464348
+            ],
+            [
+              74.1651866,
+              21.253824
+            ],
+            [
+              74.1762983,
+              21.3206406
+            ],
+            [
+              74.1593332,
+              21.3352953
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-05",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-05",
+        "prabhagName": "Prabhag 5",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.2962028,
+          "lng": 74.1400061
+        }
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.2311146,
+              21.3261916
+            ],
+            [
+              74.1762983,
+              21.3206406
+            ],
+            [
+              74.1651866,
+              21.253824
+            ],
+            [
+              74.237577,
+              21.2676229
+            ],
+            [
+              74.2454232,
+              21.2799475
+            ],
+            [
+              74.2311146,
+              21.3261916
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-06",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-06",
+        "prabhagName": "Prabhag 6",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.2857722,
+          "lng": 74.2027278
+        }
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.3065283,
+              21.3479801
+            ],
+            [
+              74.2370143,
+              21.3356536
+            ],
+            [
+              74.2311146,
+              21.3261916
+            ],
+            [
+              74.2454232,
+              21.2799475
+            ],
+            [
+              74.3136284,
+              21.2709431
+            ],
+            [
+              74.326971,
+              21.2899864
+            ],
+            [
+              74.3303048,
+              21.306371
+            ],
+            [
+              74.3065283,
+              21.3479801
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-07",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-07",
+        "prabhagName": "Prabhag 7",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.308867,
+          "lng": 74.2773682
+        }
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.3303048,
+              21.306371
+            ],
+            [
+              74.326971,
+              21.2899864
+            ],
+            [
+              74.4011418,
+              21.2543234
+            ],
+            [
+              74.4011418,
+              21.3334821
+            ],
+            [
+              74.3303048,
+              21.306371
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-08",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-08",
+        "prabhagName": "Prabhag 8",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.2879826,
+          "lng": 74.3800077
+        }
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.1672744,
+              21.413199
+            ],
+            [
+              74.0811418,
+              21.3868354
+            ],
+            [
+              74.0811418,
+              21.3309704
+            ],
+            [
+              74.1593332,
+              21.3352953
+            ],
+            [
+              74.1727047,
+              21.4019263
+            ],
+            [
+              74.1672744,
+              21.413199
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-09",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-09",
+        "prabhagName": "Prabhag 9",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.3720177,
+          "lng": 74.1358126
+        }
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.1727047,
+              21.4019263
+            ],
+            [
+              74.1593332,
+              21.3352953
+            ],
+            [
+              74.1762983,
+              21.3206406
+            ],
+            [
+              74.2311146,
+              21.3261916
+            ],
+            [
+              74.2370143,
+              21.3356536
+            ],
+            [
+              74.2286146,
+              21.3762603
+            ],
+            [
+              74.1727047,
+              21.4019263
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-10",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-10",
+        "prabhagName": "Prabhag 10",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.3600997,
+          "lng": 74.195201
+        }
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.2511225,
+              21.4042725
+            ],
+            [
+              74.2286146,
+              21.3762603
+            ],
+            [
+              74.2370143,
+              21.3356536
+            ],
+            [
+              74.3065283,
+              21.3479801
+            ],
+            [
+              74.316674,
+              21.3902589
+            ],
+            [
+              74.2511225,
+              21.4042725
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-11",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-11",
+        "prabhagName": "Prabhag 11",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.3746822,
+          "lng": 74.2656976
+        }
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.3243847,
+              21.3986582
+            ],
+            [
+              74.316674,
+              21.3902589
+            ],
+            [
+              74.3065283,
+              21.3479801
+            ],
+            [
+              74.3303048,
+              21.306371
+            ],
+            [
+              74.4011418,
+              21.3334821
+            ],
+            [
+              74.4011418,
+              21.387476
+            ],
+            [
+              74.3243847,
+              21.3986582
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-12",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-12",
+        "prabhagName": "Prabhag 12",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.353245,
+          "lng": 74.3550302
+        }
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.141096,
+              21.4717101
+            ],
+            [
+              74.0811418,
+              21.4594569
+            ],
+            [
+              74.0811418,
+              21.3868354
+            ],
+            [
+              74.1672744,
+              21.413199
+            ],
+            [
+              74.1722125,
+              21.4415476
+            ],
+            [
+              74.141096,
+              21.4717101
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-13",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-13",
+        "prabhagName": "Prabhag 13",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.4297151,
+          "lng": 74.1181526
+        }
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.1722125,
+              21.4415476
+            ],
+            [
+              74.1672744,
+              21.413199
+            ],
+            [
+              74.1727047,
+              21.4019263
+            ],
+            [
+              74.2286146,
+              21.3762603
+            ],
+            [
+              74.2511225,
+              21.4042725
+            ],
+            [
+              74.2361359,
+              21.4695609
+            ],
+            [
+              74.1722125,
+              21.4415476
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-14",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-14",
+        "prabhagName": "Prabhag 14",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.4121333,
+          "lng": 74.2190876
+        }
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.2398039,
+              21.4744509
+            ],
+            [
+              74.2361359,
+              21.4695609
+            ],
+            [
+              74.2511225,
+              21.4042725
+            ],
+            [
+              74.316674,
+              21.3902589
+            ],
+            [
+              74.3243847,
+              21.3986582
+            ],
+            [
+              74.3207036,
+              21.4395293
+            ],
+            [
+              74.2398039,
+              21.4744509
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-15",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-15",
+        "prabhagName": "Prabhag 15",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.425317,
+          "lng": 74.2765223
+        }
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.3368856,
+              21.4617745
+            ],
+            [
+              74.3207036,
+              21.4395293
+            ],
+            [
+              74.3243847,
+              21.3986582
+            ],
+            [
+              74.4011418,
+              21.387476
+            ],
+            [
+              74.4011418,
+              21.4517774
+            ],
+            [
+              74.3368856,
+              21.4617745
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-16",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-16",
+        "prabhagName": "Prabhag 16",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.4334403,
+          "lng": 74.3667133
+        }
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.0811418,
+              21.4594569
+            ],
+            [
+              74.141096,
+              21.4717101
+            ],
+            [
+              74.1446529,
+              21.523778
+            ],
+            [
+              74.0811418,
+              21.523778
+            ],
+            [
+              74.0811418,
+              21.4594569
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-17",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-17",
+        "prabhagName": "Prabhag 17",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.5013355,
+          "lng": 74.1035151
+        }
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.141096,
+              21.4717101
+            ],
+            [
+              74.1722125,
+              21.4415476
+            ],
+            [
+              74.2361359,
+              21.4695609
+            ],
+            [
+              74.2398039,
+              21.4744509
+            ],
+            [
+              74.245854,
+              21.523778
+            ],
+            [
+              74.1446529,
+              21.523778
+            ],
+            [
+              74.141096,
+              21.4717101
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-18",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-18",
+        "prabhagName": "Prabhag 18",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.4959496,
+          "lng": 74.1823566
+        }
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.2398039,
+              21.4744509
+            ],
+            [
+              74.3207036,
+              21.4395293
+            ],
+            [
+              74.3368856,
+              21.4617745
+            ],
+            [
+              74.3383444,
+              21.523778
+            ],
+            [
+              74.245854,
+              21.523778
+            ],
+            [
+              74.2398039,
+              21.4744509
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-19",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-19",
+        "prabhagName": "Prabhag 19",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.481429,
+          "lng": 74.3007439
+        }
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              74.3368856,
+              21.4617745
+            ],
+            [
+              74.4011418,
+              21.4517774
+            ],
+            [
+              74.4011418,
+              21.523778
+            ],
+            [
+              74.3383444,
+              21.523778
+            ],
+            [
+              74.3368856,
+              21.4617745
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "id": "PRABHAG-20",
+      "properties": {
+        "datasetVersion": "synthetic-v0.1",
+        "generatedAt": "2026-08-23T00:00:00Z",
+        "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+        "generatorVersion": "seeded-voronoi-v1",
+        "geometryType": "POLYGON",
+        "prabhagId": "PRABHAG-20",
+        "prabhagName": "Prabhag 20",
+        "requiresCitizenConfirmation": true,
+        "resolutionQuality": "SYNTHETIC_BOUNDARY",
+        "reviewStatus": "REVIEW_PENDING",
+        "sourceReference": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+        "sourceStatus": "UNSOURCED",
+        "syntheticSite": {
+          "lat": 21.4797075,
+          "lng": 74.3739117
+        }
+      },
+      "type": "Feature"
+    }
+  ],
+  "metadata": {
+    "datasetVersion": "synthetic-v0.1",
+    "extent": {
+      "east": 74.4011418,
+      "north": 21.523778,
+      "osmCityNode": "https://www.openstreetmap.org/node/245694497",
+      "quality": "OSM_CITY_SEARCH_EXTENT_NOT_MUNICIPAL_BOUNDARY",
+      "source": "https://nominatim.openstreetmap.org/search?q=Nandurbar%2C%20Maharashtra%2C%20India&format=jsonv2&addressdetails=1&limit=5",
+      "south": 21.203778,
+      "west": 74.0811418
+    },
+    "generatedAt": "2026-08-23T00:00:00Z",
+    "generatorSeed": "seewik-nandurbar-synthetic-boundaries-v0.1",
+    "generatorVersion": "seeded-voronoi-v1",
+    "prabhagCount": 20,
+    "requiresCitizenConfirmation": true,
+    "resolutionQuality": "SYNTHETIC_BOUNDARY",
+    "reviewStatus": "REVIEW_PENDING",
+    "sourceStatus": "UNSOURCED",
+    "warning": "Synthetic development data. Not official prabhag or municipal geometry."
+  },
+  "name": "Seewik deterministic synthetic Nandurbar prabhag boundaries",
+  "type": "FeatureCollection"
+}

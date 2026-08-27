@@ -59,14 +59,15 @@ public class CivicRouterService {
             return CivicRouteResponse.unsupported(prabhagId.isBlank() ? null : prabhagId, PACK_VERSION);
         }
         String requestedMethod = normalizeResolutionMethod(request == null ? null : request.resolutionMethod());
-        boolean syntheticCandidate = PrabhagResolverService.RESOLUTION_METHOD.equals(requestedMethod);
+        boolean syntheticCandidate = PrabhagResolverService.RESOLUTION_METHOD.equals(requestedMethod)
+                || PrabhagResolverService.SNAPSHOT_RESOLUTION_METHOD.equals(requestedMethod);
         if (!requestedMethod.isBlank() && !"SELF_REPORTED".equals(requestedMethod) && !syntheticCandidate) {
             return CivicRouteResponse.unsupported(prabhagId, PACK_VERSION);
         }
         if (syntheticCandidate
                 && (!Boolean.TRUE.equals(request.citizenConfirmed())
                         || !PrabhagResolverService.DATASET_VERSION.equals(request.boundaryDatasetVersion()))) {
-            return CivicRouteResponse.confirmationRequired(prabhagId, PACK_VERSION);
+            return CivicRouteResponse.confirmationRequired(prabhagId, requestedMethod, PACK_VERSION);
         }
         String resolutionMethod = syntheticCandidate
                 ? "CITIZEN_CONFIRMED_SYNTHETIC_BOUNDARY"
@@ -139,9 +140,9 @@ public class CivicRouterService {
                     List.of(), List.of(), List.of(), null, null, null, null, null, packVersion);
         }
 
-        static CivicRouteResponse confirmationRequired(String prabhagId, String packVersion) {
+        static CivicRouteResponse confirmationRequired(String prabhagId, String resolutionMethod, String packVersion) {
             return new CivicRouteResponse(
-                    "CONFIRMATION_REQUIRED", null, prabhagId, PrabhagResolverService.RESOLUTION_METHOD,
+                    "CONFIRMATION_REQUIRED", null, prabhagId, resolutionMethod,
                     false, PrabhagResolverService.DATASET_VERSION, null, null, null,
                     List.of(), List.of(), List.of(), null, null, null, null, null, packVersion);
         }

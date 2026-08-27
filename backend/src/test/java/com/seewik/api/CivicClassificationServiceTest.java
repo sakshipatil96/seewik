@@ -12,6 +12,9 @@ import java.io.InputStream;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
@@ -99,6 +102,29 @@ class CivicClassificationServiceTest {
             throw new IllegalStateException("upstream unavailable");
         };
         assertExecutionCode(service(failing), "MODEL_CALL_FAILED");
+    }
+
+    @Test
+    void delayedModelTimesOutAndCancellationInterruptsLateWork() throws Exception {
+        CountDownLatch interrupted = new CountDownLatch(1);
+        GeminiGateway delayed = (prompt, image, mime, schema) -> {
+            try {
+                Thread.sleep(5_000);
+                return generated(highConfidence("STREETLIGHT", "EN", 0.9));
+            } catch (InterruptedException exception) {
+                interrupted.countDown();
+                throw exception;
+            }
+        };
+        ModelCallExecutor calls = new ModelCallExecutor(Duration.ofMillis(25), Duration.ofSeconds(1));
+        CivicClassificationService service = new CivicClassificationService(
+                delayed, promptFactory, validator, vertexSchema,
+                Clock.fixed(Instant.parse("2026-08-24T18:00:00Z"), ZoneOffset.UTC),
+                calls, new OperationalMetrics(mapper, "test"));
+
+        assertExecutionCode(service, "MODEL_TIMEOUT");
+        assertTrue(interrupted.await(1, TimeUnit.SECONDS));
+        calls.close();
     }
 
     @Test

@@ -169,6 +169,34 @@ class ApiControllerTest {
     }
 
     @Test
+    void confirmedSnapshotCandidateUsesTheSameSyntheticConfirmationGuard() throws Exception {
+        mvc().perform(post("/api/civic/route")
+                        .contentType("application/json")
+                        .content("""
+                                {"issueType":"STREETLIGHT","prabhagId":"PRABHAG-11",
+                                 "resolutionMethod":"SNAPSHOT_POINT_IN_POLYGON","citizenConfirmed":true,
+                                 "boundaryDatasetVersion":"synthetic-v0.1"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUPPORTED_ROUTE"))
+                .andExpect(jsonPath("$.resolutionMethod").value("CITIZEN_CONFIRMED_SYNTHETIC_BOUNDARY"))
+                .andExpect(jsonPath("$.citizenConfirmationRecorded").value(true));
+    }
+
+    @Test
+    void unconfirmedSnapshotCandidateCannotRoute() throws Exception {
+        mvc().perform(post("/api/civic/route")
+                        .contentType("application/json")
+                        .content("""
+                                {"issueType":"STREETLIGHT","prabhagId":"PRABHAG-11",
+                                 "resolutionMethod":"SNAPSHOT_POINT_IN_POLYGON","citizenConfirmed":false,
+                                 "boundaryDatasetVersion":"synthetic-v0.1"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CONFIRMATION_REQUIRED"));
+    }
+
+    @Test
     void staleSyntheticCandidateMustBeResolvedAgain() throws Exception {
         mvc().perform(post("/api/civic/route")
                         .contentType("application/json")
