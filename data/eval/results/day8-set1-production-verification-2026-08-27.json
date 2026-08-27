@@ -1,0 +1,226 @@
+{
+  "evidenceType": "DAY8_SET1_PRODUCTION_VERIFICATION",
+  "recordedAt": "2026-08-27",
+  "project": "seewik",
+  "region": "asia-south1",
+  "implementationGitSha": "a2e3e23b32fb60c627db0a4021f605ed40843e23",
+  "backend": {
+    "url": "https://seewik-api-528138216934.asia-south1.run.app",
+    "revision": "seewik-api-00015-hir",
+    "trafficPercent": 100,
+    "healthHttpStatus": 200,
+    "healthBody": {
+      "service": "seewik-api",
+      "status": "ok"
+    },
+    "rollbackRevision": "seewik-api-00014-txh"
+  },
+  "frontend": {
+    "url": "https://seewik.web.app",
+    "hostingDeploySucceeded": true,
+    "refreshRouteHttpStatus": {
+      "/": 200,
+      "/report/new": 200,
+      "/reports": 200,
+      "/points": 200,
+      "/initiatives": 200,
+      "/initiatives/new": 200
+    }
+  },
+  "authentication": {
+    "classificationMissingTokenHttpStatus": 401,
+    "draftingMissingTokenHttpStatus": 401,
+    "authenticatedClassificationHttpStatus": 200,
+    "authenticatedDraftingHttpStatus": 200
+  },
+  "rateLimitVerification": {
+    "paidModelCallsMadeByLimitTest": 0,
+    "classificationFirstErrorCode": "EMPTY_EVIDENCE",
+    "classificationFifthErrorCode": "RATE_LIMITED",
+    "classificationRetryAfterSeconds": 5,
+    "classificationAfterBurstWindowErrorCode": "EMPTY_EVIDENCE",
+    "separateUserErrorCode": "EMPTY_EVIDENCE",
+    "draftingFirstErrorCode": "CATEGORY_CONFIRMATION_REQUIRED",
+    "draftingFifthErrorCode": "RATE_LIMITED",
+    "draftingRetryAfterSeconds": 8,
+    "temporaryUsersDeleted": true,
+    "globalCeilingProductionLoadTestRun": false,
+    "globalCeilingVerification": "Covered by the concurrent regression suite; production was not intentionally driven to the project ceiling."
+  },
+  "productionModelLatency": {
+    "classification": {
+      "successfulSamples": 5,
+      "wallMs": {
+        "min": 2865,
+        "p50": 3453,
+        "p95": 8314,
+        "max": 8314
+      },
+      "modelMs": {
+        "min": 2186,
+        "p50": 2914,
+        "p95": 4755,
+        "max": 4755
+      }
+    },
+    "drafting": {
+      "successfulSamples": 5,
+      "wallMs": {
+        "min": 3033,
+        "p50": 3599,
+        "p95": 4849,
+        "max": 4849
+      },
+      "modelMs": {
+        "min": 2603,
+        "p50": 3109,
+        "p95": 4324,
+        "max": 4324
+      }
+    }
+  },
+  "productionPrabhagLatency": {
+    "firstMeasuredHealthyLookupMs": 868,
+    "warmHealthy": {
+      "samples": 19,
+      "minMs": 374,
+      "p50Ms": 460,
+      "p95Ms": 592,
+      "maxMs": 592
+    },
+    "allHealthy": {
+      "samples": 20,
+      "minMs": 374,
+      "p50Ms": 460.5,
+      "p95Ms": 592,
+      "maxMs": 868
+    },
+    "bigQuerySuccesses": 20,
+    "fallbacks": 0,
+    "confirmationRequired": 20,
+    "outsideAreaControls": 1,
+    "outsideAreaPrabhagReturned": false,
+    "previousFiveTimingsMs": [534, 540, 675, 687, 6014],
+    "previousP50Ms": 675
+  },
+  "forcedFailureEvidence": {
+    "path": "data/eval/results/day8-set1-local-forced-failure-latency-2026-08-27.json",
+    "timeoutToFallbackP50Ms": 1510,
+    "openCircuitFallbackP50Ms": 0,
+    "forcedTimeoutPassed": true,
+    "forcedExceptionPassed": true,
+    "forcedInvalidOrEmptyResponsePassed": true
+  },
+  "privacySafeMetricsSnapshot": {
+    "revision": "seewik-api-00015-hir",
+    "counters": {
+      "bigquery.success": 21,
+      "model.classification.success": 6,
+      "model.drafting.success": 5,
+      "prabhag.bigquery_resolution": 20,
+      "prabhag.outside_supported_area": 1,
+      "request.classification.authenticated": 6,
+      "request.drafting.authenticated": 5
+    },
+    "latencyMs": {
+      "bigquery.resolution": {
+        "count": 21,
+        "min": 374,
+        "p50": 460,
+        "p95": 592,
+        "max": 868
+      },
+      "endpoint.classification": {
+        "count": 6,
+        "min": 2284,
+        "p50": 3046,
+        "p95": 7949,
+        "max": 7949
+      },
+      "endpoint.drafting": {
+        "count": 5,
+        "min": 2712,
+        "p50": 3174,
+        "p95": 4484,
+        "max": 4484
+      }
+    },
+    "revisionDistinguishable": true,
+    "contentOrIdentifierLabelsPresent": false,
+    "alertPoliciesCreated": false
+  },
+  "logPrivacyAudit": {
+    "beforeRevision": "seewik-api-00014-txh",
+    "afterRevision": "seewik-api-00015-hir",
+    "before": {
+      "authorizationOrBearer": 0,
+      "jwtStructures": 0,
+      "knownComplaintPhrases": 0,
+      "imageOrMultipartContent": 0,
+      "rawUidIndicators": 0,
+      "stackTraces": 0,
+      "errorSeverityEntries": 0
+    },
+    "after": {
+      "authorizationOrBearer": 0,
+      "jwtStructures": 0,
+      "knownComplaintPhrases": 0,
+      "imageOrMultipartContent": 0,
+      "rawUidIndicators": 0,
+      "stackTraces": 0,
+      "errorSeverityEntries": 0,
+      "genericFrameworkWarnings": 1,
+      "genericWarningContainsSensitiveData": false
+    }
+  },
+  "capacityAndQuota": {
+    "cloudRun": {
+      "maximumInstances": 20,
+      "concurrency": 80,
+      "timeoutSeconds": 300,
+      "cpu": "1",
+      "memory": "512MiB"
+    },
+    "application": {
+      "classificationTimeoutSeconds": 15,
+      "draftingTimeoutSeconds": 20,
+      "bigQueryTimeoutMs": 1500,
+      "globalPaidBurstCallsPer10Seconds": 12,
+      "globalPaidCallsPerMinute": 60,
+      "globalPaidCallsPerHour": 300
+    },
+    "vertex": {
+      "model": "gemini-3.7-flash",
+      "location": "global",
+      "explicitServiceUsageBucketFoundForModel": false,
+      "capacityMode": "Dynamic Shared Quota; temporary capacity responses remain possible and are handled without retry."
+    },
+    "bigQuery": {
+      "effectiveProjectQueryUsageLimitMiBPerDay": 209715200,
+      "effectiveProjectQueryUsageLimitTiBPerDay": 200,
+      "effectiveDailyRequestLimit": "unlimited"
+    }
+  },
+  "firestoreRateLimitTtl": {
+    "collectionGroup": "operationalRateLimitsV1",
+    "field": "expiresAt",
+    "state": "ACTIVE"
+  },
+  "releaseGates": {
+    "backendTestsPassed": 167,
+    "backendFailures": 0,
+    "backendErrors": 0,
+    "backendSkipped": 0,
+    "frontendTestsPassed": 3,
+    "frontendBuildPassed": true,
+    "restrictedWordAuditPassed": true,
+    "gitWhitespaceCheckPassed": true
+  },
+  "limitations": [
+    "The snapshot and BigQuery geometry remain synthetic development boundaries and are not official geography.",
+    "Snapshot and BigQuery candidates require citizen confirmation, and manual Prabhag 1-20 selection remains available.",
+    "Production did not intentionally trigger the project-wide ceiling; its concurrency and recovery behavior are covered by regression tests.",
+    "Operational metrics are in-memory per service instance and are emitted with the revision name; distributed rate limits are transactional in Firestore.",
+    "No alert policy was created because no alert recipient has been defined."
+  ]
+}

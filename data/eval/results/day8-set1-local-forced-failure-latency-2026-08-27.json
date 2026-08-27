@@ -1,0 +1,31 @@
+{
+  "evidenceType": "LOCAL_FORCED_DEPENDENCY_STUBS",
+  "recordedAt": "2026-08-27",
+  "contractVersion": "day8-set1-protection-contract-v0.1",
+  "bigQueryContractTimeoutMs": 1500,
+  "timeoutToSnapshotFallback": {
+    "samples": 5,
+    "minMs": 1502,
+    "p50Ms": 1510,
+    "p95Ms": 1510,
+    "maxMs": 1510
+  },
+  "openCircuitSnapshotFallback": {
+    "samples": 20,
+    "minMs": 0,
+    "p50Ms": 0,
+    "p95Ms": 0,
+    "maxMs": 0
+  },
+  "counts": {
+    "timeouts": 5,
+    "openCircuitFallbacks": 20,
+    "snapshotCandidates": 25,
+    "outsideArea": 0
+  },
+  "limitations": [
+    "These measurements use deliberately delayed local dependency stubs and are not production BigQuery latency.",
+    "The packaged snapshot contains synthetic development boundaries and never establishes an official prabhag.",
+    "Every snapshot candidate still requires citizen confirmation; manual Prabhag 1-20 selection remains available."
+  ]
+}

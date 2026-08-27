@@ -4,6 +4,11 @@ All notable changes to the versioned Civic Pack and its deterministic routing im
 
 ## Unreleased
 
+- Added transactional per-UID and project-wide rolling limits for paid classification and drafting, controlled HTTP 429/503 responses, bounded `Retry-After`, and active TTL cleanup for expired hashed limiter records.
+- Added 15-second classification and 20-second drafting deadlines with cancellation, no automatic retry, distinct timeout/model/schema failures, manual category fallback, and manual complaint writing/copying while deterministic route facts remain visible.
+- Added a 1,500 ms BigQuery deadline, closed/open/half-open circuit breaker, and checksum-verified synthetic snapshot fallback that never guesses a prabhag and always preserves citizen confirmation plus manual selection.
+- Added revision-tagged privacy-safe counters and latency summaries without citizen identifiers, content, categories, coordinates or response IDs; no alert policies were created.
+- Deployed backend revision `seewik-api-00015-hir` at 100% traffic, retained `seewik-api-00014-txh` for rollback, published the frontend fallbacks, and preserved Day 8 Set 1 production evidence.
 - Protected classification and complaint drafting with server-verified Firebase identity tokens, rejecting unauthenticated calls before paid model work begins.
 - Added Initiate activity creation, nearby Haversine discovery, idempotent joining, live participant counts, and append-only zero-point contribution records pending verified participation.
 - Added refresh-safe `/initiatives` and `/initiatives/new` screens to desktop navigation, mobile navigation, and the homepage.
