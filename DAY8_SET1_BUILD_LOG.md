@@ -1,16 +1,83 @@
 # Day 8 Set 1 build log
 
 Date: 2026-08-27  
-Implementation commit: `a2e3e23b32fb60c627db0a4021f605ed40843e23`  
-Contract: `day8-set1-protection-contract-v0.1`  
-Backend revision: `seewik-api-00015-hir`  
-Rollback revision: `seewik-api-00014-txh`
+Initial implementation commit: `a2e3e23b32fb60c627db0a4021f605ed40843e23`
+
+Cleanup implementation commit: `627547befa4b5038af6888ac856ba18113a615fc`
+
+Contracts: `day8-set1-protection-contract-v0.1`, `day8-set1-cleanup-contract-v0.2`
+
+Backend revision: `seewik-api-00021-rat`
+
+Rollback revision: `seewik-api-00015-hir`
 
 ## Outcome
 
 Set 1 is complete in production. Paid classification and drafting now have transactional per-user and project-wide protection, explicit model deadlines, and controlled citizen fallbacks. BigQuery prabhag resolution has a bounded deadline, a closed/open/half-open circuit breaker, and a checksum-verified packaged snapshot. Revision-tagged privacy-safe metrics are visible, the before/after log audit found no citizen content or identity material, and expired hashed limiter records are covered by an active Firestore TTL policy.
 
 No alert policy was created because no alert recipient has been defined.
+
+## Final cleanup acceptance
+
+The initial release was reopened after three evidence gaps were identified. The final cleanup contract is frozen in [data/contracts/day8-set1-cleanup-contract-v0.2.md](data/contracts/day8-set1-cleanup-contract-v0.2.md).
+
+### Degraded startup is an architecture decision
+
+Failing startup when packaged civic data is missing or corrupt is not inherently wrong: silently running with incomplete civic data could mislead citizens. Seewik already has a complete and honest manual Prabhag 1-20 path, however. Making the entire service unavailable would remove that safe path.
+
+Snapshot checksum and structure validation therefore still run at startup, but a missing, corrupt or checksum-mismatched snapshot starts explicit degraded mode. Automatic coordinate suggestions are disabled, every resolution returns `MANUAL_SELECTION_REQUIRED`, no prabhag is returned or guessed, and the citizen is directed to the existing manual selector. `prabhag.snapshot_unavailable` and `prabhag.manual_resolution_required` count these requests. A generic startup warning contains no civic evidence or exception details.
+
+This is deliberately stricter than using BigQuery alone: once the required fallback loses integrity, automated resolution stops while the honest manual product path remains available.
+
+The three forced cases now pass:
+
+1. healthy primary returns `BIGQUERY_ST_COVERS`;
+2. forced timeout returns the same `PRABHAG-11` through `SNAPSHOT_POINT_IN_POLYGON` and still requires confirmation;
+3. missing or corrupt snapshot starts degraded, returns `MANUAL_SELECTION_REQUIRED`, returns no prabhag, makes no nearest guess, and increments both degraded-mode counters.
+
+Evidence: [data/eval/results/day8-set1-cleanup-forced-failure-2026-08-27.json](data/eval/results/day8-set1-cleanup-forced-failure-2026-08-27.json).
+
+### Metric names and write-up mapping
+
+The algorithm names remain unchanged because they describe the actual operation rather than a generic box:
+
+- `BIGQUERY_ST_COVERS` — primary geography containment;
+- `SNAPSHOT_POINT_IN_POLYGON` — packaged in-memory containment;
+- `MANUAL_SELECTION_REQUIRED` — no automatic suggestion is available.
+
+Likewise, existing metric names remain precise. Legacy “ward” wording maps to `prabhag.bigquery_resolution`, `bigquery.fallback`, `bigquery.circuit_open_fallback`, the separate `bigquery.timeout | failure | invalid_response` failure counters, and `bigquery.resolution` latency. The full mapping is in the v0.2 cleanup contract.
+
+Two genuinely missing product counters were added:
+
+- `unsupported_route_total`;
+- `low_confidence_clarification_total` for validated confidence below `0.80` that requests clarification.
+
+The final production snapshot from revision `seewik-api-00021-rat` contained one `prabhag.bigquery_resolution` and one `unsupported_route_total`. Low-confidence wiring is covered by the regression suite; no paid production call was manufactured solely to force a low-confidence outcome.
+
+### Deadline rationale and deployed measurements
+
+The 1,500 ms BigQuery deadline was chosen conservatively before the new measurement; it was not derived from it. The initial deployed warm p95 was 592 ms, so the existing deadline was later confirmed at approximately 2.5 times that p95.
+
+An exact cleanup series then explicitly pre-warmed the deployed revision before ten measured calls:
+
+| Series | Samples | Min | p50 | p95 | Max |
+|---|---:|---:|---:|---:|---:|
+| Warm BigQuery query | 10 | 335 ms | 431.5 ms | 485 ms | 485 ms |
+| Warm endpoint wall time | 10 | 680 ms | 792.5 ms | 1,026 ms | 1,026 ms |
+
+The first un-warmed ten-call series was preserved rather than relabelled: its first query was 1,353 ms and its query p95 was 1,353 ms. After explicit pre-warming, all ten measured calls used `BIGQUERY_ST_COVERS` and the 1,500 ms deadline was approximately 3.1 times p95.
+
+Three genuine cold starts used isolated zero-traffic revisions of the exact production image. Each revision remained idle for at least fifteen minutes and emitted a new `AUTOSCALING` startup event for its single request:
+
+| Revision | Idle before startup | Wall time | BigQuery query | Result |
+|---|---:|---:|---:|---|
+| `seewik-api-00018-sir` | 1,002 s | 6,831 ms | 969 ms | `BIGQUERY_ST_COVERS` |
+| `seewik-api-00019-ten` | 971 s | 7,719 ms | 769 ms | `BIGQUERY_ST_COVERS` |
+| `seewik-api-00020-tis` | 930 s | 7,437 ms | 870 ms | `BIGQUERY_ST_COVERS` |
+
+Cold endpoint wall time includes container startup before application handling. Cold BigQuery query p95 was 969 ms, below the 1,500 ms dependency deadline. All three results remained synthetic candidates requiring confirmation. The temporary sample tags were removed after evidence capture.
+
+Final cleanup production evidence: [data/eval/results/day8-set1-cleanup-production-verification-2026-08-27.json](data/eval/results/day8-set1-cleanup-production-verification-2026-08-27.json).
 
 ## Frozen protection contract
 
@@ -160,11 +227,11 @@ References:
 
 ## Release and gates
 
-The backend was deployed first with zero traffic and the `day8-set1` tag. Health, authentication, rate limiting, deterministic routing and one authenticated call per paid endpoint passed before traffic moved. Revision `seewik-api-00015-hir` then received 100% traffic. Revision `seewik-api-00014-txh` remains ready for rollback. The tested frontend was published only after backend health was confirmed.
+The initial backend was deployed first with zero traffic and the `day8-set1` tag. Health, authentication, rate limiting, deterministic routing and one authenticated call per paid endpoint passed before traffic moved. Cleanup revision `seewik-api-00021-rat` now receives 100% traffic. Revision `seewik-api-00015-hir` remains ready for rollback. The tested frontend was published only after backend health was confirmed.
 
 Final gates:
 
-- backend: 167 tests passed, 0 failures, 0 errors, 0 skipped;
+- backend: 171 tests passed, 0 failures, 0 errors, 0 skipped;
 - frontend: 3 tests passed;
 - production frontend build: passed;
 - restricted-word repository audit: passed;
@@ -174,6 +241,8 @@ Final gates:
 - temporary production identities: deleted.
 
 Detailed sanitized production evidence is in [data/eval/results/day8-set1-production-verification-2026-08-27.json](data/eval/results/day8-set1-production-verification-2026-08-27.json).
+
+Final cleanup evidence is in [data/eval/results/day8-set1-cleanup-production-verification-2026-08-27.json](data/eval/results/day8-set1-cleanup-production-verification-2026-08-27.json).
 
 ## What broke and what was corrected
 

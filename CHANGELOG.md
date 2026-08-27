@@ -4,6 +4,10 @@ All notable changes to the versioned Civic Pack and its deterministic routing im
 
 ## Unreleased
 
+- Replaced snapshot fail-fast startup with an explicit degraded manual-selection mode when packaged prabhag data is missing, corrupt or checksum-invalid; no automatic prabhag is guessed, and degraded requests are counted.
+- Added `unsupported_route_total` and `low_confidence_clarification_total`, and documented the precise mapping between write-up concepts and existing prabhag, fallback, breaker, failure and latency metrics.
+- Preserved the 1,500 ms BigQuery deadline as a pre-measurement conservative choice, then verified ten explicit warm samples and three autoscaling-confirmed cold starts against the deployed image.
+- Deployed cleanup revision `seewik-api-00021-rat` at 100% traffic, published the manual-selection frontend behavior, and removed all temporary cold-sample URLs.
 - Added transactional per-UID and project-wide rolling limits for paid classification and drafting, controlled HTTP 429/503 responses, bounded `Retry-After`, and active TTL cleanup for expired hashed limiter records.
 - Added 15-second classification and 20-second drafting deadlines with cancellation, no automatic retry, distinct timeout/model/schema failures, manual category fallback, and manual complaint writing/copying while deterministic route facts remain visible.
 - Added a 1,500 ms BigQuery deadline, closed/open/half-open circuit breaker, and checksum-verified synthetic snapshot fallback that never guesses a prabhag and always preserves citizen confirmation plus manual selection.

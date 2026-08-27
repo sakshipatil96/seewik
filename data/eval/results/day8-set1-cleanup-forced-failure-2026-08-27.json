@@ -1,0 +1,51 @@
+{
+  "evidenceType": "DAY8_SET1_CLEANUP_FORCED_FAILURES",
+  "recordedAt": "2026-08-27",
+  "contractVersion": "day8-set1-cleanup-contract-v0.2",
+  "implementationGitSha": "627547befa4b5038af6888ac856ba18113a615fc",
+  "cases": [
+    {
+      "caseId": "HEALTHY_PRIMARY",
+      "dependency": "HEALTHY",
+      "status": "CANDIDATE_PRABHAG",
+      "resolutionMethod": "BIGQUERY_ST_COVERS",
+      "prabhagId": "PRABHAG-11",
+      "requiresCitizenConfirmation": true,
+      "passed": true
+    },
+    {
+      "caseId": "FORCED_BIGQUERY_TIMEOUT",
+      "dependency": "TIMEOUT",
+      "status": "CANDIDATE_PRABHAG",
+      "resolutionMethod": "SNAPSHOT_POINT_IN_POLYGON",
+      "fallbackReason": "BIGQUERY_TIMEOUT",
+      "prabhagId": "PRABHAG-11",
+      "samePrabhagAsPrimary": true,
+      "requiresCitizenConfirmation": true,
+      "passed": true
+    },
+    {
+      "caseId": "SNAPSHOT_UNAVAILABLE",
+      "dependency": "PACKAGED_SNAPSHOT_MISSING_OR_CORRUPT",
+      "serviceStartup": "DEGRADED",
+      "status": "MANUAL_SELECTION_REQUIRED",
+      "resolutionMethod": "MANUAL_SELECTION_REQUIRED",
+      "fallbackReason": "SNAPSHOT_UNAVAILABLE",
+      "prabhagId": null,
+      "primaryLookupCalls": 0,
+      "nearestPrabhagGuessMade": false,
+      "manualPrabhagSelectionAvailable": true,
+      "counters": {
+        "prabhag.snapshot_unavailable": 1,
+        "prabhag.manual_resolution_required": 1
+      },
+      "passed": true
+    }
+  ],
+  "snapshotLoadTests": {
+    "missingResourceStartsDegraded": true,
+    "checksumMismatchStartsDegraded": true,
+    "validResourceHasTwentyPolygons": true
+  },
+  "architectureDecision": "Fail-fast snapshot validation is defensible, but manual Prabhag 1-20 selection is a complete and honest fallback. Snapshot validation failure therefore starts the service in explicit manual-selection mode instead of making the whole service unavailable."
+}

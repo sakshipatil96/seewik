@@ -1,0 +1,158 @@
+{
+  "evidenceType": "DAY8_SET1_CLEANUP_PRODUCTION_VERIFICATION",
+  "recordedAt": "2026-08-27",
+  "project": "seewik",
+  "region": "asia-south1",
+  "implementationGitSha": "627547befa4b5038af6888ac856ba18113a615fc",
+  "contractVersion": "day8-set1-cleanup-contract-v0.2",
+  "backend": {
+    "url": "https://seewik-api-528138216934.asia-south1.run.app",
+    "revision": "seewik-api-00021-rat",
+    "trafficPercent": 100,
+    "healthHttpStatus": 200,
+    "deployedGitSha": "627547b",
+    "containerImageDigest": "sha256:56630a9ef4796c0fc39b49789f2cb0c513f916efa14434b695a138f4906c1f6d",
+    "maximumInstances": 20,
+    "rollbackRevision": "seewik-api-00015-hir"
+  },
+  "frontend": {
+    "url": "https://seewik.web.app",
+    "hostingDeploySucceeded": true,
+    "refreshRoutes": {
+      "/": 200,
+      "/report/new": 200,
+      "/reports": 200,
+      "/points": 200,
+      "/initiatives": 200,
+      "/initiatives/new": 200
+    }
+  },
+  "deadlineRationale": {
+    "bigQueryDeadlineMs": 1500,
+    "setBeforeDeployedMeasurement": true,
+    "derivedFromDeployedMeasurement": false,
+    "initialDeployedWarmP95Ms": 592,
+    "deadlineToInitialWarmP95Ratio": 2.53,
+    "statement": "The deadline was chosen conservatively before measurement and later confirmed at approximately 2.5 times the initial deployed warm p95."
+  },
+  "exactWarmMeasurement": {
+    "preWarmRequests": 1,
+    "measuredRequests": 10,
+    "statuses": {
+      "CANDIDATE_PRABHAG": 10
+    },
+    "resolutionMethods": {
+      "BIGQUERY_ST_COVERS": 10
+    },
+    "queryLatencyMs": {
+      "raw": [441, 482, 485, 477, 365, 422, 335, 448, 379, 335],
+      "min": 335,
+      "p50": 431.5,
+      "p95": 485,
+      "max": 485
+    },
+    "wallLatencyMs": {
+      "min": 680,
+      "p50": 792.5,
+      "p95": 1026,
+      "max": 1026
+    },
+    "deadlineToCleanupWarmP95Ratio": 3.09
+  },
+  "unwarmedSeriesPreserved": {
+    "classification": "FIRST_REQUEST_EFFECT_PRESENT_NOT_LABELLED_WARM",
+    "queryLatencyMs": [1353, 531, 483, 501, 456, 889, 403, 389, 463, 483],
+    "p50Ms": 483,
+    "p95Ms": 1353,
+    "maxMs": 1353
+  },
+  "genuineColdStarts": {
+    "qualification": "Each isolated zero-traffic revision used the exact production image, remained idle for at least fifteen minutes, and emitted a new AUTOSCALING startup event for its single request.",
+    "samples": [
+      {
+        "revision": "seewik-api-00018-sir",
+        "idleSecondsBeforeAutoscalingStart": 1002,
+        "autoscalingStartupAt": "2026-08-27T21:13:39.469036Z",
+        "wallMs": 6831,
+        "queryMs": 969,
+        "status": "CANDIDATE_PRABHAG",
+        "resolutionMethod": "BIGQUERY_ST_COVERS",
+        "requiresCitizenConfirmation": true,
+        "verifiedAutoscalingStartup": true
+      },
+      {
+        "revision": "seewik-api-00019-ten",
+        "idleSecondsBeforeAutoscalingStart": 971,
+        "autoscalingStartupAt": "2026-08-27T21:13:46.337602Z",
+        "wallMs": 7719,
+        "queryMs": 769,
+        "status": "CANDIDATE_PRABHAG",
+        "resolutionMethod": "BIGQUERY_ST_COVERS",
+        "requiresCitizenConfirmation": true,
+        "verifiedAutoscalingStartup": true
+      },
+      {
+        "revision": "seewik-api-00020-tis",
+        "idleSecondsBeforeAutoscalingStart": 930,
+        "autoscalingStartupAt": "2026-08-27T21:13:53.902755Z",
+        "wallMs": 7437,
+        "queryMs": 870,
+        "status": "CANDIDATE_PRABHAG",
+        "resolutionMethod": "BIGQUERY_ST_COVERS",
+        "requiresCitizenConfirmation": true,
+        "verifiedAutoscalingStartup": true
+      }
+    ],
+    "wallLatencyMs": {
+      "min": 6831,
+      "p50": 7437,
+      "p95": 7719,
+      "max": 7719
+    },
+    "queryLatencyMs": {
+      "min": 769,
+      "p50": 870,
+      "p95": 969,
+      "max": 969
+    },
+    "temporaryTagsRemoved": true
+  },
+  "forcedFailureEvidence": "data/eval/results/day8-set1-cleanup-forced-failure-2026-08-27.json",
+  "metricMapping": "data/contracts/day8-set1-cleanup-contract-v0.2.md",
+  "productionMetricSnapshot": {
+    "revision": "seewik-api-00021-rat",
+    "counters": {
+      "bigquery.success": 1,
+      "prabhag.bigquery_resolution": 1,
+      "unsupported_route_total": 1
+    },
+    "latencyMs": {
+      "bigquery.resolution": {
+        "count": 1,
+        "min": 915,
+        "p50": 915,
+        "p95": 915,
+        "max": 915
+      }
+    },
+    "lowConfidenceCounterDeploymentVerification": "Covered by the green regression test; no production model call was manufactured solely to force a low-confidence outcome."
+  },
+  "privacyAudit": {
+    "authorizationOrBearer": 0,
+    "idTokenStructures": 0,
+    "knownComplaintPhrases": 0,
+    "imageOrMultipartContent": 0,
+    "rawUidIndicators": 0,
+    "errorSeverityEntries": 0
+  },
+  "releaseGates": {
+    "backendTestsPassed": 171,
+    "backendFailures": 0,
+    "backendErrors": 0,
+    "backendSkipped": 0,
+    "frontendTestsPassed": 3,
+    "frontendBuildPassed": true,
+    "restrictedWordAuditPassed": true,
+    "gitWhitespaceCheckPassed": true
+  }
+}
