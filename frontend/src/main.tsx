@@ -317,6 +317,16 @@ function App() {
     setSelectedReport(null);
   }
 
+  function resetEvidenceDerivedState() {
+    setClassification(null);
+    setClassificationStatus('');
+    setClassificationConfirmed(false);
+    setClassificationSource('SELF_REPORTED');
+    setComplaintFacts('');
+    setRouteResult(null);
+    resetDraft();
+  }
+
   function startOver() {
     setIssueType(ISSUE_TYPES[0][0]);
     setPrabhagId(PRABHAGS[0]);
@@ -603,6 +613,7 @@ function App() {
   async function classifyEvidence() {
     setClassification(null);
     setClassificationConfirmed(false);
+    setComplaintFacts('');
     setRouteResult(null);
     resetDraft();
     if (!evidenceImage && !evidenceText.trim()) {
@@ -626,7 +637,7 @@ function App() {
     });
     const result: ClassificationResult = await response.json();
     setClassification(result);
-    if (!complaintFacts.trim()) setComplaintFacts(evidenceText.trim() || result.description || '');
+    setComplaintFacts(evidenceText.trim() || result.description || '');
     if (!response.ok || result.status === 'CLASSIFICATION_ERROR') {
       setClassificationStatus(result.message ?? 'The category could not be checked. Choose it manually below.');
       setClassificationSource('CITIZEN_SELECTED');
@@ -1103,15 +1114,11 @@ function App() {
       <div className="flow-step"><span>1</span><b>Describe the issue</b></div>
       <label>Photo (optional)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => {
         setEvidenceImage(event.target.files?.[0] ?? null);
-        setClassificationConfirmed(false);
-        setRouteResult(null);
-        resetDraft();
+        resetEvidenceDerivedState();
       }} /></label>
       <label>Short description (optional)<textarea maxLength={2000} value={evidenceText} placeholder="उदा. रस्त्यावर मोठा खड्डा आहे" onChange={(event) => {
         setEvidenceText(event.target.value);
-        setClassificationConfirmed(false);
-        setRouteResult(null);
-        resetDraft();
+        resetEvidenceDerivedState();
       }} /></label>
       <button className="secondary" onClick={() => classifyEvidence().catch(() => {
         setClassificationStatus('The category could not be checked. Choose it manually below.');
