@@ -31,7 +31,7 @@ jobs:
       - name: Detect production changes
         id: app
         run: |
-          if git diff --quiet HEAD^ HEAD -- backend frontend firebase.json .firebaserc firestore.rules storage.rules; then
+          if git diff --quiet HEAD^ HEAD -- backend frontend firebase.json .firebaserc firestore.rules storage.rules .github/workflows/deploy.yml; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -82,7 +82,7 @@ jobs:
 
       - name: Verify backend candidate
         run: |
-          candidate_url="$(gcloud run services describe seewik-api --project seewik --region asia-south1 --format="value(status.traffic[?tag='candidate-${{ github.run_number }}'].url)")"
+          candidate_url="$(gcloud run services describe seewik-api --project seewik --region asia-south1 --format=json | jq --raw-output '.status.traffic[] | select(.tag == "candidate-${{ github.run_number }}") | .url')"
           test -n "$candidate_url"
           curl --fail --silent --show-error "$candidate_url/health"
 
@@ -129,3 +129,11 @@ jobs:
           --project seewik
           --region asia-south1
           --to-revisions ${{ steps.previous.outputs.revision }}=100
+
+      - name: Remove failed candidate traffic tag
+        if: failure()
+        run: >-
+          gcloud run services update-traffic seewik-api
+          --project seewik
+          --region asia-south1
+          --remove-tags candidate-${{ github.run_number }}
