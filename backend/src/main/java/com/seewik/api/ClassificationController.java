@@ -1,5 +1,6 @@
 package com.seewik.api;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpHeaders;
@@ -65,7 +66,7 @@ public class ClassificationController {
             String message = "MODEL_TIMEOUT".equals(exception.code())
                     ? "Automatic classification took too long. Choose a category manually or retry later."
                     : "Classification could not be completed. Please choose a category manually.";
-            return ResponseEntity.status(status).body(error(exception.code(), message));
+            return ResponseEntity.status(status).body(error(exception.code(), message, exception.schemaDiagnostics()));
         } catch (java.io.IOException exception) {
             return ResponseEntity.badRequest().body(error("IMAGE_READ_FAILED", "The uploaded image could not be read"));
         } finally {
@@ -75,6 +76,23 @@ public class ClassificationController {
 
     private static Map<String, String> error(String code, String message) {
         return Map.of("status", "CLASSIFICATION_ERROR", "errorCode", code, "message", message);
+    }
+
+    private static Map<String, Object> error(
+            String code,
+            String message,
+            CivicClassificationService.SchemaFailureDiagnostics diagnostics) {
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("status", "CLASSIFICATION_ERROR");
+        response.put("errorCode", code);
+        response.put("message", message);
+        if (diagnostics != null) {
+            response.put("validatorSubcode", diagnostics.validatorSubcode());
+            response.put("generatedOutputLength", diagnostics.generatedOutputLength());
+            response.put("finishReason", diagnostics.finishReason());
+            response.put("candidatesTokenCount", diagnostics.candidatesTokenCount());
+        }
+        return response;
     }
 
     private static long elapsedMillis(long startedAt) {

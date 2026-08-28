@@ -42,5 +42,16 @@ public interface GeminiGateway {
             String responseId,
             Long promptTokenCount,
             Long candidatesTokenCount,
-            Long totalTokenCount) {}
+            Long totalTokenCount,
+            String finishReason) {
+        GeneratedContent(
+                String text,
+                String modelVersion,
+                String responseId,
+                Long promptTokenCount,
+                Long candidatesTokenCount,
+                Long totalTokenCount) {
+            this(text, modelVersion, responseId, promptTokenCount, candidatesTokenCount, totalTokenCount, null);
+        }
+    }
 }

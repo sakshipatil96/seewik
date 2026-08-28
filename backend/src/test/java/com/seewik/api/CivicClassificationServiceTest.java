@@ -112,6 +112,35 @@ class CivicClassificationServiceTest {
     }
 
     @Test
+    void schemaFailureCarriesContentFreeDiagnosticsAndSpecificMetric() {
+        OperationalMetrics metrics = new OperationalMetrics(mapper, "test");
+        GeminiGateway gateway = (prompt, image, mime, schema) -> new GeminiGateway.GeneratedContent(
+                "not json", "gemini-test", "response-test", 10L, 7L, 17L, "STOP");
+        CivicClassificationService service = new CivicClassificationService(
+                gateway,
+                promptFactory,
+                validator,
+                vertexSchema,
+                Clock.fixed(Instant.parse("2026-08-24T18:00:00Z"), ZoneOffset.UTC),
+                new ModelCallExecutor(Duration.ofSeconds(1), Duration.ofSeconds(1)),
+                metrics);
+
+        var exception = assertThrows(
+                CivicClassificationService.ClassificationExecutionException.class,
+                () -> service.classify(null, null, "test evidence"));
+        assertEquals("SCHEMA_VALIDATION_FAILED", exception.code());
+        assertEquals("MALFORMED_JSON", exception.schemaDiagnostics().validatorSubcode());
+        assertEquals(8, exception.schemaDiagnostics().generatedOutputLength());
+        assertEquals("STOP", exception.schemaDiagnostics().finishReason());
+        assertEquals(7L, exception.schemaDiagnostics().candidatesTokenCount());
+
+        @SuppressWarnings("unchecked")
+        var counters = (java.util.Map<String, Long>) metrics.snapshot().get("counters");
+        assertEquals(1L, counters.get("model.classification.schema_failure"));
+        assertEquals(1L, counters.get("model.classification.schema_failure.malformed_json"));
+    }
+
+    @Test
     void forbiddenAuthorityFieldIsIdentifiedAsSchemaStageFailure() {
         String raw = highConfidence("STREETLIGHT", "EN", 0.90)
                 .replace("\n}", ",\n  \"authority\": \"forbidden\"\n}");

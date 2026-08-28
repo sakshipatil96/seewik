@@ -66,7 +66,13 @@ class ClassificationControllerTest {
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.status").value("CLASSIFICATION_ERROR"))
                 .andExpect(jsonPath("$.errorCode").value("SCHEMA_VALIDATION_FAILED"))
-                .andExpect(jsonPath("$.message").value("Classification could not be completed. Please choose a category manually."));
+                .andExpect(jsonPath("$.message").value("Classification could not be completed. Please choose a category manually."))
+                .andExpect(jsonPath("$.validatorSubcode").value("MALFORMED_JSON"))
+                .andExpect(jsonPath("$.generatedOutputLength").value(8))
+                .andExpect(jsonPath("$.finishReason").value("STOP"))
+                .andExpect(jsonPath("$.candidatesTokenCount").value(2))
+                .andExpect(jsonPath("$.generatedOutput").doesNotExist())
+                .andExpect(jsonPath("$.description").doesNotExist());
     }
 
     @Test
@@ -160,7 +166,7 @@ class ClassificationControllerTest {
     }
 
     private static GeminiGateway.GeneratedContent generated(String output) {
-        return new GeminiGateway.GeneratedContent(output, "gemini-test", "response-test", 1L, 2L, 3L);
+        return new GeminiGateway.GeneratedContent(output, "gemini-test", "response-test", 1L, 2L, 3L, "STOP");
     }
 
     private static CitizenIdentityVerifier validVerifier() {

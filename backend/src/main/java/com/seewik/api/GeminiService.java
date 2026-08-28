@@ -129,13 +129,15 @@ public class GeminiService implements GeminiGateway {
             throw new IllegalStateException("Vertex AI response did not contain generated text");
         }
         JsonNode usage = root.path("usageMetadata");
+        String finishReason = nullableText(root.at("/candidates/0/finishReason"), null);
         return new GeneratedContent(
                 text.asText(),
                 nullableText(root.get("modelVersion"), MODEL),
                 nullableText(root.get("responseId"), null),
                 nullableLong(usage.get("promptTokenCount")),
                 nullableLong(usage.get("candidatesTokenCount")),
-                nullableLong(usage.get("totalTokenCount")));
+                nullableLong(usage.get("totalTokenCount")),
+                finishReason);
     }
 
     private static String nullableText(JsonNode node, String fallback) {

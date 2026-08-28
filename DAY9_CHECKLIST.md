@@ -71,21 +71,21 @@ Day 9 absorbs the former Set 3 work and incorporates the approximate prabhag geo
 
 ## Set 5 — Track B image evaluation
 
-- [ ] Keep previously viewed images as pilot-only evidence.
-- [ ] Use only untouched images in a scored set.
-- [ ] Keep raw photographs and private identifiers outside Git.
-- [ ] Record private case ID, Nandurbar provenance, permission, privacy review and expected label.
-- [ ] Crop or redact unnecessary faces, plates, house numbers and addresses.
-- [ ] Create `classification-image-cases-v0.1-draft` metadata and integrity tests.
-- [ ] Support JPEG, PNG and WebP up to 5 MB.
-- [ ] Keep Track B separate from the frozen 60-case Track A evaluation.
-- [ ] Freeze images, labels, schema, prompt, model and scoring before calls.
-- [ ] Exclude unresolved labels from accuracy scoring.
-- [ ] Obtain a second label review where possible; document if unavailable.
-- [ ] Run image-only classification twice without text hints or silent retries.
-- [ ] Preserve raw responses and separate transport, timeout, model and schema failures.
-- [ ] Report counts, accuracy, confusion pairs, clarification behaviour, stability and latency.
-- [ ] Make no universal image-accuracy claim.
+- [x] Keep previously viewed images as pilot-only evidence.
+- [x] Use only untouched images in a scored set.
+- [x] Keep raw photographs and private identifiers outside Git.
+- [x] Record private case ID, Nandurbar provenance, permission, privacy review and expected label.
+- [x] Crop or redact unnecessary faces, plates, house numbers and addresses.
+- [x] Create `classification-image-cases-v0.1-draft` metadata and integrity tests.
+- [x] Support JPEG, PNG and WebP up to 5 MB.
+- [x] Keep Track B separate from the frozen 60-case Track A evaluation.
+- [x] Freeze images, labels, schema, prompt, model and scoring before calls.
+- [x] Exclude unresolved labels from accuracy scoring.
+- [x] Obtain a second label review where possible; document if unavailable.
+- [x] Run image-only classification twice without text hints or silent retries.
+- [x] Preserve raw responses and separate transport, timeout, model and schema failures.
+- [x] Report counts, accuracy, confusion pairs, clarification behaviour, stability and latency.
+- [x] Make no universal image-accuracy claim.
 
 ## Set 6 — Design-only notes
 

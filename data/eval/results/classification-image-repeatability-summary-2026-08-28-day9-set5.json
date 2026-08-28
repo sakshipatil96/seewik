@@ -1,0 +1,121 @@
+{
+  "evaluatedAt": "2026-08-28T20:18:05Z",
+  "analyzedAt": "2026-08-28T20:34:22Z",
+  "endpoint": "https://seewik-api-528138216934.asia-south1.run.app/api/civic/classify",
+  "region": "asia-south1",
+  "gitSha": "3490c61c0b6fc7eba35fd610a6d0682ade87edad",
+  "caseSetVersion": "classification-image-cases-v0.1-draft",
+  "casesSha256": "6cd468ed84b2bbe28ae643c6b0f566568a39674d6088c670b63beb56dbd71d06",
+  "promptVersion": "classification-prompt-v0.1",
+  "schemaVersion": "classification-v0.1",
+  "packVersion": "v0.2",
+  "scoringVersion": "image-classification-scoring-v0.1",
+  "frozenModelVersion": "gemini-3.7-flash",
+  "inputMode": "IMAGE_ONLY_NO_TEXT_HINTS",
+  "silentRetries": false,
+  "runs": 2,
+  "casesPerRun": 8,
+  "calls": 16,
+  "scoredCalls": 16,
+  "categoryCorrect": 12,
+  "categoryAccuracy": 0.75,
+  "validResponses": 12,
+  "schemaValidity": 0.75,
+  "categoryCorrectOnValidResponses": 12,
+  "categoryAccuracyOnValidResponses": 1,
+  "misclassifications": 0,
+  "stableCases": 6,
+  "categoryStability": 0.75,
+  "statusStability": 0.75,
+  "clarificationStability": 1,
+  "clarification": {
+    "requiredAcrossCalls": 0
+  },
+  "failuresAcrossCalls": {
+    "none": 12,
+    "timeout": 0,
+    "model": 0,
+    "schema": 4,
+    "transport": 0,
+    "http": 0
+  },
+  "namedFailureMode": {
+    "code": "IMAGE_PATH_SCHEMA_VALIDATION_INSTABILITY",
+    "layer": "POST_PROVIDER_LOCAL_CLASSIFICATION_SCHEMA_VALIDATION",
+    "occurrences": 4,
+    "affectedCases": 3,
+    "repeatedCases": [
+      {
+        "caseId": "TB-IMG-006",
+        "occurrences": 2
+      }
+    ],
+    "occurrenceDetail": [
+      {
+        "run": "run1",
+        "caseId": "TB-IMG-002"
+      },
+      {
+        "run": "run1",
+        "caseId": "TB-IMG-006"
+      },
+      {
+        "run": "run2",
+        "caseId": "TB-IMG-004"
+      },
+      {
+        "run": "run2",
+        "caseId": "TB-IMG-006"
+      }
+    ],
+    "exactValidatorSubcodeAvailable": false,
+    "rejectedProviderPayloadAvailable": false,
+    "explanation": "The provider call completed, but the generated classification was rejected by the stricter local validator. The deployed endpoint preserves only a public error envelope, so the historical rejected JSON and exact validator subcode cannot be recovered.",
+    "causalStatus": "OBSERVED_LAYER_NAMED_EXACT_SCHEMA_VIOLATION_UNRESOLVED"
+  },
+  "confusionPairs": [],
+  "latencyMs": {
+    "run1": {
+      "min": 3878,
+      "median": 4855.5,
+      "p95": 6025,
+      "max": 6025
+    },
+    "run2": {
+      "min": 3332,
+      "median": 5845,
+      "p95": 6260,
+      "max": 6260
+    }
+  },
+  "perCategory": [
+    {
+      "issueType": "DRAINAGE_SEWAGE",
+      "calls": 6,
+      "correct": 5,
+      "accuracy": 0.8333333333333334
+    },
+    {
+      "issueType": "GARBAGE_SOLID_WASTE",
+      "calls": 6,
+      "correct": 3,
+      "accuracy": 0.5
+    },
+    {
+      "issueType": "POTHOLE_ROAD_DAMAGE",
+      "calls": 4,
+      "correct": 4,
+      "accuracy": 1
+    }
+  ],
+  "rawResponsesPreservedPrivately": true,
+  "universalImageAccuracyClaim": false,
+  "resultFiles": [
+    "classification-image-results-2026-08-28-day9-set5-run1.ndjson",
+    "classification-image-results-2026-08-28-day9-set5-run2.ndjson"
+  ],
+  "runSummaryFiles": [
+    "classification-image-summary-2026-08-28-day9-set5-run1.json",
+    "classification-image-summary-2026-08-28-day9-set5-run2.json"
+  ]
+}

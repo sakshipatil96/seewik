@@ -97,8 +97,14 @@ public class CivicClassificationService {
             classification = validator.validate(generated.text());
         } catch (ClassificationSchemaValidator.ClassificationValidationException exception) {
             metrics.increment("model.classification.schema_failure");
+            metrics.increment("model.classification.schema_failure." + exception.code().toLowerCase(java.util.Locale.ROOT));
+            SchemaFailureDiagnostics diagnostics = new SchemaFailureDiagnostics(
+                    exception.code(),
+                    generated.text() == null ? 0 : generated.text().length(),
+                    generated.finishReason(),
+                    generated.candidatesTokenCount());
             throw new ClassificationExecutionException(
-                    "SCHEMA_VALIDATION_FAILED", "The model returned an invalid classification", exception);
+                    "SCHEMA_VALIDATION_FAILED", "The model returned an invalid classification", exception, diagnostics);
         }
         metrics.increment("model.classification.success");
         metrics.recordLatency("model.classification", latencyMs);
@@ -189,14 +195,34 @@ public class CivicClassificationService {
 
     public static final class ClassificationExecutionException extends RuntimeException {
         private final String code;
+        private final SchemaFailureDiagnostics schemaDiagnostics;
 
         ClassificationExecutionException(String code, String message, Throwable cause) {
+            this(code, message, cause, null);
+        }
+
+        ClassificationExecutionException(
+                String code,
+                String message,
+                Throwable cause,
+                SchemaFailureDiagnostics schemaDiagnostics) {
             super(message, cause);
             this.code = code;
+            this.schemaDiagnostics = schemaDiagnostics;
         }
 
         public String code() {
             return code;
         }
+
+        public SchemaFailureDiagnostics schemaDiagnostics() {
+            return schemaDiagnostics;
+        }
     }
+
+    public record SchemaFailureDiagnostics(
+            String validatorSubcode,
+            int generatedOutputLength,
+            String finishReason,
+            Long candidatesTokenCount) {}
 }

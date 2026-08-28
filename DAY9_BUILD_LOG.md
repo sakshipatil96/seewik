@@ -2,9 +2,9 @@
 
 Date: 2026-08-28
 
-Scope in this entry: Sets 1, 2 and 3
+Scope in this entry: Sets 1, 2, 3 and 5
 
-Production deployment: deferred to the Day 9 final verification set
+Production deployment: Sets 1–3 deployed; Set 4 paused; Set 5 does not change the citizen application
 
 ## Set 1 — language and boundary requirements
 
@@ -112,4 +112,57 @@ The Set 2 browser limitation was cleared during Set 3, so local desktop, mobile,
 
 ## Deployment status
 
-Sets 1–3 are not deployed by this entry. Day 9 intentionally places deployment after performance work and final green verification so an incomplete Day 9 interface is not promoted between sets.
+Sets 1–3 were subsequently verified, committed and deployed from green `main` at `3490c61c0b6fc7eba35fd610a6d0682ade87edad`. Set 5 is evaluation evidence and tooling only; it does not change the deployed citizen application. Set 4 remains paused by explicit direction.
+
+## Set 5 — Track B private image evaluation
+
+Set 4 remains deliberately paused. Set 5 was completed as a separate Track B evaluation and was not merged with the frozen 60-case Track A text set.
+
+Intake and privacy controls:
+
+- eight previously untested photographs were confirmed as originating in Nandurbar;
+- previously viewed pilot candidates remained outside the scored set;
+- the user confirmed permission from the family photographers for private Seewik evaluation and privacy-sanitized copies;
+- expected labels were confirmed by three to four people, leaving zero unresolved cases;
+- raw photographs, source filenames, original checksums, exact source paths, sanitized photographs and raw deployed-endpoint responses remain outside Git;
+- all scored inputs use private IDs `TB-IMG-001` through `TB-IMG-008`;
+- embedded metadata was removed from every sanitized copy;
+- printed coordinate overlays were cropped from `TB-IMG-001` through `TB-IMG-004` without changing the civic evidence;
+- no visible face, readable number plate, house number or address required further redaction;
+- every sanitized file is a JPEG below the 5 MB ceiling, while the application contract continues to support JPEG, PNG and WebP.
+
+The image list, sanitized-image SHA-256 values, expected labels, prompt `classification-prompt-v0.1`, response schema `classification-v0.1`, Civic Pack `v0.2`, model `gemini-3.7-flash`, policy `evaluation-policy-v0.1` and scoring `image-classification-scoring-v0.1` were frozen before the first scored call. The case-set SHA-256 is:
+
+`6cd468ed84b2bbe28ae643c6b0f566568a39674d6088c670b63beb56dbd71d06`
+
+Scored evaluation:
+
+- two unchanged image-only runs, eight cases per run and 16 calls total;
+- no text hint was sent and no failed request was retried;
+- category accuracy on valid responses was 12/12 (100%);
+- schema validity was 12/16 (75%);
+- there were zero misclassifications and no category confusion pairs;
+- the failure-inclusive exact category score was 12/16 (75%), but that aggregate is secondary because it combines category correctness with structural validity;
+- four calls failed server-side schema validation: two in each run;
+- the deployed endpoint returned only its public `SCHEMA_VALIDATION_FAILED` error envelope for those calls, so the rejected provider payload was not exposed to or available from this client-side run;
+- the named finding is `IMAGE_PATH_SCHEMA_VALIDATION_INSTABILITY`: the provider call completed, then `ClassificationSchemaValidator` rejected the generated classification before an API success response was built;
+- `TB-IMG-006` failed schema validation in both runs, `TB-IMG-002` failed only in run 1 and `TB-IMG-004` failed only in run 2—three affected images with one repeatable case and two run-variable cases;
+- Cloud Run revision `seewik-api-00029-yah` independently recorded 12 classification successes and four schema failures during the evaluation window;
+- the exact schema violation cannot be recovered retroactively because the deployed service records only an aggregate counter and returns only the public error envelope; it does not retain the rejected provider JSON or validator subcode;
+- truncation is not supported by the available evidence: valid image responses used 60–102 candidate tokens against a 512-token output ceiling, but failed-call candidate counts were not retained, so truncation cannot be ruled out absolutely;
+- timeout, model-call, transport and other HTTP failure counts were all zero;
+- no call requested clarification;
+- category and status stability were both 75%; clarification behavior was stable across all eight cases;
+- run 1 latency was 3,878 ms minimum, 4,855.5 ms median, 6,025 ms p95 and 6,025 ms maximum;
+- run 2 latency was 3,332 ms minimum, 5,845 ms median, 6,260 ms p95 and 6,260 ms maximum;
+- across both runs, pothole/road-damage scored 4/4, drainage/sewage 5/6 and garbage/solid-waste 3/6. The reduced failure-inclusive scores are due to schema failures, not wrong-category outputs.
+
+The comparison with frozen Track A is structural, not an accuracy comparison: Track A produced zero schema failures in 120 text-only calls, while Track B produced four in 16 image-only calls. These eight private, purpose-selected photographs remain a small evaluation set. Track B's value is the discovered image-path failure mode, not a broad image-accuracy estimate. Raw endpoint responses are preserved in the private evaluation archive, while the repository contains only sanitized case metadata and analytical results. The temporary evaluation account was deleted after both runs.
+
+Set 5 verification passed: 18 frontend/integrity tests, the production frontend build, 178 backend tests, shell syntax, JSON parsing, repository-content policy and whitespace checks. The existing large initial-chunk warning remains assigned to paused Set 4.
+
+### Diagnostic follow-up instrumentation
+
+After the frozen two-run result was analyzed, the backend gained privacy-safe schema-failure diagnostics for future calls: validator subcode, generated-output character length, provider finish reason and candidate-token count. The public error envelope still excludes generated text, descriptions, image content and private identifiers. A specific operational counter is also recorded per validator subcode.
+
+The diagnostic runner forces `DIAGNOSTIC_UNSCORED`, records `labelMatch` independently and sets every diagnostic call's `scored` field to false. Therefore, a later diagnostic pass cannot alter the frozen 12/12 category-correctness or 12/16 schema-validity findings above.

@@ -1,0 +1,64 @@
+{
+  "evaluatedAt": "2026-08-28T20:16:47Z",
+  "endpoint": "https://seewik-api-528138216934.asia-south1.run.app/api/civic/classify",
+  "region": "asia-south1",
+  "runLabel": "2026-08-28-day9-set5-run1",
+  "gitSha": "3490c61c0b6fc7eba35fd610a6d0682ade87edad",
+  "caseSetVersion": "classification-image-cases-v0.1-draft",
+  "casesSha256": "6cd468ed84b2bbe28ae643c6b0f566568a39674d6088c670b63beb56dbd71d06",
+  "promptVersion": "classification-prompt-v0.1",
+  "schemaVersion": "classification-v0.1",
+  "packVersion": "v0.2",
+  "scoringVersion": "image-classification-scoring-v0.1",
+  "frozenModelVersion": "gemini-3.7-flash",
+  "inputMode": "IMAGE_ONLY_NO_TEXT_HINTS",
+  "silentRetries": false,
+  "rawResponsesPreservedPrivately": true,
+  "resultsFile": "classification-image-results-2026-08-28-day9-set5-run1.ndjson",
+  "total": 8,
+  "scored": 8,
+  "correct": 6,
+  "accuracy": 0.75,
+  "validResponses": 6,
+  "schemaValidity": 0.75,
+  "categoryCorrectOnValidResponses": 6,
+  "categoryAccuracyOnValidResponses": 1,
+  "misclassifications": 0,
+  "classified": 6,
+  "clarificationRequired": 0,
+  "failures": {
+    "none": 6,
+    "timeout": 0,
+    "model": 0,
+    "schema": 2,
+    "transport": 0,
+    "http": 0
+  },
+  "latencyMs": {
+    "min": 3878,
+    "median": 4855.5,
+    "p95": 6025,
+    "max": 6025
+  },
+  "confusionPairs": [],
+  "perCategory": [
+    {
+      "issueType": "DRAINAGE_SEWAGE",
+      "cases": 3,
+      "correct": 3,
+      "accuracy": 1
+    },
+    {
+      "issueType": "GARBAGE_SOLID_WASTE",
+      "cases": 3,
+      "correct": 1,
+      "accuracy": 0.3333333333333333
+    },
+    {
+      "issueType": "POTHOLE_ROAD_DAMAGE",
+      "cases": 2,
+      "correct": 2,
+      "accuracy": 1
+    }
+  ]
+}
