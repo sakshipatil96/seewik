@@ -1,0 +1,62 @@
+.boundary-map-panel {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: clamp(14px, 3vw, 20px);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+}
+
+.boundary-map-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.boundary-map-heading h3 { margin: 0 0 4px; color: var(--color-navy); font-size: 1rem; }
+.boundary-map-heading p { font-size: .78rem; line-height: 1.45; }
+.boundary-map-count { display: grid; place-items: center; flex: none; width: 42px; height: 42px; border-radius: 50%; background: var(--color-navy); color: white; font-weight: 800; }
+
+.boundary-map-metadata {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 8px;
+  margin: 0;
+}
+
+.boundary-map-metadata div { min-width: 0; padding: 9px 10px; border-radius: var(--radius-sm); background: var(--color-surface); }
+.boundary-map-metadata dt { color: var(--color-muted); font-size: .66rem; font-weight: 800; text-transform: uppercase; }
+.boundary-map-metadata dd { margin: 3px 0 0; color: var(--color-text); font-family: var(--font-mono); font-size: .67rem; line-height: 1.35; overflow-wrap: anywhere; }
+.boundary-map-caveat, .boundary-map-privacy { font-size: .75rem; line-height: 1.5; }
+
+.boundary-map-frame { min-width: 0; overflow: hidden; border: 1px solid var(--color-line); border-radius: var(--radius-md); background: #f4f0e7; }
+.boundary-map { display: block; width: 100%; height: auto; min-height: 260px; }
+.boundary-map-background { fill: #f4f0e7; }
+.boundary-shape { fill: #fffdf8; stroke: #52636b; stroke-width: 2.5; vector-effect: non-scaling-stroke; cursor: pointer; transition: fill .15s ease, stroke .15s ease, stroke-width .15s ease; }
+.boundary-shape:hover { fill: #fff3d5; stroke: var(--color-saffron-ink); }
+.boundary-shape:focus-visible { fill: #fff3d5; stroke: var(--color-navy); stroke-width: 5; outline: none; }
+.boundary-shape.is-highlighted { fill: var(--color-saffron); stroke: var(--color-navy); stroke-width: 4; }
+.boundary-label { fill: #26383f; stroke: #fffdf8; stroke-width: 2.5px; paint-order: stroke; font-size: 16px; font-weight: 800; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+.boundary-label.is-highlighted { fill: #17140d; stroke: var(--color-saffron); }
+.boundary-location-halo { fill: color-mix(in srgb, var(--color-teal) 24%, transparent); stroke: white; stroke-width: 2; }
+.boundary-location-dot { fill: var(--color-teal-ink); stroke: white; stroke-width: 3; }
+
+.boundary-map-legend { display: flex; flex-wrap: wrap; gap: 7px 12px; color: var(--color-muted); font-size: .68rem; font-weight: 650; }
+.boundary-map-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.boundary-map-legend i { display: inline-block; flex: none; width: 15px; height: 11px; border-radius: 3px; }
+.boundary-legend-outline { border: 2px solid #52636b; background: #fffdf8; }
+.boundary-legend-highlight { border: 2px solid var(--color-navy); background: var(--color-saffron); }
+.boundary-legend-marker { width: 11px !important; height: 11px !important; border: 2px solid white; border-radius: 50% !important; background: var(--color-teal-ink); box-shadow: 0 0 0 1px var(--color-teal-ink); }
+.boundary-map-selection { padding: 9px 11px; border-radius: var(--radius-sm); background: var(--color-success-soft); color: var(--color-success-ink); font-size: .78rem; font-weight: 750; }
+.boundary-map-unavailable { padding: 13px 14px; border: 1px solid color-mix(in srgb, var(--color-warning) 30%, transparent); border-radius: var(--radius-md); background: var(--color-warning-soft); color: var(--color-warning-ink); font-size: .82rem; line-height: 1.5; }
+
+@media (max-width: 620px) {
+  .boundary-map-metadata { grid-template-columns: 1fr; }
+  .boundary-map { min-height: 230px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boundary-shape { transition: none; }
+}

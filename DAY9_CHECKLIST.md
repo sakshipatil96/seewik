@@ -41,19 +41,19 @@ Day 9 absorbs the former Set 3 work and incorporates the approximate prabhag geo
 
 ## Set 3 — Approximate prabhag boundary UI
 
-- [ ] Validate the 20-feature GeoJSON, checksum, topology and visible coverage.
-- [ ] Render the local versioned geometry without a third-party map provider.
-- [ ] Label it “approximate boundaries digitized from an official map image.”
-- [ ] Display the dataset version and georeference-review status.
-- [ ] Show all 20 outlines and highlight only a deterministic/manual candidate.
-- [ ] Keep automatic candidates confirmation-required.
-- [ ] Keep manual Prabhag 1–20 selection next to the map.
-- [ ] Provide a complete non-map selection experience.
-- [ ] Never guess a nearest polygon.
-- [ ] Preserve outside-area rejection and automatic-resolution degraded fallback.
-- [ ] Keep any citizen marker temporary, approximate and free of numeric coordinates.
-- [ ] Test mobile layout, keyboard use, 200% zoom and all three languages.
-- [ ] Lazy-load the map.
+- [x] Validate the 20-feature GeoJSON, checksum, topology and visible coverage.
+- [x] Render the local versioned geometry without a third-party map provider.
+- [x] Label it “approximate boundaries digitized from an official map image.”
+- [x] Display the dataset version and georeference-review status.
+- [x] Show all 20 outlines and highlight only a deterministic/manual candidate.
+- [x] Keep automatic candidates confirmation-required.
+- [x] Keep manual Prabhag 1–20 selection next to the map.
+- [x] Provide a complete non-map selection experience.
+- [x] Never guess a nearest polygon.
+- [x] Preserve outside-area rejection and automatic-resolution degraded fallback.
+- [x] Keep any citizen marker temporary, approximate and free of numeric coordinates.
+- [x] Test mobile layout, keyboard use, 200% zoom-equivalent reflow and all three languages.
+- [x] Lazy-load the map.
 
 ## Set 4 — Code splitting and performance
 

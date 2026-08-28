@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { deviceLanguage, initialLanguage, localizedStatus, translate, translationCoverage } from '../src/i18n.ts';
+import { deviceLanguage, initialLanguage, localizedStatus, prabhagConfirmedMessage, translate, translationCoverage } from '../src/i18n.ts';
 
 const source = await readFile(new URL('../src/main.tsx', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
@@ -22,6 +22,7 @@ test('versioned Marathi and Hindi catalogue entries are non-empty', () => {
   assert.equal(translate('mr', 'Home'), 'मुख्यपृष्ठ');
   assert.equal(translate('hi', 'Home'), 'मुखपृष्ठ');
   assert.equal(localizedStatus('mr', 'VERIFIED_FIXED'), 'दुरुस्ती पडताळली');
+  assert.match(prabhagConfirmedMessage('hi', 'Prabhag 11'), /Prabhag 11/);
 });
 
 test('language and navigation accessibility foundations are present', () => {

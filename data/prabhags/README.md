@@ -53,3 +53,12 @@ The committed SHA-256 file pins the exact GeoJSON bytes:
 cd data/prabhags
 shasum -a 256 -c official-map-digitized-boundaries-v0.1.sha256
 ```
+
+The frontend integrity suite additionally checks all 20 locked feature records, closed counter-clockwise rings, finite coordinates, non-zero area, self-intersections, cross-prabhag crossings, shared-edge ownership, expected visible extent and edge-connected coverage:
+
+```text
+cd frontend
+node --test scripts/boundary-integrity.test.mjs
+```
+
+These checks establish that the committed draft is internally usable as a visual aid. They do not establish georeference accuracy and do not activate it for resolver use.

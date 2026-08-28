@@ -2,7 +2,7 @@
 
 Date: 2026-08-28
 
-Scope in this entry: Sets 1 and 2
+Scope in this entry: Sets 1, 2 and 3
 
 Production deployment: deferred to the Day 9 final verification set
 
@@ -54,19 +54,62 @@ Implemented:
 
 The Marathi/Hindi catalogue has not been approved by an independent language reviewer. It is implemented and complete as product copy v0.1, but must not be described as independently reviewed civic wording. Civic Pack local wording remains separate.
 
+## Set 3 — approximate prabhag boundary UI
+
+Implemented:
+
+- a lazy-loaded local SVG boundary guide using `official-map-digitized-boundaries-v0.1.geojson` directly from the versioned repository dataset;
+- no third-party map, tile, geocoding or analytics provider;
+- all 20 geographic prabhag outlines, each selectable by pointer, Enter or Space;
+- a single highlight limited to the current deterministic candidate, confirmed automatic selection or explicit manual selection;
+- the exact English label “approximate boundaries digitized from an official map image”;
+- visible `official-map-digitized-v0.1` and `REVIEW_PENDING_GEOREFERENCE` provenance;
+- an explicit statement that the visual guide is not official digital GIS geometry and never changes automatic routing;
+- adjacent manual Prabhag 1–20 selection as a fully equivalent non-map flow;
+- no implicit Prabhag 1 default: the route action remains disabled until the citizen explicitly confirms an automatic candidate or makes a manual selection;
+- manual selection that overrides an automatic suggestion without guessing a nearest polygon;
+- existing outside-Nandurbar rejection and manual degraded fallback unchanged;
+- graceful manual fallback when the lazy boundary module or geometry cannot load;
+- an optional in-memory location marker quantized to an approximate display position, with no numeric coordinates shown or stored by the guide;
+- English, Marathi and Hindi boundary copy in `interface-copy-v0.1`;
+- preserved refresh-safe `/report/new` routing and browser Back/Forward behavior.
+
+The approximate digitized dataset remains `isActive: false`. The active BigQuery resolver and packaged last-known-good synthetic snapshot were not changed.
+
+Integrity coverage now verifies:
+
+- the pinned SHA-256;
+- locked dataset and feature metadata;
+- exactly 20 unique Prabhag 1–20 polygons;
+- closed, counter-clockwise, finite, non-zero rings;
+- no polygon self-intersections or cross-prabhag crossings;
+- the expected visible latitude/longitude extent;
+- at most two owners per shared edge;
+- one edge-connected visible coverage across all 20 polygons.
+
 ## Verification
 
-- Frontend tests: 8 passed, 0 failed.
+- Frontend tests after Set 3: 14 passed, 0 failed.
 - TypeScript and production build: passed.
 - Direct-link and browser navigation contracts: passed.
 - Translation catalogue: at least 150 non-empty Marathi/Hindi entries; integrity test passed.
 - Source accessibility foundations: passed.
-- Bundle after language catalogue: 859.28 kB minified / 251.62 kB gzip.
+- Boundary integrity, lazy-loading and fallback contracts: passed.
+- Local browser: all 20 outlines visible at 1280×720 desktop and 390×844 mobile; no horizontal overflow.
+- Keyboard: Enter on an outline selected the matching manual Prabhag and synchronized the list.
+- Confirmation gate: the route action remained disabled until both category and prabhag were explicitly confirmed.
+- English, Marathi and Hindi map copy rendered without detected text overflow at mobile width.
+- The 640-CSS-pixel reflow check, equivalent to 200% zoom from a 1280-pixel viewport, stacked the map and manual selector without horizontal overflow.
+- Refresh retained `/report/new` and the selected interface language; browser Back/Forward preserved `/` and `/report/new`.
+- Browser console: no errors or warnings during the Set 3 checks.
+- Bundle after language catalogue, before Set 3: 859.28 kB minified / 251.62 kB gzip.
+- Set 3 build: 870.19 kB / 254.60 kB gzip initial JavaScript plus a lazy 37.60 kB / 4.23 kB gzip boundary chunk.
+- Total Set 3 JavaScript: 907.79 kB minified / 258.83 kB gzip; route-level performance work remains assigned to Set 4.
 - Previous baseline: approximately 807.28 kB minified / 239.78 kB gzip.
 - Large-chunk warning remains and is assigned to Day 9 Set 4 code splitting.
 
-The local browser visual check could not run because the browser surface denied local-page access when its security policy could not be verified. No visual/browser-audit claim is made here. Production screenshots, 200% zoom, responsive layout and live console verification remain in the final Day 9 verification set.
+The Set 2 browser limitation was cleared during Set 3, so local desktop, mobile, multilingual, keyboard, reflow, refresh, history and console checks were completed. Production screenshots and production-route verification remain in the final Day 9 verification set.
 
 ## Deployment status
 
-Sets 1 and 2 are not deployed by this entry. Day 9 intentionally places deployment after the boundary UI, performance work and final green verification so an incomplete Day 9 interface is not promoted between sets.
+Sets 1–3 are not deployed by this entry. Day 9 intentionally places deployment after performance work and final green verification so an incomplete Day 9 interface is not promoted between sets.

@@ -115,6 +115,25 @@ const COPY: Record<string, LocalizedCopy> = {
   'Suggest from my location': { mr: 'माझ्या स्थानावरून सुचवा', hi: 'मेरे स्थान से सुझाएँ' },
   'Confirm this suggested prabhag': { mr: 'सुचवलेल्या प्रभागाची पुष्टी करा', hi: 'सुझाए गए प्रभाग की पुष्टि करें' },
   'Prabhag number': { mr: 'प्रभाग क्रमांक', hi: 'प्रभाग संख्या' },
+  'Choose manually': { mr: 'हाताने निवडा', hi: 'हाथ से चुनें' },
+  'The list is a complete non-map option. Choosing here overrides any automatic suggestion.': { mr: 'ही यादी नकाशाशिवाय वापरता येणारा पूर्ण पर्याय आहे. येथील निवड कोणत्याही स्वयंचलित सूचनेपेक्षा प्राधान्याने वापरली जाते.', hi: 'यह सूची बिना नक्शे का पूरा विकल्प है। यहाँ किया गया चयन किसी भी स्वचालित सुझाव से ऊपर माना जाता है।' },
+  'Choose Prabhag 1–20': { mr: 'प्रभाग १–२० निवडा', hi: 'प्रभाग १–२० चुनें' },
+  'Confirmed selection': { mr: 'निवडीची पुष्टी झाली', hi: 'चयन की पुष्टि हुई' },
+  'Choose and confirm a prabhag first': { mr: 'प्रथम प्रभाग निवडून पुष्टी करा', hi: 'पहले प्रभाग चुनकर पुष्टि करें' },
+  'Approximate prabhag boundary guide': { mr: 'प्रभाग सीमांचे अंदाजे मार्गदर्शक', hi: 'प्रभाग सीमाओं की अनुमानित मार्गदर्शिका' },
+  'approximate boundaries digitized from an official map image': { mr: 'अधिकृत नकाशाच्या प्रतिमेतून डिजिटल स्वरूपात काढलेल्या अंदाजे सीमा', hi: 'आधिकारिक नक्शे की छवि से डिजिटल रूप में बनाई गई अनुमानित सीमाएँ' },
+  'Dataset': { mr: 'डेटासेट', hi: 'डेटासेट' },
+  'Georeference review': { mr: 'भौगोलिक संदर्भ तपासणी', hi: 'भौगोलिक संदर्भ समीक्षा' },
+  'This is a visual orientation aid, not official digital GIS geometry. It never changes automatic routing and every selection still requires citizen confirmation.': { mr: 'हे फक्त दिशादर्शक दृश्य साधन आहे; अधिकृत डिजिटल GIS भूमिती नाही. यामुळे स्वयंचलित मार्ग ठरत नाही आणि प्रत्येक निवडीसाठी नागरिकाची पुष्टी आवश्यक आहे.', hi: 'यह केवल दृश्य दिशा-सहायता है; आधिकारिक डिजिटल GIS ज्यामिति नहीं। इससे स्वचालित मार्ग नहीं बदलता और हर चयन के लिए नागरिक की पुष्टि जरूरी है।' },
+  'Boundary guide with all 20 prabhag outlines. Use Tab to reach an outline, then Enter or Space to select it manually.': { mr: 'सर्व २० प्रभागांच्या बाह्यरेषांसह सीमा मार्गदर्शक. रेषेपर्यंत जाण्यासाठी Tab आणि हाताने निवडण्यासाठी Enter किंवा Space वापरा.', hi: 'सभी २० प्रभागों की रूपरेखाओं वाली सीमा मार्गदर्शिका। रूपरेखा तक जाने के लिए Tab और हाथ से चुनने के लिए Enter या Space दबाएँ।' },
+  'Select': { mr: 'निवडा', hi: 'चुनें' },
+  'Suggested by the resolver — confirmation required': { mr: 'रिझॉल्वरने सुचवले — पुष्टी आवश्यक', hi: 'रिज़ॉल्वर का सुझाव — पुष्टि जरूरी' },
+  'All approximate outlines': { mr: 'सर्व अंदाजे बाह्यरेषा', hi: 'सभी अनुमानित रूपरेखाएँ' },
+  'Current suggestion or selection': { mr: 'सध्याची सूचना किंवा निवड', hi: 'मौजूदा सुझाव या चयन' },
+  'Approximate temporary location': { mr: 'अंदाजे तात्पुरते स्थान', hi: 'अनुमानित अस्थायी स्थान' },
+  'The temporary location marker is deliberately approximate. Numeric coordinates are not shown, and this visual guide does not store them.': { mr: 'तात्पुरते स्थानचिन्ह जाणूनबुजून अंदाजे दाखवले आहे. संख्यात्मक निर्देशांक दिसत नाहीत आणि हे दृश्य मार्गदर्शक ते जतन करत नाही.', hi: 'अस्थायी स्थान-चिह्न जानबूझकर अनुमानित है। संख्यात्मक निर्देशांक नहीं दिखते और यह दृश्य मार्गदर्शिका उन्हें सहेजती नहीं है।' },
+  'The boundary guide is unavailable. Choose Prabhag 1–20 manually.': { mr: 'सीमा मार्गदर्शक उपलब्ध नाही. प्रभाग १–२० मधून हाताने निवडा.', hi: 'सीमा मार्गदर्शिका उपलब्ध नहीं है। प्रभाग १–२० में से हाथ से चुनें।' },
+  'Loading approximate boundary guide…': { mr: 'अंदाजे सीमा मार्गदर्शक लोड होत आहे…', hi: 'अनुमानित सीमा मार्गदर्शिका लोड हो रही है…' },
   'Get the deterministic route': { mr: 'नियमाधारित मार्ग मिळवा', hi: 'नियम-आधारित मार्ग पाएँ' },
   'Find official route': { mr: 'अधिकृत मार्ग शोधा', hi: 'आधिकारिक मार्ग खोजें' },
   'Confirm the issue category first': { mr: 'प्रथम समस्येच्या प्रकाराची पुष्टी करा', hi: 'पहले समस्या श्रेणी की पुष्टि करें' },
@@ -280,6 +299,9 @@ export function localizedRuntimeMessage(language: InterfaceLanguage, message: st
     'Checking your location…': language === 'mr' ? 'तुमचे स्थान तपासत आहोत…' : 'आपका स्थान जाँचा जा रहा है…',
     'Location is unavailable in this browser.': language === 'mr' ? 'या ब्राउझरमध्ये स्थान उपलब्ध नाही.' : 'इस ब्राउज़र में स्थान उपलब्ध नहीं है।',
     'Location permission was not provided.': language === 'mr' ? 'स्थानाची परवानगी दिली नाही.' : 'स्थान की अनुमति नहीं दी गई।',
+    'Location is unavailable in this browser. Select your prabhag manually.': language === 'mr' ? 'या ब्राउझरमध्ये स्थान उपलब्ध नाही. तुमचा प्रभाग हाताने निवडा.' : 'इस ब्राउज़र में स्थान उपलब्ध नहीं है। अपना प्रभाग हाथ से चुनें।',
+    'Location permission was not provided. Select your prabhag manually.': language === 'mr' ? 'स्थानाची परवानगी दिली नाही. तुमचा प्रभाग हाताने निवडा.' : 'स्थान की अनुमति नहीं दी गई। अपना प्रभाग हाथ से चुनें।',
+    'Manual prabhag selection will override any location suggestion.': language === 'mr' ? 'हाताने केलेली प्रभाग निवड कोणत्याही स्थान सूचनेपेक्षा प्राधान्याने वापरली जाईल.' : 'हाथ से किया गया प्रभाग चयन किसी भी स्थान सुझाव से ऊपर माना जाएगा।',
     'Publishing activity…': language === 'mr' ? 'उपक्रम प्रकाशित होत आहे…' : 'गतिविधि प्रकाशित हो रही है…',
     'Joining activity…': language === 'mr' ? 'उपक्रमात सहभागी होत आहोत…' : 'गतिविधि से जुड़ा जा रहा है…',
     'Loading reports…': language === 'mr' ? 'अहवाल लोड होत आहेत…' : 'रिपोर्टें लोड हो रही हैं…',
@@ -304,6 +326,12 @@ export function classificationConfirmedMessage(language: InterfaceLanguage, issu
   if (language === 'mr') return `${issue} निश्चित केला. स्वयंचलित वर्गीकरण प्राधिकरण किंवा विभाग निवडत नाही.`;
   if (language === 'hi') return `${issue} की पुष्टि हुई। स्वचालित वर्गीकरण प्राधिकरण या विभाग नहीं चुनता।`;
   return `${issue} confirmed. Automatic classification does not choose the authority or department.`;
+}
+
+export function prabhagConfirmedMessage(language: InterfaceLanguage, prabhagName: string): string {
+  if (language === 'mr') return `${prabhagName} ची पुष्टी झाली. तुम्ही अजूनही वेगळा प्रभाग हाताने निवडू शकता.`;
+  if (language === 'hi') return `${prabhagName} की पुष्टि हुई। आप अब भी हाथ से अलग प्रभाग चुन सकते हैं।`;
+  return `${prabhagName} confirmed. You can still choose a different prabhag manually.`;
 }
 
 export function translationCoverage(): { keyCount: number; missingMarathi: string[]; missingHindi: string[] } {

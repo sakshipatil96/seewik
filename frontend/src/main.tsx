@@ -1,15 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { signInAnonymously } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import { getBytes, ref, uploadBytes } from 'firebase/storage';
 import { auth, db, storage } from './firebase';
-import { LANGUAGE_OPTIONS, LANGUAGE_STORAGE_KEY, classificationConfirmedMessage, classificationSuggestionMessage, formatDateTime, initialLanguage, localizedRuntimeMessage, localizedStatus, translate, type InterfaceLanguage } from './i18n';
+import { LANGUAGE_OPTIONS, LANGUAGE_STORAGE_KEY, classificationConfirmedMessage, classificationSuggestionMessage, formatDateTime, initialLanguage, localizedRuntimeMessage, localizedStatus, prabhagConfirmedMessage, translate, type InterfaceLanguage } from './i18n';
 import { canEditReport, canResumeReport, draftRouteIsCurrent, pathForScreen, reportIdFromPath, reportIdFromReviewSearch, screenFromPath, type AppScreen } from './reportNavigation';
 import './styles.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://seewik-api-528138216934.asia-south1.run.app';
 const PRABHAGS = Array.from({ length: 20 }, (_, index) => `PRABHAG-${String(index + 1).padStart(2, '0')}`);
+const LazyPrabhagBoundaryMap = lazy(() => import('./PrabhagBoundaryMap'));
 const ISSUE_TYPES = [
   ['GARBAGE_SOLID_WASTE', 'Garbage / solid waste'],
   ['ILLEGAL_DUMPING', 'Illegal dumping'],
@@ -194,6 +195,18 @@ type InitiativeDiscovery = {
   message?: string;
 };
 
+class BoundaryMapErrorBoundary extends React.Component<React.PropsWithChildren<{ fallback: React.ReactNode }>, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
+
 const ISSUE_VALUES = new Set<string>(ISSUE_TYPES.map(([value]) => value));
 
 function issueLabel(value: string, language: InterfaceLanguage = 'en') {
@@ -247,12 +260,13 @@ function App() {
   const [status, setStatus] = useState('Connecting…');
   const [details, setDetails] = useState<string[]>([]);
   const [issueType, setIssueType] = useState(ISSUE_TYPES[0][0]);
-  const [prabhagId, setPrabhagId] = useState(PRABHAGS[0]);
+  const [prabhagId, setPrabhagId] = useState('');
   const [routeResult, setRouteResult] = useState<RouteResult | null>(null);
   const [resolution, setResolution] = useState<PrabhagResolution | null>(null);
   const [locationStatus, setLocationStatus] = useState('');
   const [selectionMethod, setSelectionMethod] = useState('SELF_REPORTED');
   const [citizenConfirmed, setCitizenConfirmed] = useState(false);
+  const [manualPrabhagSelected, setManualPrabhagSelected] = useState(false);
   const [boundaryDatasetVersion, setBoundaryDatasetVersion] = useState<string | undefined>();
   const [evidenceText, setEvidenceText] = useState('');
   const [evidenceImage, setEvidenceImage] = useState<File | null>(null);
@@ -297,6 +311,17 @@ function App() {
   const t = (source: string) => translate(language, source);
   const runtimeMessage = (message: string) => localizedRuntimeMessage(language, message);
   const classificationSourceLabel = (source: string) => source === 'CITIZEN_CONFIRMED_GEMINI' || source === 'GEMINI_SUGGESTED' ? t('Automatic suggestion confirmed') : t('Selected manually');
+  const prabhagSelectionMade = manualPrabhagSelected || citizenConfirmed;
+  const highlightedPrabhagId = manualPrabhagSelected || citizenConfirmed
+    ? prabhagId
+    : resolution?.status === 'CANDIDATE_PRABHAG' ? resolution.prabhagId : undefined;
+  const boundarySelectionKind = manualPrabhagSelected
+    ? 'MANUAL' as const
+    : citizenConfirmed
+      ? 'CONFIRMED' as const
+      : resolution?.status === 'CANDIDATE_PRABHAG'
+        ? 'AUTOMATIC_CANDIDATE' as const
+        : undefined;
   const initiativeCategoryLabel = (category: string) => ({
     CLEANUP: t('Neighbourhood clean-up'),
     PLANTATION: t('Plantation'),
@@ -350,12 +375,13 @@ function App() {
 
   function startOver() {
     setIssueType(ISSUE_TYPES[0][0]);
-    setPrabhagId(PRABHAGS[0]);
+    setPrabhagId('');
     setRouteResult(null);
     setResolution(null);
     setLocationStatus('');
     setSelectionMethod('SELF_REPORTED');
     setCitizenConfirmed(false);
+    setManualPrabhagSelected(false);
     setBoundaryDatasetVersion(undefined);
     setEvidenceText('');
     setEvidenceImage(null);
@@ -603,19 +629,23 @@ function App() {
 
   function confirmCandidate() {
     if (!resolution?.prabhagId || !resolution.datasetVersion) return;
+    const confirmedPrabhagName = resolution.prabhagName ?? `Prabhag ${Number(resolution.prabhagId.slice(-2))}`;
     setPrabhagId(resolution.prabhagId);
     setSelectionMethod(resolution.resolutionMethod ?? 'BIGQUERY_ST_COVERS');
     setCitizenConfirmed(true);
+    setManualPrabhagSelected(false);
     setBoundaryDatasetVersion(resolution.datasetVersion);
-    setLocationStatus(`${resolution.prabhagName} confirmed. You can still choose a different prabhag manually.`);
+    setLocationStatus(prabhagConfirmedMessage(language, confirmedPrabhagName));
     setRouteResult(null);
     resetDraft();
   }
 
   function selectManualPrabhag(value: string) {
+    if (!PRABHAGS.includes(value)) return;
     setPrabhagId(value);
     setSelectionMethod('SELF_REPORTED');
     setCitizenConfirmed(false);
+    setManualPrabhagSelected(true);
     setBoundaryDatasetVersion(undefined);
     setResolution(null);
     setLocationStatus('Manual prabhag selection will override any location suggestion.');
@@ -691,6 +721,10 @@ function App() {
     resetDraft();
     if (!classificationConfirmed) {
       setRouteResult({ status: 'CATEGORY_CONFIRMATION_REQUIRED' });
+      return;
+    }
+    if (!prabhagSelectionMade) {
+      setRouteResult({ status: 'PRABHAG_CONFIRMATION_REQUIRED' });
       return;
     }
     const response = await fetch(`${API_URL}/api/civic/route`, {
@@ -900,6 +934,9 @@ function App() {
     setReportStatus(report.status);
     setIssueType(report.confirmedIssueType as typeof issueType);
     setPrabhagId(report.prabhagId);
+    setSelectionMethod('SELF_REPORTED');
+    setCitizenConfirmed(false);
+    setManualPrabhagSelected(true);
     setDraftLanguage(report.draftLanguage);
     setDraftSubject(report.draftSubject);
     setDraftBody(report.draftBody);
@@ -1136,7 +1173,7 @@ function App() {
 
     {screen === 'new-report' && <>
     <section className="hero page-hero"><span className="eyebrow">{t('NEW REPORT')}</span><h1>{t('Find the right civic route')}</h1><p>{t('Automatic classification may suggest a category. You confirm it, and Civic Pack determines the route.')}</p></section>
-    <section className="card">
+    <section className="card report-flow-card">
       <div className="signal" aria-hidden="true" /><h2>{t('Find the civic route')}</h2>
       <p>{t('Start with a photo or short description. Automatic classification may suggest an issue category, but you confirm it. Authority and department always come from Civic Pack v0.2.')}</p>
       <div className="flow-step"><span>1</span><b>{t('Describe the issue')}</b></div>
@@ -1167,11 +1204,32 @@ function App() {
       <button className="secondary" onClick={useMyLocation}>{t('Suggest from my location')}</button>
       {locationStatus && <div role="status" aria-live="polite" className={`status-panel ${resolution?.status === 'CANDIDATE_PRABHAG' ? 'state-success' : resolution?.status === 'OUTSIDE_SUPPORTED_AREA' || resolution?.status === 'RESOLUTION_UNAVAILABLE' || resolution?.status === 'INVALID_COORDINATES' ? 'state-error' : 'state-warning'}`}>{runtimeMessage(locationStatus)}</div>}
       {resolution?.status === 'CANDIDATE_PRABHAG' && resolution.prabhagId && <div className="candidate"><strong>{resolution.prabhagName}</strong><span>{resolution.resolutionQuality} · {resolution.datasetVersion}</span><span>{resolution.resolutionMethod}: {resolution.queryLatencyMs} ms</span>{resolution.fallbackReason && <small>{resolution.fallbackReason}</small>}<button onClick={confirmCandidate}>{t('Confirm this suggested prabhag')}</button></div>}
-      <label>{t('Prabhag number')}<select value={prabhagId} onChange={(event) => selectManualPrabhag(event.target.value)}>{PRABHAGS.map((value, index) => <option key={value} value={value}>{t('Prabhag')} {index + 1}</option>)}</select></label>
+      <div className="boundary-selection-layout">
+        <div className="boundary-manual-choice">
+          <h3>{t('Choose manually')}</h3>
+          <p>{t('The list is a complete non-map option. Choosing here overrides any automatic suggestion.')}</p>
+          <label>{t('Prabhag number')}<select value={prabhagId} onChange={(event) => selectManualPrabhag(event.target.value)}>
+            <option value="" disabled>{t('Choose Prabhag 1–20')}</option>
+            {PRABHAGS.map((value, index) => <option key={value} value={value}>{t('Prabhag')} {index + 1}</option>)}
+          </select></label>
+          {prabhagSelectionMade && <div className="confirmed-line" role="status" aria-live="polite">✓ {t('Prabhag')} {Number(prabhagId.slice(-2))} · {manualPrabhagSelected ? t('Selected manually') : t('Confirmed selection')}</div>}
+        </div>
+        <BoundaryMapErrorBoundary fallback={<div className="status-panel state-warning" role="status">{t('The boundary guide is unavailable. Choose Prabhag 1–20 manually.')}</div>}>
+          <Suspense fallback={<div className="status-panel state-warning" role="status">{t('Loading approximate boundary guide…')}</div>}>
+            <LazyPrabhagBoundaryMap
+              language={language}
+              highlightedPrabhagId={highlightedPrabhagId}
+              selectionKind={boundarySelectionKind}
+              currentPosition={currentCoordinates}
+              onManualSelect={selectManualPrabhag}
+            />
+          </Suspense>
+        </BoundaryMapErrorBoundary>
+      </div>
       <div className="flow-step"><span>3</span><b>{t('Get the deterministic route')}</b></div>
-      <button disabled={!classificationConfirmed} onClick={() => findCivicRoute().catch((error) => setRouteResult({ status: `Routing failed: ${error.message}` }))}>{t('Find official route')}</button>
+      <button disabled={!classificationConfirmed || !prabhagSelectionMade} onClick={() => findCivicRoute().catch((error) => setRouteResult({ status: `Routing failed: ${error.message}` }))}>{t('Find official route')}</button>
       {routeResult && <div aria-live="polite" className={`route-result ${routeResult.status === 'SUPPORTED_ROUTE' ? 'state-success' : 'state-error'}`}>
-        <strong>{routeResult.status === 'SUPPORTED_ROUTE' ? routeResult.authority : routeResult.status === 'CATEGORY_CONFIRMATION_REQUIRED' ? t('Confirm the issue category first') : routeResult.status}</strong>
+        <strong>{routeResult.status === 'SUPPORTED_ROUTE' ? routeResult.authority : routeResult.status === 'CATEGORY_CONFIRMATION_REQUIRED' ? t('Confirm the issue category first') : routeResult.status === 'PRABHAG_CONFIRMATION_REQUIRED' ? t('Choose and confirm a prabhag first') : routeResult.status}</strong>
         {routeResult.routeId && <>
           {routeResult.department && <div className="department-result">
             <b>{routeResult.department.status === 'TYPICAL_STRUCTURE_UNVERIFIED' ? t('Likely department') : t('Department')}: {routeResult.department.displayName}</b>
