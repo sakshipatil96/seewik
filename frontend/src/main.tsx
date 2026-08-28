@@ -4,6 +4,7 @@ import { signInAnonymously } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import { getBytes, ref, uploadBytes } from 'firebase/storage';
 import { auth, db, storage } from './firebase';
+import { LANGUAGE_OPTIONS, LANGUAGE_STORAGE_KEY, classificationConfirmedMessage, classificationSuggestionMessage, formatDateTime, initialLanguage, localizedRuntimeMessage, localizedStatus, translate, type InterfaceLanguage } from './i18n';
 import { canEditReport, canResumeReport, draftRouteIsCurrent, pathForScreen, reportIdFromPath, reportIdFromReviewSearch, screenFromPath, type AppScreen } from './reportNavigation';
 import './styles.css';
 
@@ -195,8 +196,8 @@ type InitiativeDiscovery = {
 
 const ISSUE_VALUES = new Set<string>(ISSUE_TYPES.map(([value]) => value));
 
-function issueLabel(value: string) {
-  return ISSUE_TYPES.find(([issueType]) => issueType === value)?.[1] ?? value;
+function issueLabel(value: string, language: InterfaceLanguage = 'en') {
+  return translate(language, ISSUE_TYPES.find(([issueType]) => issueType === value)?.[1] ?? value);
 }
 
 function timestampMillis(value: unknown) {
@@ -207,9 +208,9 @@ function timestampMillis(value: unknown) {
   return 0;
 }
 
-function timestampLabel(value: unknown) {
+function timestampLabel(value: unknown, language: InterfaceLanguage = 'en') {
   const milliseconds = timestampMillis(value);
-  return milliseconds ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(milliseconds) : 'Time pending';
+  return milliseconds ? formatDateTime(language, milliseconds) : translate(language, 'Time pending');
 }
 
 function savedReport(id: string, data: Record<string, unknown>): SavedReport {
@@ -237,6 +238,10 @@ function savedReport(id: string, data: Record<string, unknown>): SavedReport {
 }
 
 function App() {
+  const [language, setLanguage] = useState<InterfaceLanguage>(() => initialLanguage(
+    window.localStorage.getItem(LANGUAGE_STORAGE_KEY),
+    navigator.languages?.length ? navigator.languages : [navigator.language],
+  ));
   const [screen, setScreen] = useState<AppScreen>(() => screenFromPath(window.location.pathname));
   const [locationKey, setLocationKey] = useState(() => `${window.location.pathname}${window.location.search}`);
   const [status, setStatus] = useState('Connecting…');
@@ -289,7 +294,23 @@ function App() {
   const [initiativeStartAt, setInitiativeStartAt] = useState('');
   const [initiativePlaceName, setInitiativePlaceName] = useState('');
   const [initiativeNeeds, setInitiativeNeeds] = useState('');
+  const t = (source: string) => translate(language, source);
+  const runtimeMessage = (message: string) => localizedRuntimeMessage(language, message);
+  const classificationSourceLabel = (source: string) => source === 'CITIZEN_CONFIRMED_GEMINI' || source === 'GEMINI_SUGGESTED' ? t('Automatic suggestion confirmed') : t('Selected manually');
+  const initiativeCategoryLabel = (category: string) => ({
+    CLEANUP: t('Neighbourhood clean-up'),
+    PLANTATION: t('Plantation'),
+    DONATION: t('Donation activity'),
+    COMMUNITY_FITNESS: t('Community fitness'),
+    OTHER_CIVIC_ACTIVITY: t('Other civic activity'),
+  }[category] ?? category);
   const add = (line: string) => setDetails((old) => [...old, line]);
+
+  useEffect(() => {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    document.documentElement.lang = language;
+    document.title = language === 'mr' ? 'सीविक · स्थानिक नागरी कृती' : language === 'hi' ? 'सीविक · स्थानीय नागरिक कार्रवाई' : 'Seewik · Local civic action';
+  }, [language]);
 
   function navigate(nextScreen: AppScreen, replace = false, reportId?: string) {
     const path = pathForScreen(nextScreen, reportId);
@@ -651,7 +672,7 @@ function App() {
     }
     setClassificationStatus(
       result.status === 'CLASSIFIED' && result.issueType
-        ? `Suggested category: ${issueLabel(result.issueType)}. Please confirm or correct it.`
+        ? classificationSuggestionMessage(language, issueLabel(result.issueType, language))
         : result.clarificationQuestion ?? 'The category is unclear. Please choose the best match below.',
     );
   }
@@ -662,7 +683,7 @@ function App() {
       : 'CITIZEN_SELECTED';
     setClassificationSource(source);
     setClassificationConfirmed(true);
-    setClassificationStatus(`${issueLabel(issueType)} confirmed. Gemini does not choose the authority or department.`);
+    setClassificationStatus(classificationConfirmedMessage(language, issueLabel(issueType, language)));
   }
 
   async function findCivicRoute() {
@@ -1017,136 +1038,143 @@ function App() {
   }
 
   const demoStates = [
-    ['DRAFT', 'Draft saved; nothing submitted'],
-    ['FILED', 'Citizen confirms manual filing · +5 demo points'],
-    ['OVERDUE', 'Synthetic verified dueAt passes on the simulated clock'],
-    ['CLAIMED_FIXED', 'Repair claim recorded'],
-    ['VERIFIED_FIXED', 'Citizen attestation recorded · +40 demo points'],
-    ['REOPENED', 'Issue recurred; no points awarded'],
+    ['DRAFT', t('Draft saved; nothing submitted')],
+    ['FILED', t('Citizen confirms manual filing · +5 demo points')],
+    ['OVERDUE', t('Synthetic verified dueAt passes on the simulated clock')],
+    ['CLAIMED_FIXED', t('Repair claim recorded')],
+    ['VERIFIED_FIXED', t('Citizen attestation recorded · +40 demo points')],
+    ['REOPENED', t('Issue recurred; no points awarded')],
   ];
 
-  return <main>
+  const navCurrent = (active: boolean) => active ? 'page' as const : undefined;
+
+  return <>
+    <a className="skip-link" href="#main-content">{t('Skip to main content')}</a>
+    <main id="main-content">
     <header className="app-header">
-      <button className="brand-button" onClick={() => navigate('home')} aria-label="Seewik home">SEEWIK</button>
-      <nav className="desktop-nav" aria-label="Primary navigation">
-        <button className={screen === 'home' ? 'active' : ''} onClick={() => navigate('home')}>Home</button>
-        <button className={screen === 'new-report' || screen === 'review' ? 'active' : ''} onClick={() => navigate('new-report')}>Report an issue</button>
-        <button className={screen === 'reports' || screen === 'report-detail' ? 'active' : ''} onClick={() => navigate('reports')}>My reports</button>
-        <button className={screen === 'initiatives' || screen === 'new-initiative' ? 'active' : ''} onClick={() => navigate('initiatives')}>Initiate</button>
-        <button className={screen === 'points' ? 'active' : ''} onClick={() => navigate('points')}>My points</button>
-      </nav>
+      <button className="brand-button" onClick={() => navigate('home')} aria-label={t('Seewik home')}>SEEWIK</button>
+      <div className="header-actions">
+        <nav className="desktop-nav" aria-label={t('Primary navigation')}>
+          <button aria-current={navCurrent(screen === 'home')} className={screen === 'home' ? 'active' : ''} onClick={() => navigate('home')}>{t('Home')}</button>
+          <button aria-current={navCurrent(screen === 'new-report' || screen === 'review')} className={screen === 'new-report' || screen === 'review' ? 'active' : ''} onClick={() => navigate('new-report')}>{t('Report an issue')}</button>
+          <button aria-current={navCurrent(screen === 'reports' || screen === 'report-detail')} className={screen === 'reports' || screen === 'report-detail' ? 'active' : ''} onClick={() => navigate('reports')}>{t('My reports')}</button>
+          <button aria-current={navCurrent(screen === 'initiatives' || screen === 'new-initiative')} className={screen === 'initiatives' || screen === 'new-initiative' ? 'active' : ''} onClick={() => navigate('initiatives')}>{t('Initiate')}</button>
+          <button aria-current={navCurrent(screen === 'points')} className={screen === 'points' ? 'active' : ''} onClick={() => navigate('points')}>{t('My points')}</button>
+        </nav>
+        <label className="language-switcher"><span>{t('Language')}</span><select aria-label={t('Language')} value={language} onChange={(event) => setLanguage(event.target.value as InterfaceLanguage)}>{LANGUAGE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+      </div>
     </header>
-    {['new-report', 'review', 'reports', 'report-detail'].includes(screen) && <div className="page-tools"><span>Saved reports are not deleted by Start over.</span><button className="secondary" onClick={startOver}>Start over</button></div>}
+    {['new-report', 'review', 'reports', 'report-detail'].includes(screen) && <div className="page-tools"><span>{t('Saved reports are not deleted by Start over.')}</span><button className="secondary" onClick={startOver}>{t('Start over')}</button></div>}
 
     {screen === 'home' && <>
-      <section className="hero"><span className="eyebrow">LOCAL CIVIC ACTION</span><h1>A Civic Intelligence Platform</h1><p>Identify a civic issue, find the confirmed route, prepare a complaint and track the outcome.</p></section>
-      <section className="home-actions" aria-label="Start using Seewik">
-        <article><span>01</span><h2>Report an issue</h2><p>Describe the problem, confirm its category and find the deterministic civic route.</p><button onClick={() => navigate('new-report')}>Start a report</button></article>
-        <article><span>02</span><h2>Initiate something good</h2><p>Create a useful local activity, discover what is nearby and join neighbours taking action.</p><button onClick={() => navigate('initiatives')}>Explore activities</button></article>
-        <article><span>03</span><h2>My reports</h2><p>Resume drafts and inspect filed reports without rewriting their frozen facts.</p><button className="secondary" onClick={() => navigate('reports')}>Open my reports</button></article>
-        <article><span>04</span><h2>My points</h2><p>See rewards derived from filing and verified outcomes, never complaint volume alone.</p><button className="secondary" onClick={() => navigate('points')}>View my points</button></article>
+      <section className="hero"><span className="eyebrow">{t('LOCAL CIVIC ACTION')}</span><h1>{t('A Civic Intelligence Platform')}</h1><p>{t('Identify a civic issue, find the confirmed route, prepare a complaint and track the outcome.')}</p></section>
+      <section className="home-actions" aria-label={t('Start using Seewik')}>
+        <article><span>01</span><h2>{t('Report an issue')}</h2><p>{t('Describe the problem, confirm its category and find the deterministic civic route.')}</p><button onClick={() => navigate('new-report')}>{t('Start a report')}</button></article>
+        <article><span>02</span><h2>{t('Initiate something good')}</h2><p>{t('Create a useful local activity, discover what is nearby and join neighbours taking action.')}</p><button onClick={() => navigate('initiatives')}>{t('Explore activities')}</button></article>
+        <article><span>03</span><h2>{t('My reports')}</h2><p>{t('Resume drafts and inspect filed reports without rewriting their frozen facts.')}</p><button className="secondary" onClick={() => navigate('reports')}>{t('Open my reports')}</button></article>
+        <article><span>04</span><h2>{t('My points')}</h2><p>{t('See rewards derived from filing and verified outcomes, never complaint volume alone.')}</p><button className="secondary" onClick={() => navigate('points')}>{t('View my points')}</button></article>
       </section>
     </>}
 
     {screen === 'initiatives' && <>
-      <section className="hero page-hero initiative-hero"><span className="eyebrow">INITIATE WHAT IS GOOD</span><h1>Take action with neighbours</h1><p>Discover upcoming civic activities near you, join once, and see the participant count update.</p></section>
+      <section className="hero page-hero initiative-hero"><span className="eyebrow">{t('INITIATE WHAT IS GOOD')}</span><h1>{t('Take action with neighbours')}</h1><p>{t('Discover upcoming civic activities near you, join once, and see the participant count update.')}</p></section>
       <section className="card initiative-memberships">
-        <h2>My activities</h2>
-        <p>Activities you organise or join stay here after cancellation or completion, so their final status remains clear.</p>
-        {!myInitiatives.length && <div className="empty-state"><b>No joined activities yet.</b><p>Create an activity or join one nearby.</p></div>}
+        <h2>{t('My activities')}</h2>
+        <p>{t('Activities you organise or join stay here after cancellation or completion, so their final status remains clear.')}</p>
+        {!myInitiatives.length && <div className="empty-state"><b>{t('No joined activities yet.')}</b><p>{t('Create an activity or join one nearby.')}</p></div>}
         <div className="initiative-list compact-list" aria-live="polite">
           {myInitiatives.map((initiative) => <article className="card initiative-card" key={`mine-${initiative.initiativeId}`}>
-            <div className="initiative-card-top"><span className={`status-chip status-${initiative.status.toLowerCase()}`}>{initiative.status.replaceAll('_', ' ')}</span><span>{initiative.role === 'ORGANISER' ? 'Organiser' : 'Joined'}</span></div>
+            <div className="initiative-card-top"><span className={`status-chip status-${initiative.status.toLowerCase()}`}>{localizedStatus(language, initiative.status)}</span><span>{initiative.role === 'ORGANISER' ? t('Organiser') : t('Joined')}</span></div>
             <h3>{initiative.title}</h3>
-            <p>{timestampLabel(initiative.startAt)} · {initiative.placeName}</p>
-            {initiative.status === 'CANCELLED' && initiative.cancellationReason && <p><b>Cancellation reason:</b> {initiative.cancellationReason}</p>}
+            <p>{timestampLabel(initiative.startAt, language)} · {initiative.placeName}</p>
+            {initiative.status === 'CANCELLED' && initiative.cancellationReason && <p><b>{t('Cancellation reason')}:</b> {initiative.cancellationReason}</p>}
             {initiative.canManage && initiative.status === 'PUBLISHED' && <div className="initiative-manage">
-              <label htmlFor={`cancel-reason-${initiative.initiativeId}`}>Cancellation reason
-                <input id={`cancel-reason-${initiative.initiativeId}`} maxLength={300} value={cancellationReasons[initiative.initiativeId] ?? ''} onChange={(event) => setCancellationReasons((values) => ({ ...values, [initiative.initiativeId]: event.target.value }))} placeholder="Required only when cancelling" />
+              <label htmlFor={`cancel-reason-${initiative.initiativeId}`}>{t('Cancellation reason')}
+                <input id={`cancel-reason-${initiative.initiativeId}`} maxLength={300} value={cancellationReasons[initiative.initiativeId] ?? ''} onChange={(event) => setCancellationReasons((values) => ({ ...values, [initiative.initiativeId]: event.target.value }))} placeholder={t('Required only when cancelling')} />
               </label>
               <div className="draft-actions">
-                <button className="secondary" disabled={!cancellationReasons[initiative.initiativeId]?.trim()} onClick={() => changeInitiativeStatus(initiative.initiativeId, 'CANCELLED').catch((error) => setInitiativeStatus(error.message))}>Cancel activity</button>
-                <button disabled={Date.now() < Date.parse(initiative.startAt)} title={Date.now() < Date.parse(initiative.startAt) ? 'Available after the scheduled activity time' : undefined} onClick={() => changeInitiativeStatus(initiative.initiativeId, 'COMPLETED').catch((error) => setInitiativeStatus(error.message))}>Mark completed</button>
+                <button className="secondary" disabled={!cancellationReasons[initiative.initiativeId]?.trim()} onClick={() => changeInitiativeStatus(initiative.initiativeId, 'CANCELLED').catch((error) => setInitiativeStatus(error.message))}>{t('Cancel activity')}</button>
+                <button disabled={Date.now() < Date.parse(initiative.startAt)} title={Date.now() < Date.parse(initiative.startAt) ? t('Available after the scheduled activity time') : undefined} onClick={() => changeInitiativeStatus(initiative.initiativeId, 'COMPLETED').catch((error) => setInitiativeStatus(error.message))}>{t('Mark completed')}</button>
               </div>
             </div>}
-            <small>Activity status changes and participation do not earn points.</small>
+            <small>{t('Activity status changes and participation do not earn points.')}</small>
           </article>)}
         </div>
       </section>
       <section className="initiative-toolbar card">
-        <div><h2>Nearby activities</h2><p>Distance is calculated from the location you choose to share. Your coordinates are used for this request and are not shown to other citizens.</p></div>
-        <button onClick={() => navigate('new-initiative')}>Create an activity</button>
-        <label>Search radius<select value={initiativeRadiusKm} onChange={(event) => setInitiativeRadiusKm(Number(event.target.value))}><option value={2}>2 km</option><option value={5}>5 km</option><option value={10}>10 km</option><option value={25}>25 km</option></select></label>
-        <button className="secondary" onClick={() => initiativeCoordinates ? discoverInitiatives(false).catch((error) => setInitiativeStatus(error.message)) : locateForInitiatives('DISCOVER')}>{initiativeCoordinates ? 'Refresh nearby' : 'Use my location'}</button>
-        {initiativeStatus && <div className="status-panel state-warning" aria-live="polite">{initiativeStatus}</div>}
+        <div><h2>{t('Nearby activities')}</h2><p>{t('Distance is calculated from the location you choose to share. Your coordinates are used for this request and are not shown to other citizens.')}</p></div>
+        <button onClick={() => navigate('new-initiative')}>{t('Create an activity')}</button>
+        <label>{t('Search radius')}<select value={initiativeRadiusKm} onChange={(event) => setInitiativeRadiusKm(Number(event.target.value))}><option value={2}>2 km</option><option value={5}>5 km</option><option value={10}>10 km</option><option value={25}>25 km</option></select></label>
+        <button className="secondary" onClick={() => initiativeCoordinates ? discoverInitiatives(false).catch((error) => setInitiativeStatus(error.message)) : locateForInitiatives('DISCOVER')}>{initiativeCoordinates ? t('Refresh nearby') : t('Use my location')}</button>
+        {initiativeStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{runtimeMessage(initiativeStatus)}</div>}
       </section>
       <section className="initiative-list" aria-live="polite">
         {initiatives.map((initiative) => <article className="card initiative-card" key={initiative.initiativeId}>
-          <div className="initiative-card-top"><span className="status-chip">{initiative.category.replaceAll('_', ' ')}</span><span className="live-count"><i />LIVE · {initiative.participantCount} {initiative.participantCount === 1 ? 'person' : 'people'}</span></div>
+          <div className="initiative-card-top"><span className="status-chip">{initiativeCategoryLabel(initiative.category)}</span><span className="live-count"><i aria-hidden="true" />{t('LIVE')} · {initiative.participantCount} {initiative.participantCount === 1 ? t('person') : t('people')}</span></div>
           <h2>{initiative.title}</h2><p>{initiative.description}</p>
-          <dl><div><dt>When</dt><dd>{timestampLabel(initiative.startAt)}</dd></div><div><dt>Where</dt><dd>{initiative.placeName}</dd></div><div><dt>Distance</dt><dd>{initiative.distanceKm.toFixed(2)} km</dd></div><div><dt>What is needed</dt><dd>{initiative.needs || 'Just bring yourself'}</dd></div></dl>
-          <button disabled={initiative.joined} onClick={() => joinInitiative(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message))}>{initiative.joined ? 'Joined' : 'Join this activity'}</button>
-          <small>Creating or joining is recorded in the contribution ledger but earns no points until participation can be verified.</small>
+          <dl><div><dt>{t('When')}</dt><dd>{timestampLabel(initiative.startAt, language)}</dd></div><div><dt>{t('Where')}</dt><dd>{initiative.placeName}</dd></div><div><dt>{t('Distance')}</dt><dd>{initiative.distanceKm.toFixed(2)} km</dd></div><div><dt>{t('What is needed')}</dt><dd>{initiative.needs || t('Just bring yourself')}</dd></div></dl>
+          <button disabled={initiative.joined} onClick={() => joinInitiative(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message))}>{initiative.joined ? t('Joined') : t('Join this activity')}</button>
+          <small>{t('Creating or joining is recorded in the contribution ledger but earns no points until participation can be verified.')}</small>
         </article>)}
-        {!initiatives.length && initiativeCoordinates && !initiativeStatus.startsWith('Finding') && <div className="card empty-state"><b>No nearby activity is listed yet.</b><p>You can create the first one without inventing an impact claim.</p><button onClick={() => navigate('new-initiative')}>Create an activity</button></div>}
+        {!initiatives.length && initiativeCoordinates && !initiativeStatus.startsWith('Finding') && <div className="card empty-state"><b>{t('No nearby activity is listed yet.')}</b><p>{t('You can create the first one without inventing an impact claim.')}</p><button onClick={() => navigate('new-initiative')}>{t('Create an activity')}</button></div>}
       </section>
     </>}
 
     {screen === 'new-initiative' && <section className="card page-card initiative-form">
-      <span className="eyebrow">CREATE AN ACTIVITY</span><h2>Start something useful nearby</h2><p>Publish the real date, public meeting place and what neighbours should bring. Seewik does not claim participation or impact until it happens.</p>
-      <label>Activity type<select value={initiativeCategory} onChange={(event) => setInitiativeCategory(event.target.value)}><option value="CLEANUP">Neighbourhood clean-up</option><option value="PLANTATION">Plantation</option><option value="DONATION">Donation activity</option><option value="COMMUNITY_FITNESS">Community fitness</option><option value="OTHER_CIVIC_ACTIVITY">Other civic activity</option></select></label>
-      <label>Title<input maxLength={100} value={initiativeTitle} onChange={(event) => setInitiativeTitle(event.target.value)} placeholder="Sunday neighbourhood clean-up" /></label>
-      <label>Description<textarea maxLength={1200} value={initiativeDescription} onChange={(event) => setInitiativeDescription(event.target.value)} placeholder="What will happen and how can neighbours help?" /></label>
-      <label>Date and time<input type="datetime-local" value={initiativeStartAt} onChange={(event) => setInitiativeStartAt(event.target.value)} /></label>
-      <label>Public meeting place<input maxLength={200} value={initiativePlaceName} onChange={(event) => setInitiativePlaceName(event.target.value)} placeholder="Name a public, safe meeting place" /></label>
-      <label>Supplies or volunteers needed (optional)<textarea maxLength={500} value={initiativeNeeds} onChange={(event) => setInitiativeNeeds(event.target.value)} placeholder="For example: 5 volunteers, gloves, reusable water bottles" /></label>
-      <button className="secondary" onClick={() => locateForInitiatives('CREATE')}>{initiativeCoordinates ? 'Activity location captured' : 'Use my location for discovery'}</button>
-      <small>Coordinates support nearby discovery. Other citizens see the public place name and distance, not your raw coordinates.</small>
-      <div className="draft-actions"><button className="secondary" onClick={() => navigate('initiatives')}>Cancel</button><button disabled={!initiativeCoordinates || !initiativeTitle.trim() || !initiativeDescription.trim() || !initiativePlaceName.trim() || !initiativeStartAt} onClick={() => createInitiative().catch((error) => setInitiativeStatus(error.message))}>Publish activity</button></div>
-      {initiativeStatus && <div className="status-panel state-warning" aria-live="polite">{initiativeStatus}</div>}
+      <span className="eyebrow">{t('CREATE AN ACTIVITY')}</span><h2>{t('Start something useful nearby')}</h2><p>{t('Publish the real date, public meeting place and what neighbours should bring. Seewik does not claim participation or impact until it happens.')}</p>
+      <label>{t('Activity type')}<select value={initiativeCategory} onChange={(event) => setInitiativeCategory(event.target.value)}><option value="CLEANUP">{t('Neighbourhood clean-up')}</option><option value="PLANTATION">{t('Plantation')}</option><option value="DONATION">{t('Donation activity')}</option><option value="COMMUNITY_FITNESS">{t('Community fitness')}</option><option value="OTHER_CIVIC_ACTIVITY">{t('Other civic activity')}</option></select></label>
+      <label>{t('Title')}<input maxLength={100} value={initiativeTitle} onChange={(event) => setInitiativeTitle(event.target.value)} /></label>
+      <label>{t('Description')}<textarea maxLength={1200} value={initiativeDescription} onChange={(event) => setInitiativeDescription(event.target.value)} /></label>
+      <label>{t('Date and time')}<input type="datetime-local" value={initiativeStartAt} onChange={(event) => setInitiativeStartAt(event.target.value)} /></label>
+      <label>{t('Public meeting place')}<input maxLength={200} value={initiativePlaceName} onChange={(event) => setInitiativePlaceName(event.target.value)} /></label>
+      <label>{t('Supplies or volunteers needed (optional)')}<textarea maxLength={500} value={initiativeNeeds} onChange={(event) => setInitiativeNeeds(event.target.value)} /></label>
+      <button className="secondary" onClick={() => locateForInitiatives('CREATE')}>{initiativeCoordinates ? t('Activity location captured') : t('Use my location for discovery')}</button>
+      <small>{t('Coordinates support nearby discovery. Other citizens see the public place name and distance, not your raw coordinates.')}</small>
+      <div className="draft-actions"><button className="secondary" onClick={() => navigate('initiatives')}>{t('Cancel')}</button><button disabled={!initiativeCoordinates || !initiativeTitle.trim() || !initiativeDescription.trim() || !initiativePlaceName.trim() || !initiativeStartAt} onClick={() => createInitiative().catch((error) => setInitiativeStatus(error.message))}>{t('Publish activity')}</button></div>
+      {initiativeStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{runtimeMessage(initiativeStatus)}</div>}
     </section>}
 
     {screen === 'new-report' && <>
-    <section className="hero page-hero"><span className="eyebrow">NEW REPORT</span><h1>Find the right civic route</h1><p>Gemini may suggest a category. You confirm it, and Civic Pack determines the route.</p></section>
+    <section className="hero page-hero"><span className="eyebrow">{t('NEW REPORT')}</span><h1>{t('Find the right civic route')}</h1><p>{t('Automatic classification may suggest a category. You confirm it, and Civic Pack determines the route.')}</p></section>
     <section className="card">
-      <div className="signal" /><h2>Find the civic route</h2>
-      <p>Start with a photo or short description. Gemini may suggest an issue category, but you confirm it. Authority and department always come from Civic Pack v0.2.</p>
-      <div className="flow-step"><span>1</span><b>Describe the issue</b></div>
-      <label>Photo (optional)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => {
+      <div className="signal" aria-hidden="true" /><h2>{t('Find the civic route')}</h2>
+      <p>{t('Start with a photo or short description. Automatic classification may suggest an issue category, but you confirm it. Authority and department always come from Civic Pack v0.2.')}</p>
+      <div className="flow-step"><span>1</span><b>{t('Describe the issue')}</b></div>
+      <label>{t('Photo (optional)')}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => {
         setEvidenceImage(event.target.files?.[0] ?? null);
         resetEvidenceDerivedState();
       }} /></label>
-      <label>Short description (optional)<textarea maxLength={2000} value={evidenceText} placeholder="उदा. रस्त्यावर मोठा खड्डा आहे" onChange={(event) => {
+      <label>{t('Short description (optional)')}<textarea maxLength={2000} value={evidenceText} placeholder="उदा. रस्त्यावर मोठा खड्डा आहे" onChange={(event) => {
         setEvidenceText(event.target.value);
         resetEvidenceDerivedState();
       }} /></label>
       <button className="secondary" onClick={() => classifyEvidence().catch(() => {
         setClassificationStatus('The category could not be checked. Choose it manually below.');
         setClassificationSource('CITIZEN_SELECTED');
-      })}>Suggest issue category</button>
-      {classificationStatus && <div aria-live="polite" className={`status-panel ${classification?.status === 'CLASSIFICATION_ERROR' ? 'state-error' : classification?.status === 'CLASSIFIED' ? 'state-success' : 'state-warning'}`}>
-        <strong>{classification?.status === 'CLASSIFIED' ? 'Category suggestion ready' : classification?.status === 'CLARIFICATION_REQUIRED' ? 'Please clarify' : 'Category confirmation'}</strong>
-        <span>{classificationStatus}</span>
+      })}>{t('Suggest issue category')}</button>
+      {classificationStatus && <div role="status" aria-live="polite" className={`status-panel ${classification?.status === 'CLASSIFICATION_ERROR' ? 'state-error' : classification?.status === 'CLASSIFIED' ? 'state-success' : 'state-warning'}`}>
+        <strong>{classification?.status === 'CLASSIFIED' ? t('Category suggestion ready') : classification?.status === 'CLARIFICATION_REQUIRED' ? t('Please clarify') : t('Category confirmation')}</strong>
+        <span>{runtimeMessage(classificationStatus)}</span>
         {classification?.description && <small>{classification.description}</small>}
-        {classification?.detectedLanguage && <small>Detected language: {classification.detectedLanguage}</small>}
+        {classification?.detectedLanguage && <small>{t('Detected language')}: {classification.detectedLanguage}</small>}
       </div>}
-      <label>Issue category<select value={issueType} onChange={(event) => chooseIssueType(event.target.value)}>{ISSUE_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-      <button onClick={confirmIssueType}>{classificationConfirmed ? 'Category confirmed' : 'Confirm this category'}</button>
-      {classificationConfirmed && <div className="confirmed-line" aria-live="polite">✓ {issueLabel(issueType)} · {classificationSource}</div>}
+      <label>{t('Issue category')}<select value={issueType} onChange={(event) => chooseIssueType(event.target.value)}>{ISSUE_TYPES.map(([value]) => <option key={value} value={value}>{issueLabel(value, language)}</option>)}</select></label>
+      <button onClick={confirmIssueType}>{classificationConfirmed ? t('Category confirmed') : t('Confirm this category')}</button>
+      {classificationConfirmed && <div className="confirmed-line" role="status" aria-live="polite">✓ {issueLabel(issueType, language)} · {classificationSourceLabel(classificationSource)}</div>}
 
-      <div className="flow-step"><span>2</span><b>Confirm your prabhag</b></div>
-      <p>Location can suggest a prabhag using synthetic development boundaries. The suggestion is never official and must be confirmed. Manual selection always overrides it.</p>
-      <button className="secondary" onClick={useMyLocation}>Suggest from my location</button>
-      {locationStatus && <div aria-live="polite" className={`status-panel ${resolution?.status === 'CANDIDATE_PRABHAG' ? 'state-success' : resolution?.status === 'OUTSIDE_SUPPORTED_AREA' || resolution?.status === 'RESOLUTION_UNAVAILABLE' || resolution?.status === 'INVALID_COORDINATES' ? 'state-error' : 'state-warning'}`}>{locationStatus}</div>}
-      {resolution?.status === 'CANDIDATE_PRABHAG' && resolution.prabhagId && <div className="candidate"><strong>{resolution.prabhagName}</strong><span>{resolution.resolutionQuality} · {resolution.datasetVersion}</span><span>{resolution.resolutionMethod === 'SNAPSHOT_POINT_IN_POLYGON' ? 'Synthetic snapshot fallback' : 'BigQuery lookup'}: {resolution.queryLatencyMs} ms</span>{resolution.fallbackReason && <small>{resolution.fallbackReason}</small>}<button onClick={confirmCandidate}>Confirm this suggested prabhag</button></div>}
-      <label>Official prabhag number<select value={prabhagId} onChange={(event) => selectManualPrabhag(event.target.value)}>{PRABHAGS.map((value, index) => <option key={value} value={value}>Prabhag {index + 1}</option>)}</select></label>
-      <div className="flow-step"><span>3</span><b>Get the deterministic route</b></div>
-      <button disabled={!classificationConfirmed} onClick={() => findCivicRoute().catch((error) => setRouteResult({ status: `Routing failed: ${error.message}` }))}>Find official route</button>
+      <div className="flow-step"><span>2</span><b>{t('Confirm your prabhag')}</b></div>
+      <p>{t('Location can suggest a prabhag using development boundaries. The suggestion is not an official boundary determination and must be confirmed. Manual selection always overrides it.')}</p>
+      <button className="secondary" onClick={useMyLocation}>{t('Suggest from my location')}</button>
+      {locationStatus && <div role="status" aria-live="polite" className={`status-panel ${resolution?.status === 'CANDIDATE_PRABHAG' ? 'state-success' : resolution?.status === 'OUTSIDE_SUPPORTED_AREA' || resolution?.status === 'RESOLUTION_UNAVAILABLE' || resolution?.status === 'INVALID_COORDINATES' ? 'state-error' : 'state-warning'}`}>{runtimeMessage(locationStatus)}</div>}
+      {resolution?.status === 'CANDIDATE_PRABHAG' && resolution.prabhagId && <div className="candidate"><strong>{resolution.prabhagName}</strong><span>{resolution.resolutionQuality} · {resolution.datasetVersion}</span><span>{resolution.resolutionMethod}: {resolution.queryLatencyMs} ms</span>{resolution.fallbackReason && <small>{resolution.fallbackReason}</small>}<button onClick={confirmCandidate}>{t('Confirm this suggested prabhag')}</button></div>}
+      <label>{t('Prabhag number')}<select value={prabhagId} onChange={(event) => selectManualPrabhag(event.target.value)}>{PRABHAGS.map((value, index) => <option key={value} value={value}>{t('Prabhag')} {index + 1}</option>)}</select></label>
+      <div className="flow-step"><span>3</span><b>{t('Get the deterministic route')}</b></div>
+      <button disabled={!classificationConfirmed} onClick={() => findCivicRoute().catch((error) => setRouteResult({ status: `Routing failed: ${error.message}` }))}>{t('Find official route')}</button>
       {routeResult && <div aria-live="polite" className={`route-result ${routeResult.status === 'SUPPORTED_ROUTE' ? 'state-success' : 'state-error'}`}>
-        <strong>{routeResult.status === 'SUPPORTED_ROUTE' ? routeResult.authority : routeResult.status === 'CATEGORY_CONFIRMATION_REQUIRED' ? 'Confirm the issue category first' : routeResult.status}</strong>
+        <strong>{routeResult.status === 'SUPPORTED_ROUTE' ? routeResult.authority : routeResult.status === 'CATEGORY_CONFIRMATION_REQUIRED' ? t('Confirm the issue category first') : routeResult.status}</strong>
         {routeResult.routeId && <>
           {routeResult.department && <div className="department-result">
-            <b>{routeResult.department.status === 'TYPICAL_STRUCTURE_UNVERIFIED' ? 'Likely department' : 'Department'}: {routeResult.department.displayName}</b>
+            <b>{routeResult.department.status === 'TYPICAL_STRUCTURE_UNVERIFIED' ? t('Likely department') : t('Department')}: {routeResult.department.displayName}</b>
             <span>{routeResult.department.localName}</span>
             <span>{routeResult.department.basis}</span>
             <span>{routeResult.department.status}</span>
@@ -1155,11 +1183,11 @@ function App() {
           <span>{routeResult.prabhagId} · {routeResult.resolutionMethod}</span>
           <span>{routeResult.sourceStatus} · {routeResult.reviewStatus} · {routeResult.packVersion}</span>
           {(routeResult.knownLimitations?.length ?? 0) > 0 && <div className="route-limitations">
-            <b>Please check before filing</b>
+            <b>{t('Please check before filing')}</b>
             <ul>{routeResult.knownLimitations?.map((limitation) => <li key={limitation.code}>{limitation.citizenMessage}</li>)}</ul>
           </div>}
           {(routeResult.officialChannels?.length ?? 0) > 0 && <div className="route-channels">
-            <b>Official contact options</b>
+            <b>{t('Official contact options')}</b>
             <ul>{routeResult.officialChannels?.map((channel) => <li key={channel.channelId}>
               {channel.type === 'EMAIL' && <a href={`mailto:${channel.value}`}>{channel.label}</a>}
               {channel.type === 'ONLINE_FORM' && <a href={channel.value} target="_blank" rel="noreferrer">{channel.label}</a>}
@@ -1168,90 +1196,90 @@ function App() {
             </li>)}</ul>
           </div>}
           {(routeResult.informationalLinks?.length ?? 0) > 0 && <div className="informational-links">
-            <b>Information only — not a verified filing channel</b>
+            <b>{t('Information only — not a verified filing channel')}</b>
             <ul>{routeResult.informationalLinks?.map((link) => <li key={link.linkId}><a href={link.value} target="_blank" rel="noreferrer">{link.label}</a><small>{link.scopeNote}</small></li>)}</ul>
           </div>}
         </>}
       </div>}
       {routeResult?.status === 'SUPPORTED_ROUTE' && <>
-        <div className="flow-step"><span>4</span><b>Create and review the complaint draft</b></div>
-        <p>The recipient and route stay fixed from Civic Pack. Gemini only drafts the wording from the facts you confirm below.</p>
+        <div className="flow-step"><span>4</span><b>{t('Create and review the complaint draft')}</b></div>
+        <p>{t('The recipient and route stay fixed from Civic Pack. Automatic drafting only prepares wording from the facts you confirm below.')}</p>
         <div className="locked-recipient">
-          <small>Locked recipient</small>
+          <small>{t('Locked recipient')}</small>
           <strong>{routeResult.authority}</strong>
           <span>{routeResult.routeId} · {routeResult.prabhagId}</span>
         </div>
-        <label>Confirmed complaint facts<textarea maxLength={2000} value={complaintFacts} placeholder="Describe only what happened. Do not add guesses." onChange={(event) => {
+        <label>{t('Confirmed complaint facts')}<textarea maxLength={2000} value={complaintFacts} onChange={(event) => {
           setComplaintFacts(event.target.value);
           resetDraft();
         }} /></label>
-        <label>Location or landmark (optional)<input type="text" maxLength={500} value={locationDetails} placeholder="उदा. बस स्थानकाजवळ" onChange={(event) => {
+        <label>{t('Location or landmark (optional)')}<input type="text" maxLength={500} value={locationDetails} placeholder="उदा. बस स्थानकाजवळ" onChange={(event) => {
           setLocationDetails(event.target.value);
           resetDraft();
         }} /></label>
-        <label>Draft language<select value={draftLanguage} onChange={(event) => {
+        <label>{t('Draft language')}<select value={draftLanguage} onChange={(event) => {
           setDraftLanguage(event.target.value as 'MR' | 'EN');
           resetDraft();
-        }}><option value="MR">Marathi</option><option value="EN">English</option></select></label>
-        <button onClick={() => createComplaintDraft().catch((error) => setDraftStatus(`Drafting failed: ${error.message}`))}>Create complaint draft</button>
-        {draftStatus && <div aria-live="polite" className={`status-panel ${complaintDraft?.status === 'DRAFT_ERROR' || draftStatus.includes('could not') || draftStatus.includes('failed') ? 'state-error' : 'state-warning'}`}>{draftStatus}</div>}
+        }}><option value="MR">मराठी</option><option value="EN">English</option></select><small className="field-help">{t('Drafts are currently available in Marathi and English.')}</small></label>
+        <button onClick={() => createComplaintDraft().catch((error) => setDraftStatus(`Drafting failed: ${error.message}`))}>{t('Create complaint draft')}</button>
+        {draftStatus && <div role="status" aria-live="polite" className={`status-panel ${complaintDraft?.status === 'DRAFT_ERROR' || draftStatus.includes('could not') || draftStatus.includes('failed') ? 'state-error' : 'state-warning'}`}>{runtimeMessage(draftStatus)}</div>}
         {complaintDraft?.status === 'DRAFT_ERROR' && <div className="draft-panel">
-          <div className="draft-heading"><div><small>Confirmed recipient</small><strong>{routeResult.authority}</strong></div><span>Manual fallback</span></div>
-          <p>Automatic drafting is unavailable. Write or edit your complaint below; the confirmed route above is unchanged.</p>
-          <label>Complaint body<textarea className="draft-body" maxLength={2500} value={manualComplaintBody} onChange={(event) => setManualComplaintBody(event.target.value)} /></label>
-          <button className="secondary" onClick={() => copyManualComplaint().catch((error) => setDraftStatus(`Copy failed: ${error.message}`))}>Copy manual complaint</button>
+          <div className="draft-heading"><div><small>{t('Confirmed recipient')}</small><strong>{routeResult.authority}</strong></div><span>{t('Manual fallback')}</span></div>
+          <p>{t('Automatic drafting is unavailable. Write or edit your complaint below; the confirmed route above is unchanged.')}</p>
+          <label>{t('Complaint body')}<textarea className="draft-body" maxLength={2500} value={manualComplaintBody} onChange={(event) => setManualComplaintBody(event.target.value)} /></label>
+          <button className="secondary" onClick={() => copyManualComplaint().catch((error) => setDraftStatus(`Copy failed: ${error.message}`))}>{t('Copy manual complaint')}</button>
         </div>}
         {complaintDraft?.status === 'DRAFT_READY' && <div className="draft-panel">
-          <div className="draft-heading"><div><small>Recipient</small><strong>{complaintDraft.authorityLocalName || complaintDraft.authority}</strong></div><span>{complaintDraft.language} · {complaintDraft.draftVersion}</span></div>
-          {(complaintDraft.missingDetails?.length ?? 0) > 0 && <div className="missing-facts"><b>Missing fact</b><span>Add a location or landmark before submitting if one is available. It was not invented in this draft.</span></div>}
-          <label>Subject<input type="text" maxLength={160} value={draftSubject} onChange={(event) => {
+          <div className="draft-heading"><div><small>{t('Recipient')}</small><strong>{complaintDraft.authorityLocalName || complaintDraft.authority}</strong></div><span>{complaintDraft.language} · {complaintDraft.draftVersion}</span></div>
+          {(complaintDraft.missingDetails?.length ?? 0) > 0 && <div className="missing-facts"><b>{t('Missing fact')}</b><span>{t('Add a location or landmark before submitting if one is available. It was not invented in this draft.')}</span></div>}
+          <label>{t('Subject')}<input type="text" maxLength={160} value={draftSubject} onChange={(event) => {
             setDraftSubject(event.target.value);
             setDraftReviewed(false);
           }} /></label>
-          <label>Complaint body<textarea className="draft-body" maxLength={2500} value={draftBody} onChange={(event) => {
+          <label>{t('Complaint body')}<textarea className="draft-body" maxLength={2500} value={draftBody} onChange={(event) => {
             setDraftBody(event.target.value);
             setDraftReviewed(false);
           }} /></label>
-          <label className="review-check"><input type="checkbox" checked={draftReviewed} onChange={(event) => setDraftReviewed(event.target.checked)} /><span>I reviewed the facts, recipient and wording.</span></label>
+          <label className="review-check"><input type="checkbox" checked={draftReviewed} onChange={(event) => setDraftReviewed(event.target.checked)} /><span>{t('I reviewed the facts, recipient and wording.')}</span></label>
           <div className="draft-actions">
-            <button className="secondary" disabled={!draftDocumentId} onClick={() => saveDraftEdits().catch((error) => setDraftStatus(`Draft save failed: ${error.message}`))}>Save changes</button>
-            <button disabled={!draftReviewed || !draftDocumentId} onClick={() => copyReviewedDraft().catch((error) => setDraftStatus(`Copy failed: ${error.message}`))}>Copy reviewed complaint</button>
+            <button className="secondary" disabled={!draftDocumentId} onClick={() => saveDraftEdits().catch((error) => setDraftStatus(`Draft save failed: ${error.message}`))}>{t('Save changes')}</button>
+            <button disabled={!draftReviewed || !draftDocumentId} onClick={() => copyReviewedDraft().catch((error) => setDraftStatus(`Copy failed: ${error.message}`))}>{t('Copy reviewed complaint')}</button>
           </div>
-          <small>No complaint is submitted automatically. The saved Firestore record remains a DRAFT owned by your anonymous account.</small>
+          <small>{t('No complaint is submitted automatically. The saved record remains a DRAFT owned by your anonymous account.')}</small>
         </div>}
         {draftDocumentId && <div className="lifecycle-panel">
           <div className="lifecycle-heading">
-            <div><small>Report lifecycle</small><strong>{reportStatus.replaceAll('_', ' ')}</strong></div>
-            <div className="points-pill"><span>Derived points</span><b>{pointsTotal}</b></div>
+            <div><small>{t('Report lifecycle')}</small><strong>{localizedStatus(language, reportStatus)}</strong></div>
+            <div className="points-pill"><span>{t('Derived points')}</span><b>{pointsTotal}</b></div>
           </div>
-          <p>Confirm real-world actions here. Seewik records them but never files a complaint for you.</p>
+          <p>{t('Confirm real-world actions here. Seewik records them but never files a complaint for you.')}</p>
           {reportStatus === 'DRAFT' && <>
-            {(routeResult.officialChannels?.length ?? 0) > 0 && <label>Channel you used<select value={filingChannelId} onChange={(event) => setFilingChannelId(event.target.value)}>
-              <option value="">Not recorded</option>
+            {(routeResult.officialChannels?.length ?? 0) > 0 && <label>{t('Channel you used')}<select value={filingChannelId} onChange={(event) => setFilingChannelId(event.target.value)}>
+              <option value="">{t('Not recorded')}</option>
               {routeResult.officialChannels?.map((channel) => <option key={channel.channelId} value={channel.channelId}>{channel.label}</option>)}
             </select></label>}
-            <label>Acknowledgement / tracking ID (optional)<input maxLength={200} value={acknowledgementId} onChange={(event) => setAcknowledgementId(event.target.value)} placeholder="Leave blank if none was provided" /></label>
-            <button onClick={() => transitionReport('FILED').catch((error) => setLifecycleStatus(error.message))}>I filed this complaint</button>
-            {!currentCoordinates && <small>Dedupe will be marked DEDUPE_NOT_EVALUATED because no coordinates are available.</small>}
+            <label>{t('Acknowledgement / tracking ID (optional)')}<input maxLength={200} value={acknowledgementId} onChange={(event) => setAcknowledgementId(event.target.value)} /></label>
+            <button onClick={() => transitionReport('FILED').catch((error) => setLifecycleStatus(error.message))}>{t('I filed this complaint')}</button>
+            {!currentCoordinates && <small>{t('Dedupe is not evaluated when location is unavailable.')}</small>}
           </>}
           {duplicateWarning && <div className="duplicate-warning">
-            <b>Possible duplicate</b>
+            <b>{t('Possible duplicate')}</b>
             <span>A same-category report is {duplicateWarning.measuredDistanceMeters?.toFixed(1)} m away. The 75 m threshold is an MVP heuristic, not a civic boundary.</span>
-            <button className="secondary" onClick={() => transitionReport('FILED', true).catch((error) => setLifecycleStatus(error.message))}>This is a different issue — file with 0 points</button>
+            <button className="secondary" onClick={() => transitionReport('FILED', true).catch((error) => setLifecycleStatus(error.message))}>{t('This is a different issue — file with 0 points')}</button>
           </div>}
           {['FILED', 'OVERDUE', 'REOPENED'].includes(reportStatus) && <>
-            {reportStatus === 'FILED' && <div className="overdue-unknown"><b>Overdue: unknown</b><span>No verified SLA or due date exists in Civic Pack v0.2, so Seewik will not invent one.</span></div>}
-            <button onClick={() => transitionReport('CLAIMED_FIXED').catch((error) => setLifecycleStatus(error.message))}>Record a repair claim</button>
+            {reportStatus === 'FILED' && <div className="overdue-unknown"><b>{t('Overdue: unknown')}</b><span>{t('No verified SLA exists, so Seewik will not invent a due date.')}</span></div>}
+            <button onClick={() => transitionReport('CLAIMED_FIXED').catch((error) => setLifecycleStatus(error.message))}>{t('Record a repair claim')}</button>
           </>}
           {reportStatus === 'CLAIMED_FIXED' && <div className="lifecycle-actions">
-            <button onClick={() => transitionReport('VERIFIED_FIXED').catch((error) => setLifecycleStatus(error.message))}>Verify fixed by citizen attestation</button>
-            <button className="secondary" onClick={() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message))}>Reject repair claim</button>
+            <button onClick={() => transitionReport('VERIFIED_FIXED').catch((error) => setLifecycleStatus(error.message))}>{t('Verify fixed')}</button>
+            <button className="secondary" onClick={() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message))}>{t('Reject repair claim')}</button>
           </div>}
-          {reportStatus === 'VERIFIED_FIXED' && <button className="secondary" onClick={() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message))}>Report that the issue recurred</button>}
-          {lifecycleStatus && <div aria-live="polite" className="status-panel state-warning">{lifecycleStatus}</div>}
+          {reportStatus === 'VERIFIED_FIXED' && <button className="secondary" onClick={() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message))}>{t('Report recurrence')}</button>}
+          {lifecycleStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(lifecycleStatus)}</div>}
           <ol className="timeline">
             {timeline.map((item, index) => <li key={`${item.occurredAt}-${index}`}>
-              <span>{index + 1}</span><div><b>{item.toStatus.replaceAll('_', ' ')}</b><small>{item.eventType} · {item.verificationBasis}{item.pointsAwarded ? ` · +${item.pointsAwarded}` : ''}</small></div>
+              <span>{index + 1}</span><div><b>{localizedStatus(language, item.toStatus)}</b><small>{item.eventType} · {item.verificationBasis}{item.pointsAwarded ? ` · +${item.pointsAwarded}` : ''}</small></div>
             </li>)}
           </ol>
         </div>}
@@ -1260,77 +1288,84 @@ function App() {
     </>}
 
     {screen === 'review' && <section className="card page-card">
-      <span className="eyebrow">COMPLAINT REVIEW</span><h2>Review your saved complaint</h2>
-      {!draftDocumentId || complaintDraft?.status !== 'DRAFT_READY' ? <div className="empty-state"><b>No draft is ready in this session.</b><p>Create or open a saved draft before reviewing it.</p><button onClick={() => navigate('new-report')}>Start a report</button></div> : <>
-        <div className={`report-status-banner ${canEditReport(reportStatus) ? 'editable' : 'immutable'}`}><b>{reportStatus.replaceAll('_', ' ')}</b><span>{canEditReport(reportStatus) ? 'Editable draft' : 'Filed report — facts and wording are frozen'}</span></div>
-        <div className="locked-recipient"><small>Locked recipient</small><strong>{complaintDraft.authorityLocalName || complaintDraft.authority}</strong><span>{complaintDraft.routeId} · {complaintDraft.prabhagId} · {complaintDraft.packVersion}</span></div>
-        <label>Subject<input type="text" maxLength={160} readOnly={!canEditReport(reportStatus)} value={draftSubject} onChange={(event) => { setDraftSubject(event.target.value); setDraftReviewed(false); }} /></label>
-        <label>Complaint body<textarea className="draft-body" maxLength={2500} readOnly={!canEditReport(reportStatus)} value={draftBody} onChange={(event) => { setDraftBody(event.target.value); setDraftReviewed(false); }} /></label>
+      <span className="eyebrow">{t('COMPLAINT REVIEW')}</span><h2>{t('Review your saved complaint')}</h2>
+      {!draftDocumentId || complaintDraft?.status !== 'DRAFT_READY' ? <div className="empty-state"><b>{t('No draft is ready in this session.')}</b><p>{t('Create or open a saved draft before reviewing it.')}</p><button onClick={() => navigate('new-report')}>{t('Start a report')}</button></div> : <>
+        <div className={`report-status-banner ${canEditReport(reportStatus) ? 'editable' : 'immutable'}`}><b>{localizedStatus(language, reportStatus)}</b><span>{canEditReport(reportStatus) ? t('Editable draft') : t('Filed report — facts and wording are frozen')}</span></div>
+        <div className="locked-recipient"><small>{t('Locked recipient')}</small><strong>{complaintDraft.authorityLocalName || complaintDraft.authority}</strong><span>{complaintDraft.routeId} · {complaintDraft.prabhagId} · {complaintDraft.packVersion}</span></div>
+        <label>{t('Subject')}<input type="text" maxLength={160} readOnly={!canEditReport(reportStatus)} value={draftSubject} onChange={(event) => { setDraftSubject(event.target.value); setDraftReviewed(false); }} /></label>
+        <label>{t('Complaint body')}<textarea className="draft-body" maxLength={2500} readOnly={!canEditReport(reportStatus)} value={draftBody} onChange={(event) => { setDraftBody(event.target.value); setDraftReviewed(false); }} /></label>
         {canEditReport(reportStatus) ? <>
-          <label className="review-check"><input type="checkbox" checked={draftReviewed} onChange={(event) => setDraftReviewed(event.target.checked)} /><span>I reviewed the facts, recipient and wording.</span></label>
-          <div className="draft-actions"><button className="secondary" onClick={() => saveDraftEdits().catch((error) => setDraftStatus(`Draft save failed: ${error.message}`))}>Save changes</button><button disabled={!draftReviewed} onClick={() => copyReviewedDraft().catch((error) => setDraftStatus(`Copy failed: ${error.message}`))}>Copy reviewed complaint</button></div>
-          <div className="lifecycle-panel filing-panel"><div className="lifecycle-heading"><div><small>Record real-world filing</small><strong>DRAFT</strong></div><div className="points-pill"><span>Possible reward</span><b>+5</b></div></div><p>Seewik never submits the complaint. Use this only after you file it yourself.</p>
-            {(routeResult?.officialChannels?.length ?? 0) > 0 && <label>Channel you used<select value={filingChannelId} onChange={(event) => setFilingChannelId(event.target.value)}><option value="">Not recorded</option>{routeResult?.officialChannels?.map((channel) => <option key={channel.channelId} value={channel.channelId}>{channel.label}</option>)}</select></label>}
-            <label>Acknowledgement / tracking ID (optional)<input maxLength={200} value={acknowledgementId} onChange={(event) => setAcknowledgementId(event.target.value)} placeholder="Leave blank if none was provided" /></label>
-            <button disabled={!draftReviewed} onClick={() => fileReviewedReport().catch((error) => setLifecycleStatus(error.message))}>I filed this complaint</button>
-            {!currentCoordinates && <small>Dedupe will be marked DEDUPE_NOT_EVALUATED because no coordinates are available.</small>}
-            {duplicateWarning && <div className="duplicate-warning"><b>Possible duplicate</b><span>A same-category report is {duplicateWarning.measuredDistanceMeters?.toFixed(1)} m away.</span><button className="secondary" onClick={() => fileReviewedReport(true).catch((error) => setLifecycleStatus(error.message))}>This is different — file with 0 points</button></div>}
-            {lifecycleStatus && <div aria-live="polite" className="status-panel state-warning">{lifecycleStatus}</div>}
+          <label className="review-check"><input type="checkbox" checked={draftReviewed} onChange={(event) => setDraftReviewed(event.target.checked)} /><span>{t('I reviewed the facts, recipient and wording.')}</span></label>
+          <div className="draft-actions"><button className="secondary" onClick={() => saveDraftEdits().catch((error) => setDraftStatus(`Draft save failed: ${error.message}`))}>{t('Save changes')}</button><button disabled={!draftReviewed} onClick={() => copyReviewedDraft().catch((error) => setDraftStatus(`Copy failed: ${error.message}`))}>{t('Copy reviewed complaint')}</button></div>
+          <div className="lifecycle-panel filing-panel"><div className="lifecycle-heading"><div><small>{t('Record real-world filing')}</small><strong>{t('DRAFT')}</strong></div><div className="points-pill"><span>{t('Possible reward')}</span><b>+5</b></div></div><p>{t('Seewik never submits the complaint. Use this only after you file it yourself.')}</p>
+            {(routeResult?.officialChannels?.length ?? 0) > 0 && <label>{t('Channel you used')}<select value={filingChannelId} onChange={(event) => setFilingChannelId(event.target.value)}><option value="">{t('Not recorded')}</option>{routeResult?.officialChannels?.map((channel) => <option key={channel.channelId} value={channel.channelId}>{channel.label}</option>)}</select></label>}
+            <label>{t('Acknowledgement / tracking ID (optional)')}<input maxLength={200} value={acknowledgementId} onChange={(event) => setAcknowledgementId(event.target.value)} /></label>
+            <button disabled={!draftReviewed} onClick={() => fileReviewedReport().catch((error) => setLifecycleStatus(error.message))}>{t('I filed this complaint')}</button>
+            {!currentCoordinates && <small>{t('Dedupe is not evaluated when location is unavailable.')}</small>}
+            {duplicateWarning && <div className="duplicate-warning"><b>{t('Possible duplicate')}</b><span>A same-category report is {duplicateWarning.measuredDistanceMeters?.toFixed(1)} m away.</span><button className="secondary" onClick={() => fileReviewedReport(true).catch((error) => setLifecycleStatus(error.message))}>{t('This is a different issue — file with 0 points')}</button></div>}
+            {lifecycleStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(lifecycleStatus)}</div>}
           </div>
-          <button className="text-action" onClick={() => navigate('new-report')}>Return to report builder</button>
-        </> : <><div className="status-panel state-warning"><strong>This report cannot be resumed</strong><span>Once filed, the complaint wording and frozen route facts cannot be edited.</span></div><button onClick={() => navigate('report-detail', false, draftDocumentId)}>View report timeline</button></>}
-        {draftStatus && <div aria-live="polite" className="status-panel state-warning">{draftStatus}</div>}
+          <button className="text-action" onClick={() => navigate('new-report')}>{t('Return to report builder')}</button>
+        </> : <><div className="status-panel state-warning"><strong>{t('This report cannot be resumed')}</strong><span>{t('Once filed, the complaint wording and frozen route facts cannot be edited.')}</span></div><button onClick={() => navigate('report-detail', false, draftDocumentId)}>{t('View report timeline')}</button></>}
+        {draftStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(draftStatus)}</div>}
       </>}
     </section>}
 
     {screen === 'reports' && <section className="card page-card">
-      <span className="eyebrow">MY REPORTS</span><h2>Your saved civic work</h2><p>Drafts can be resumed. Filed reports open as immutable records.</p>
-      <div className="reports-toolbar"><span aria-live="polite">{reportsStatus}</span><button className="secondary" onClick={() => loadMyReports().catch((error) => setReportsStatus(`Reports could not be loaded: ${error.message}`))}>Refresh</button></div>
-      {!savedReports.length && !reportsStatus.startsWith('Loading') ? <div className="empty-state"><b>No reports are saved for this anonymous account.</b><p>Create a report to save an owner-protected Firestore draft.</p><button onClick={() => navigate('new-report')}>Create a report</button></div> : <div className="report-list">{savedReports.map((report) => <article className="report-list-item" key={report.id}><div><span className={`status-chip status-${report.status.toLowerCase()}`}>{report.status}</span><h3>{issueLabel(report.confirmedIssueType)}</h3><p>{report.prabhagId} · Updated {timestampLabel(report.updatedAt)}</p><small>{report.id.slice(0, 12)}… · {report.packVersion}</small></div>{canResumeReport(report.status) ? <button onClick={() => resumeSavedReport(report).catch((error) => setReportsStatus(`Draft could not be resumed: ${error.message}`))}>Resume draft</button> : <button onClick={() => openSavedReport(report).catch((error) => setReportsStatus(`Report could not be opened: ${error.message}`))}>View report</button>}</article>)}</div>}
+      <span className="eyebrow">{t('MY REPORTS')}</span><h2>{t('Your saved civic work')}</h2><p>{t('Drafts can be resumed. Filed reports open as immutable records.')}</p>
+      <div className="reports-toolbar"><span role="status" aria-live="polite">{runtimeMessage(reportsStatus)}</span><button className="secondary" onClick={() => loadMyReports().catch((error) => setReportsStatus(`Reports could not be loaded: ${error.message}`))}>{t('Refresh')}</button></div>
+      {!savedReports.length && !reportsStatus.startsWith('Loading') ? <div className="empty-state"><b>{t('No reports are saved for this anonymous account.')}</b><p>{t('Create a report to save an owner-protected draft.')}</p><button onClick={() => navigate('new-report')}>{t('Create a report')}</button></div> : <div className="report-list">{savedReports.map((report) => <article className="report-list-item" key={report.id}><div><span className={`status-chip status-${report.status.toLowerCase()}`}>{localizedStatus(language, report.status)}</span><h3>{issueLabel(report.confirmedIssueType, language)}</h3><p>{report.prabhagId} · {t('Updated')} {timestampLabel(report.updatedAt, language)}</p><small>{report.id.slice(0, 12)}… · {report.packVersion}</small></div>{canResumeReport(report.status) ? <button onClick={() => resumeSavedReport(report).catch((error) => setReportsStatus(`Draft could not be resumed: ${error.message}`))}>{t('Resume draft')}</button> : <button onClick={() => openSavedReport(report).catch((error) => setReportsStatus(`Report could not be opened: ${error.message}`))}>{t('View report')}</button>}</article>)}</div>}
     </section>}
 
     {screen === 'report-detail' && <section className="card page-card">
-      <span className="eyebrow">REPORT DETAILS</span><h2>{selectedReport ? issueLabel(selectedReport.confirmedIssueType) : 'Loading report'}</h2>
-      {!selectedReport ? <div className="empty-state"><p>{reportsStatus || 'Choose a report from My reports.'}</p><button onClick={() => navigate('reports')}>Open my reports</button></div> : <>
-        <div className="report-status-banner immutable"><b>{reportStatus.replaceAll('_', ' ')}</b><span>{reportStatus === 'DRAFT' ? 'Open the review screen to edit this draft.' : 'Filed record — complaint and route facts are immutable'}</span></div>
-        <dl className="report-facts"><div><dt>Prabhag</dt><dd>{selectedReport.prabhagId}</dd></div><div><dt>Route</dt><dd>{selectedReport.routeSnapshot?.routeId || selectedReport.routeId}</dd></div><div><dt>Pack</dt><dd>{selectedReport.routeSnapshot?.packVersion || selectedReport.packVersion}</dd></div><div><dt>Authority</dt><dd>{selectedReport.routeSnapshot?.authority || selectedReport.authority}</dd></div><div><dt>Acknowledgement</dt><dd>{selectedReport.acknowledgementId || 'Not provided'}</dd></div><div><dt>Updated</dt><dd>{timestampLabel(selectedReport.updatedAt)}</dd></div></dl>
-        {selectedReport.routeSnapshot?.department && <div className="locked-recipient"><small>Frozen route department</small><strong>{selectedReport.routeSnapshot.department.displayName}</strong><span>{selectedReport.routeSnapshot.department.status} · {selectedReport.routeSnapshot.sourceStatus} · {selectedReport.routeSnapshot.reviewStatus}</span></div>}
-        {(selectedReport.routeSnapshot?.knownLimitations?.length ?? 0) > 0 && <div className="route-limitations"><b>Please keep in mind</b><ul>{selectedReport.routeSnapshot?.knownLimitations?.map((limitation) => <li key={limitation.code}>{limitation.citizenMessage}</li>)}</ul></div>}
-        <div className="points-summary"><span>Derived points for this anonymous account</span><b>{pointsTotal}</b></div>
-        {reportStatus === 'DRAFT' && <button onClick={() => resumeSavedReport(selectedReport).catch((error) => setReportsStatus(error.message))}>Resume draft</button>}
-        {['FILED', 'OVERDUE', 'REOPENED'].includes(reportStatus) && <><div className="overdue-unknown"><b>Overdue: unknown</b><span>No verified SLA exists, so Seewik will not invent a due date.</span></div><button onClick={() => transitionReport('CLAIMED_FIXED').catch((error) => setLifecycleStatus(error.message))}>Record a repair claim</button></>}
-        {reportStatus === 'CLAIMED_FIXED' && <div className="lifecycle-actions"><button onClick={() => transitionReport('VERIFIED_FIXED').catch((error) => setLifecycleStatus(error.message))}>Verify fixed</button><button className="secondary" onClick={() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message))}>Reject repair claim</button></div>}
-        {reportStatus === 'VERIFIED_FIXED' && <button className="secondary" onClick={() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message))}>Report recurrence</button>}
-        {lifecycleStatus && <div aria-live="polite" className="status-panel state-warning">{lifecycleStatus}</div>}
-        <ol className="timeline">{timeline.map((item, index) => <li key={`${item.occurredAt}-${index}`}><span>{index + 1}</span><div><b>{item.toStatus.replaceAll('_', ' ')}</b><small>{item.eventType} · {item.verificationBasis}{item.pointsAwarded ? ` · +${item.pointsAwarded}` : ''}</small></div></li>)}</ol>
+      <span className="eyebrow">{t('REPORT DETAILS')}</span><h2>{selectedReport ? issueLabel(selectedReport.confirmedIssueType, language) : t('Loading report')}</h2>
+      {!selectedReport ? <div className="empty-state"><p>{runtimeMessage(reportsStatus) || t('Choose a report from My reports.')}</p><button onClick={() => navigate('reports')}>{t('Open my reports')}</button></div> : <>
+        <div className="report-status-banner immutable"><b>{localizedStatus(language, reportStatus)}</b><span>{reportStatus === 'DRAFT' ? t('Open the review screen to edit this draft.') : t('Filed record — complaint and route facts are immutable')}</span></div>
+        <dl className="report-facts"><div><dt>{t('Prabhag')}</dt><dd>{selectedReport.prabhagId}</dd></div><div><dt>{t('Route')}</dt><dd>{selectedReport.routeSnapshot?.routeId || selectedReport.routeId}</dd></div><div><dt>{t('Pack')}</dt><dd>{selectedReport.routeSnapshot?.packVersion || selectedReport.packVersion}</dd></div><div><dt>{t('Authority')}</dt><dd>{selectedReport.routeSnapshot?.authority || selectedReport.authority}</dd></div><div><dt>{t('Acknowledgement')}</dt><dd>{selectedReport.acknowledgementId || t('Not provided')}</dd></div><div><dt>{t('Updated')}</dt><dd>{timestampLabel(selectedReport.updatedAt, language)}</dd></div></dl>
+        {selectedReport.routeSnapshot?.department && <div className="locked-recipient"><small>{t('Frozen route department')}</small><strong>{selectedReport.routeSnapshot.department.displayName}</strong><span>{selectedReport.routeSnapshot.department.status} · {selectedReport.routeSnapshot.sourceStatus} · {selectedReport.routeSnapshot.reviewStatus}</span></div>}
+        {(selectedReport.routeSnapshot?.knownLimitations?.length ?? 0) > 0 && <div className="route-limitations"><b>{t('Please keep in mind')}</b><ul>{selectedReport.routeSnapshot?.knownLimitations?.map((limitation) => <li key={limitation.code}>{limitation.citizenMessage}</li>)}</ul></div>}
+        <div className="points-summary"><span>{t('Derived points for this anonymous account')}</span><b>{pointsTotal}</b></div>
+        {reportStatus === 'DRAFT' && <button onClick={() => resumeSavedReport(selectedReport).catch((error) => setReportsStatus(error.message))}>{t('Resume draft')}</button>}
+        {['FILED', 'OVERDUE', 'REOPENED'].includes(reportStatus) && <><div className="overdue-unknown"><b>{t('Overdue: unknown')}</b><span>{t('No verified SLA exists, so Seewik will not invent a due date.')}</span></div><button onClick={() => transitionReport('CLAIMED_FIXED').catch((error) => setLifecycleStatus(error.message))}>{t('Record a repair claim')}</button></>}
+        {reportStatus === 'CLAIMED_FIXED' && <div className="lifecycle-actions"><button onClick={() => transitionReport('VERIFIED_FIXED').catch((error) => setLifecycleStatus(error.message))}>{t('Verify fixed')}</button><button className="secondary" onClick={() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message))}>{t('Reject repair claim')}</button></div>}
+        {reportStatus === 'VERIFIED_FIXED' && <button className="secondary" onClick={() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message))}>{t('Report recurrence')}</button>}
+        {lifecycleStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(lifecycleStatus)}</div>}
+        <ol className="timeline">{timeline.map((item, index) => <li key={`${item.occurredAt}-${index}`}><span>{index + 1}</span><div><b>{localizedStatus(language, item.toStatus)}</b><small>{item.eventType} · {item.verificationBasis}{item.pointsAwarded ? ` · +${item.pointsAwarded}` : ''}</small></div></li>)}</ol>
       </>}
     </section>}
 
     {screen === 'points' && <section className="card page-card points-page">
-      <span className="eyebrow">MY POINTS</span><h2>{pointsTotal} derived points</h2><p>Totals are calculated from immutable ledger entries rather than stored as an editable score.</p>
-      <div className="points-rules"><div><b>+5</b><span>First accepted filing</span></div><div><b>+40</b><span>First verified fix</span></div><div><b>0</b><span>Duplicate override, reopening or re-verification</span></div></div>
-      <button className="secondary" onClick={() => refreshDerivedPoints().catch(() => undefined)}>Refresh my points</button>
+      <span className="eyebrow">{t('MY POINTS')}</span><h2>{pointsTotal} {t('derived points')}</h2><p>{t('Totals are calculated from immutable ledger entries rather than stored as an editable score.')}</p>
+      <div className="points-rules"><div><b>+5</b><span>{t('First accepted filing')}</span></div><div><b>+40</b><span>{t('First verified fix')}</span></div><div><b>0</b><span>{t('Duplicate override, reopening or re-verification')}</span></div></div>
+      <button className="secondary" onClick={() => refreshDerivedPoints().catch(() => undefined)}>{t('Refresh my points')}</button>
     </section>}
 
     {screen === 'home' && <>
     <section className="card demo-card">
-      <div className="demo-banner">DEMO DATA · SYNTHETIC CLOCK · EXCLUDED FROM ANALYTICS AND REWARDS</div>
-      <h2>90-second lifecycle demo</h2>
-      <p>This local walkthrough demonstrates every state without creating a report or changing your real points.</p>
-      <div className="demo-current"><small>Simulated report state</small><strong>{demoStates[demoStep][0]}</strong><span>{demoStates[demoStep][1]}</span></div>
+      <div className="demo-banner">{t('DEMO DATA · SYNTHETIC CLOCK · EXCLUDED FROM ANALYTICS AND REWARDS')}</div>
+      <h2>{t('90-second lifecycle demo')}</h2>
+      <p>{t('This local walkthrough demonstrates every state without creating a report or changing your real points.')}</p>
+      <div className="demo-current"><small>{t('Simulated report state')}</small><strong>{localizedStatus(language, demoStates[demoStep][0])}</strong><span>{demoStates[demoStep][1]}</span></div>
       <ol className="timeline compact">
-        {demoStates.slice(0, demoStep + 1).map(([state, description], index) => <li key={state}><span>{index + 1}</span><div><b>{state}</b><small>{description}</small></div></li>)}
+        {demoStates.slice(0, demoStep + 1).map(([state, description], index) => <li key={state}><span>{index + 1}</span><div><b>{localizedStatus(language, state)}</b><small>{description}</small></div></li>)}
       </ol>
       <div className="lifecycle-actions">
-        <button disabled={demoStep === demoStates.length - 1} onClick={() => setDemoStep((step) => Math.min(step + 1, demoStates.length - 1))}>Next simulated transition</button>
-        <button className="secondary" disabled={demoStep === 0} onClick={() => setDemoStep(0)}>Reset demo</button>
+        <button disabled={demoStep === demoStates.length - 1} onClick={() => setDemoStep((step) => Math.min(step + 1, demoStates.length - 1))}>{t('Next simulated transition')}</button>
+        <button className="secondary" disabled={demoStep === 0} onClick={() => setDemoStep(0)}>{t('Reset demo')}</button>
       </div>
     </section>
-    <section className="card systems"><h2>{status}</h2><p>The secure cloud path remains available for technical validation.</p><button onClick={() => verifyFirebase().catch((error) => add(`Firebase check failed: ${error.message}`))}>Verify Firebase services</button>{details.length > 0 && <ul>{details.map((detail, index) => <li key={`${index}-${detail}`}>{detail}</li>)}</ul>}</section>
+    <section className="card systems"><h2>{runtimeMessage(status)}</h2><p>{t('The secure service path remains available for technical validation.')}</p><button onClick={() => verifyFirebase().catch((error) => add(`Service check failed: ${error.message}`))}>{t('Verify cloud services')}</button>{details.length > 0 && <ul>{details.map((detail, index) => <li key={`${index}-${detail}`}>{detail}</li>)}</ul>}</section>
     </>}
-    <footer>Built for local civic action</footer>
-    <nav className="mobile-nav" aria-label="Mobile navigation"><button className={screen === 'home' ? 'active' : ''} onClick={() => navigate('home')}><span>⌂</span>Home</button><button className={screen === 'new-report' || screen === 'review' ? 'active' : ''} onClick={() => navigate('new-report')}><span>＋</span>Report</button><button className={screen === 'initiatives' || screen === 'new-initiative' ? 'active' : ''} onClick={() => navigate('initiatives')}><span>◎</span>Initiate</button><button className={screen === 'reports' || screen === 'report-detail' ? 'active' : ''} onClick={() => navigate('reports')}><span>≡</span>Reports</button><button className={screen === 'points' ? 'active' : ''} onClick={() => navigate('points')}><span>◆</span>Points</button></nav>
-  </main>;
+    <footer>{t('Built for local civic action')}</footer>
+    <nav className="mobile-nav" aria-label={t('Mobile navigation')}>
+      <button aria-current={navCurrent(screen === 'home')} className={screen === 'home' ? 'active' : ''} onClick={() => navigate('home')}><span aria-hidden="true">⌂</span>{t('Home')}</button>
+      <button aria-current={navCurrent(screen === 'new-report' || screen === 'review')} className={screen === 'new-report' || screen === 'review' ? 'active' : ''} onClick={() => navigate('new-report')}><span aria-hidden="true">＋</span>{t('Report')}</button>
+      <button aria-current={navCurrent(screen === 'initiatives' || screen === 'new-initiative')} className={screen === 'initiatives' || screen === 'new-initiative' ? 'active' : ''} onClick={() => navigate('initiatives')}><span aria-hidden="true">◎</span>{t('Initiate')}</button>
+      <button aria-current={navCurrent(screen === 'reports' || screen === 'report-detail')} className={screen === 'reports' || screen === 'report-detail' ? 'active' : ''} onClick={() => navigate('reports')}><span aria-hidden="true">≡</span>{t('Reports')}</button>
+      <button aria-current={navCurrent(screen === 'points')} className={screen === 'points' ? 'active' : ''} onClick={() => navigate('points')}><span aria-hidden="true">◆</span>{t('Points')}</button>
+    </nav>
+  </main>
+  </>;
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>);

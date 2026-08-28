@@ -4,6 +4,10 @@ All notable changes to the versioned Civic Pack and its deterministic routing im
 
 ## Unreleased
 
+- Froze the Day 9 language/boundary contract: English, Marathi and Hindi interface support; supported-device first-use language; persistent change-anytime selector; Marathi/English-only complaint drafts; and unchanged deterministic civic facts.
+- Classified the 20-polygon `official-map-digitized-v0.1` dataset as an approximate digitization from an official Nagar Parishad map image, not official GIS geometry; pinned its checksum and kept it inactive for resolver use pending georeference review.
+- Added the versioned `interface-copy-v0.1` catalogue, localized primary citizen screens and dates, and accessibility foundations including a skip link, active navigation semantics, visible focus, status announcements and approximately 44-pixel controls.
+- Preserved citizen-entered and mixed-language text exactly, kept Civic Pack authority/route facts unchanged, and recorded that independent Marathi/Hindi product-language review is still pending.
 - Added organiser-only `PUBLISHED → CANCELLED` and `PUBLISHED → COMPLETED` Initiative transitions with required cancellation reason, scheduled-time enforcement, idempotent append-only events, final-state discovery exclusion, joined-citizen status visibility and zero reward changes.
 - Added `My activities` controls and corrected report evidence freshness so replacing complaint text or a photograph clears the previous classification, confirmed facts, route and draft before new evidence is classified.
 - Added green-main quality and deployment workflows covering backend/frontend gates, frozen evaluation integrity, repository policy, dependency checks, an isolated zero-traffic backend candidate, health-before-traffic, frontend route verification and rollback.

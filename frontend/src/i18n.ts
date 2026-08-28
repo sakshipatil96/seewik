@@ -1,0 +1,316 @@
+export type InterfaceLanguage = 'en' | 'mr' | 'hi';
+
+export const INTERFACE_COPY_VERSION = 'interface-copy-v0.1';
+export const LANGUAGE_STORAGE_KEY = 'seewik.interfaceLanguage';
+
+export const LANGUAGE_OPTIONS: ReadonlyArray<{ value: InterfaceLanguage; label: string }> = [
+  { value: 'en', label: 'English' },
+  { value: 'mr', label: 'मराठी' },
+  { value: 'hi', label: 'हिन्दी' },
+];
+
+type LocalizedCopy = { mr: string; hi: string };
+
+const COPY: Record<string, LocalizedCopy> = {
+  'Language': { mr: 'भाषा', hi: 'भाषा' },
+  'Skip to main content': { mr: 'मुख्य मजकुराकडे जा', hi: 'मुख्य सामग्री पर जाएँ' },
+  'Seewik home': { mr: 'सीविक मुख्यपृष्ठ', hi: 'सीविक मुखपृष्ठ' },
+  'Primary navigation': { mr: 'मुख्य नेव्हिगेशन', hi: 'मुख्य नेविगेशन' },
+  'Mobile navigation': { mr: 'मोबाइल नेव्हिगेशन', hi: 'मोबाइल नेविगेशन' },
+  'Home': { mr: 'मुख्यपृष्ठ', hi: 'मुखपृष्ठ' },
+  'Report an issue': { mr: 'समस्या नोंदवा', hi: 'समस्या दर्ज करें' },
+  'Report': { mr: 'अहवाल', hi: 'रिपोर्ट' },
+  'My reports': { mr: 'माझे अहवाल', hi: 'मेरी रिपोर्टें' },
+  'Reports': { mr: 'अहवाल', hi: 'रिपोर्टें' },
+  'Initiate': { mr: 'उपक्रम', hi: 'पहल' },
+  'My points': { mr: 'माझे गुण', hi: 'मेरे अंक' },
+  'Points': { mr: 'गुण', hi: 'अंक' },
+  'Saved reports are not deleted by Start over.': { mr: 'पुन्हा सुरुवात केल्याने जतन केलेले अहवाल हटत नाहीत.', hi: 'फिर से शुरू करने पर सहेजी गई रिपोर्टें नहीं मिटतीं।' },
+  'Start over': { mr: 'पुन्हा सुरुवात', hi: 'फिर से शुरू करें' },
+  'LOCAL CIVIC ACTION': { mr: 'स्थानिक नागरी कृती', hi: 'स्थानीय नागरिक कार्रवाई' },
+  'A Civic Intelligence Platform': { mr: 'नागरी माहिती आणि कृती मंच', hi: 'नागरिक जानकारी और कार्रवाई मंच' },
+  'Identify a civic issue, find the confirmed route, prepare a complaint and track the outcome.': { mr: 'नागरी समस्या ओळखा, खात्रीशीर मार्ग शोधा, तक्रार तयार करा आणि परिणाम नोंदवा.', hi: 'नागरिक समस्या पहचानें, पुष्टि किया गया मार्ग खोजें, शिकायत तैयार करें और परिणाम दर्ज करें।' },
+  'Start using Seewik': { mr: 'सीविक वापरण्यास सुरुवात करा', hi: 'सीविक का उपयोग शुरू करें' },
+  'Describe the problem, confirm its category and find the deterministic civic route.': { mr: 'समस्या सांगा, तिचा प्रकार निश्चित करा आणि नियमाधारित नागरी मार्ग शोधा.', hi: 'समस्या बताएँ, उसकी श्रेणी की पुष्टि करें और नियम-आधारित नागरिक मार्ग खोजें।' },
+  'Start a report': { mr: 'अहवाल सुरू करा', hi: 'रिपोर्ट शुरू करें' },
+  'Initiate something good': { mr: 'चांगला उपक्रम सुरू करा', hi: 'अच्छी पहल शुरू करें' },
+  'Create a useful local activity, discover what is nearby and join neighbours taking action.': { mr: 'उपयुक्त स्थानिक उपक्रम तयार करा, जवळचे उपक्रम शोधा आणि शेजाऱ्यांसोबत सहभागी व्हा.', hi: 'उपयोगी स्थानीय गतिविधि बनाएँ, आसपास की गतिविधियाँ खोजें और पड़ोसियों के साथ जुड़ें।' },
+  'Explore activities': { mr: 'उपक्रम पाहा', hi: 'गतिविधियाँ देखें' },
+  'Resume drafts and inspect filed reports without rewriting their frozen facts.': { mr: 'मसुदे पुन्हा उघडा आणि निश्चित तथ्ये न बदलता दाखल अहवाल पाहा.', hi: 'मसौदे फिर खोलें और स्थिर तथ्यों को बदले बिना दर्ज रिपोर्टें देखें।' },
+  'Open my reports': { mr: 'माझे अहवाल उघडा', hi: 'मेरी रिपोर्टें खोलें' },
+  'See rewards derived from filing and verified outcomes, never complaint volume alone.': { mr: 'फक्त तक्रारींच्या संख्येवर नव्हे, तर दाखल करणे आणि पडताळलेल्या परिणामांवर मिळालेले गुण पाहा.', hi: 'सिर्फ शिकायतों की संख्या नहीं, बल्कि दर्ज करने और सत्यापित परिणामों से मिले अंक देखें।' },
+  'View my points': { mr: 'माझे गुण पाहा', hi: 'मेरे अंक देखें' },
+  'INITIATE WHAT IS GOOD': { mr: 'चांगल्या कामाचा उपक्रम', hi: 'अच्छे काम की पहल' },
+  'Take action with neighbours': { mr: 'शेजाऱ्यांसोबत कृती करा', hi: 'पड़ोसियों के साथ कदम उठाएँ' },
+  'Discover upcoming civic activities near you, join once, and see the participant count update.': { mr: 'जवळचे आगामी नागरी उपक्रम शोधा, एकदाच सहभागी व्हा आणि सहभागी संख्या अद्ययावत होताना पाहा.', hi: 'पास की आगामी नागरिक गतिविधियाँ खोजें, एक बार जुड़ें और प्रतिभागियों की संख्या अपडेट होते देखें।' },
+  'My activities': { mr: 'माझे उपक्रम', hi: 'मेरी गतिविधियाँ' },
+  'Activities you organise or join stay here after cancellation or completion, so their final status remains clear.': { mr: 'तुम्ही आयोजित केलेले किंवा सहभागी झालेले उपक्रम रद्द किंवा पूर्ण झाल्यानंतरही येथे राहतात.', hi: 'आपकी आयोजित या शामिल गतिविधियाँ रद्द या पूरी होने के बाद भी यहाँ रहती हैं।' },
+  'No joined activities yet.': { mr: 'अजून कोणत्याही उपक्रमात सहभाग नाही.', hi: 'अभी किसी गतिविधि में शामिल नहीं हैं।' },
+  'Create an activity or join one nearby.': { mr: 'उपक्रम तयार करा किंवा जवळच्या उपक्रमात सहभागी व्हा.', hi: 'गतिविधि बनाएँ या पास की गतिविधि से जुड़ें।' },
+  'Organiser': { mr: 'आयोजक', hi: 'आयोजक' },
+  'Joined': { mr: 'सहभागी', hi: 'शामिल' },
+  'Cancellation reason': { mr: 'रद्द करण्याचे कारण', hi: 'रद्द करने का कारण' },
+  'Required only when cancelling': { mr: 'फक्त रद्द करताना आवश्यक', hi: 'केवल रद्द करते समय आवश्यक' },
+  'Cancel activity': { mr: 'उपक्रम रद्द करा', hi: 'गतिविधि रद्द करें' },
+  'Mark completed': { mr: 'पूर्ण म्हणून नोंदवा', hi: 'पूर्ण दर्ज करें' },
+  'Available after the scheduled activity time': { mr: 'नियोजित वेळेनंतर उपलब्ध', hi: 'निर्धारित समय के बाद उपलब्ध' },
+  'Activity status changes and participation do not earn points.': { mr: 'उपक्रमाची स्थिती बदलणे किंवा सहभागी होणे यासाठी गुण मिळत नाहीत.', hi: 'गतिविधि की स्थिति बदलने या जुड़ने पर अंक नहीं मिलते।' },
+  'Nearby activities': { mr: 'जवळचे उपक्रम', hi: 'आसपास की गतिविधियाँ' },
+  'Distance is calculated from the location you choose to share. Your coordinates are used for this request and are not shown to other citizens.': { mr: 'तुम्ही शेअर केलेल्या स्थानावरून अंतर मोजले जाते. या विनंतीसाठी निर्देशांक वापरले जातात; ते इतर नागरिकांना दिसत नाहीत.', hi: 'आपके साझा स्थान से दूरी मापी जाती है। इस अनुरोध के लिए निर्देशांक उपयोग होते हैं; वे अन्य नागरिकों को नहीं दिखते।' },
+  'Create an activity': { mr: 'उपक्रम तयार करा', hi: 'गतिविधि बनाएँ' },
+  'Search radius': { mr: 'शोध त्रिज्या', hi: 'खोज का दायरा' },
+  'Refresh nearby': { mr: 'जवळचे पुन्हा शोधा', hi: 'आसपास फिर खोजें' },
+  'Use my location': { mr: 'माझे स्थान वापरा', hi: 'मेरा स्थान उपयोग करें' },
+  'LIVE': { mr: 'सक्रिय', hi: 'सक्रिय' },
+  'person': { mr: 'व्यक्ती', hi: 'व्यक्ति' },
+  'people': { mr: 'व्यक्ती', hi: 'लोग' },
+  'When': { mr: 'केव्हा', hi: 'कब' },
+  'Where': { mr: 'कुठे', hi: 'कहाँ' },
+  'Distance': { mr: 'अंतर', hi: 'दूरी' },
+  'What is needed': { mr: 'काय आवश्यक आहे', hi: 'क्या चाहिए' },
+  'Just bring yourself': { mr: 'फक्त स्वतः या', hi: 'बस आप आएँ' },
+  'Join this activity': { mr: 'या उपक्रमात सहभागी व्हा', hi: 'इस गतिविधि से जुड़ें' },
+  'Creating or joining is recorded in the contribution ledger but earns no points until participation can be verified.': { mr: 'तयार करणे किंवा सहभागी होणे योगदान नोंदीत दिसते; सहभाग पडताळेपर्यंत गुण मिळत नाहीत.', hi: 'बनाना या जुड़ना योगदान रिकॉर्ड में दर्ज होता है; भागीदारी सत्यापित होने तक अंक नहीं मिलते।' },
+  'No nearby activity is listed yet.': { mr: 'अजून जवळचा कोणताही उपक्रम सूचीबद्ध नाही.', hi: 'अभी आसपास कोई गतिविधि सूचीबद्ध नहीं है।' },
+  'You can create the first one without inventing an impact claim.': { mr: 'परिणामाचा खोटा दावा न करता तुम्ही पहिला उपक्रम तयार करू शकता.', hi: 'प्रभाव का दावा गढ़े बिना आप पहली गतिविधि बना सकते हैं।' },
+  'CREATE AN ACTIVITY': { mr: 'उपक्रम तयार करा', hi: 'गतिविधि बनाएँ' },
+  'Start something useful nearby': { mr: 'जवळपास उपयुक्त काम सुरू करा', hi: 'आसपास उपयोगी काम शुरू करें' },
+  'Publish the real date, public meeting place and what neighbours should bring. Seewik does not claim participation or impact until it happens.': { mr: 'खरी तारीख, सार्वजनिक भेटीचे ठिकाण आणि आवश्यक वस्तू नमूद करा. प्रत्यक्ष घडेपर्यंत सहभाग किंवा परिणामाचा दावा केला जात नाही.', hi: 'वास्तविक तारीख, सार्वजनिक मिलने का स्थान और जरूरी वस्तुएँ बताएँ। होने से पहले भागीदारी या प्रभाव का दावा नहीं किया जाता।' },
+  'Activity type': { mr: 'उपक्रमाचा प्रकार', hi: 'गतिविधि का प्रकार' },
+  'Neighbourhood clean-up': { mr: 'परिसर स्वच्छता', hi: 'मोहल्ला सफाई' },
+  'Plantation': { mr: 'वृक्षारोपण', hi: 'वृक्षारोपण' },
+  'Donation activity': { mr: 'दान उपक्रम', hi: 'दान गतिविधि' },
+  'Community fitness': { mr: 'सामुदायिक व्यायाम', hi: 'सामुदायिक फिटनेस' },
+  'Other civic activity': { mr: 'इतर नागरी उपक्रम', hi: 'अन्य नागरिक गतिविधि' },
+  'Title': { mr: 'शीर्षक', hi: 'शीर्षक' },
+  'Description': { mr: 'वर्णन', hi: 'विवरण' },
+  'Date and time': { mr: 'तारीख आणि वेळ', hi: 'तारीख और समय' },
+  'Public meeting place': { mr: 'सार्वजनिक भेटीचे ठिकाण', hi: 'सार्वजनिक मिलने का स्थान' },
+  'Supplies or volunteers needed (optional)': { mr: 'आवश्यक साहित्य किंवा स्वयंसेवक (ऐच्छिक)', hi: 'जरूरी सामग्री या स्वयंसेवक (वैकल्पिक)' },
+  'Use my location for discovery': { mr: 'शोधासाठी माझे स्थान वापरा', hi: 'खोज के लिए मेरा स्थान उपयोग करें' },
+  'Activity location captured': { mr: 'उपक्रमाचे स्थान घेतले', hi: 'गतिविधि का स्थान लिया गया' },
+  'Coordinates support nearby discovery. Other citizens see the public place name and distance, not your raw coordinates.': { mr: 'निर्देशांक जवळचे उपक्रम शोधण्यासाठी वापरले जातात. इतरांना ठिकाणाचे नाव व अंतर दिसते; मूळ निर्देशांक नाहीत.', hi: 'निर्देशांक पास की गतिविधियाँ खोजने में उपयोग होते हैं। अन्य लोगों को स्थान का नाम और दूरी दिखती है, मूल निर्देशांक नहीं।' },
+  'Cancel': { mr: 'रद्द करा', hi: 'रद्द करें' },
+  'Publish activity': { mr: 'उपक्रम प्रकाशित करा', hi: 'गतिविधि प्रकाशित करें' },
+  'NEW REPORT': { mr: 'नवीन अहवाल', hi: 'नई रिपोर्ट' },
+  'Find the right civic route': { mr: 'योग्य नागरी मार्ग शोधा', hi: 'सही नागरिक मार्ग खोजें' },
+  'Automatic classification may suggest a category. You confirm it, and Civic Pack determines the route.': { mr: 'स्वयंचलित वर्गीकरण प्रकार सुचवू शकते. तुम्ही त्याची पुष्टी करता आणि सिविक पॅक मार्ग ठरवतो.', hi: 'स्वचालित वर्गीकरण श्रेणी सुझा सकता है। आप पुष्टि करते हैं और सिविक पैक मार्ग तय करता है।' },
+  'Find the civic route': { mr: 'नागरी मार्ग शोधा', hi: 'नागरिक मार्ग खोजें' },
+  'Start with a photo or short description. Automatic classification may suggest an issue category, but you confirm it. Authority and department always come from Civic Pack v0.2.': { mr: 'फोटो किंवा छोट्या वर्णनाने सुरुवात करा. स्वयंचलित वर्गीकरण प्रकार सुचवू शकते, पण तुम्ही पुष्टी करता. प्राधिकरण आणि विभाग नेहमी सिविक पॅक v0.2 मधून येतात.', hi: 'फोटो या छोटे विवरण से शुरू करें। स्वचालित वर्गीकरण श्रेणी सुझा सकता है, लेकिन पुष्टि आप करते हैं। प्राधिकरण और विभाग हमेशा सिविक पैक v0.2 से आते हैं।' },
+  'Describe the issue': { mr: 'समस्या सांगा', hi: 'समस्या बताएँ' },
+  'Photo (optional)': { mr: 'फोटो (ऐच्छिक)', hi: 'फोटो (वैकल्पिक)' },
+  'Short description (optional)': { mr: 'छोटे वर्णन (ऐच्छिक)', hi: 'छोटा विवरण (वैकल्पिक)' },
+  'Suggest issue category': { mr: 'समस्येचा प्रकार सुचवा', hi: 'समस्या की श्रेणी सुझाएँ' },
+  'Category suggestion ready': { mr: 'प्रकाराची सूचना तयार आहे', hi: 'श्रेणी सुझाव तैयार है' },
+  'Please clarify': { mr: 'कृपया अधिक स्पष्ट करा', hi: 'कृपया स्पष्ट करें' },
+  'Category confirmation': { mr: 'प्रकाराची पुष्टी', hi: 'श्रेणी की पुष्टि' },
+  'Detected language': { mr: 'ओळखलेली भाषा', hi: 'पहचानी गई भाषा' },
+  'Issue category': { mr: 'समस्येचा प्रकार', hi: 'समस्या की श्रेणी' },
+  'Category confirmed': { mr: 'प्रकार निश्चित केला', hi: 'श्रेणी की पुष्टि हुई' },
+  'Automatic suggestion confirmed': { mr: 'स्वयंचलित सूचना निश्चित केली', hi: 'स्वचालित सुझाव की पुष्टि हुई' },
+  'Selected manually': { mr: 'हाताने निवडले', hi: 'हाथ से चुना गया' },
+  'Confirm this category': { mr: 'या प्रकाराची पुष्टी करा', hi: 'इस श्रेणी की पुष्टि करें' },
+  'Confirm your prabhag': { mr: 'तुमचा प्रभाग निश्चित करा', hi: 'अपने प्रभाग की पुष्टि करें' },
+  'Location can suggest a prabhag using development boundaries. The suggestion is not an official boundary determination and must be confirmed. Manual selection always overrides it.': { mr: 'विकासासाठी वापरलेल्या सीमांवरून स्थान प्रभाग सुचवू शकते. ही अधिकृत सीमा निश्चिती नाही आणि पुष्टी आवश्यक आहे. हाताने केलेली निवड नेहमी प्राधान्य घेते.', hi: 'विकास हेतु सीमाओं से स्थान प्रभाग सुझा सकता है। यह आधिकारिक सीमा निर्धारण नहीं है और पुष्टि जरूरी है। हाथ से किया चयन हमेशा प्राथमिक है।' },
+  'Suggest from my location': { mr: 'माझ्या स्थानावरून सुचवा', hi: 'मेरे स्थान से सुझाएँ' },
+  'Confirm this suggested prabhag': { mr: 'सुचवलेल्या प्रभागाची पुष्टी करा', hi: 'सुझाए गए प्रभाग की पुष्टि करें' },
+  'Prabhag number': { mr: 'प्रभाग क्रमांक', hi: 'प्रभाग संख्या' },
+  'Get the deterministic route': { mr: 'नियमाधारित मार्ग मिळवा', hi: 'नियम-आधारित मार्ग पाएँ' },
+  'Find official route': { mr: 'अधिकृत मार्ग शोधा', hi: 'आधिकारिक मार्ग खोजें' },
+  'Confirm the issue category first': { mr: 'प्रथम समस्येच्या प्रकाराची पुष्टी करा', hi: 'पहले समस्या श्रेणी की पुष्टि करें' },
+  'Likely department': { mr: 'संभाव्य विभाग', hi: 'संभावित विभाग' },
+  'Department': { mr: 'विभाग', hi: 'विभाग' },
+  'Please check before filing': { mr: 'दाखल करण्यापूर्वी तपासा', hi: 'दर्ज करने से पहले जाँचें' },
+  'Official contact options': { mr: 'अधिकृत संपर्क पर्याय', hi: 'आधिकारिक संपर्क विकल्प' },
+  'Information only — not a verified filing channel': { mr: 'फक्त माहिती — पडताळलेला दाखल मार्ग नाही', hi: 'केवल जानकारी — सत्यापित दर्ज करने का माध्यम नहीं' },
+  'Create and review the complaint draft': { mr: 'तक्रारीचा मसुदा तयार करून तपासा', hi: 'शिकायत का मसौदा बनाएँ और जाँचें' },
+  'The recipient and route stay fixed from Civic Pack. Automatic drafting only prepares wording from the facts you confirm below.': { mr: 'प्राप्तकर्ता आणि मार्ग सिविक पॅकमधून निश्चित राहतात. स्वयंचलित मसुदा फक्त खाली पुष्टी केलेल्या तथ्यांवरून मजकूर तयार करतो.', hi: 'प्राप्तकर्ता और मार्ग सिविक पैक से स्थिर रहते हैं। स्वचालित मसौदा केवल नीचे पुष्टि किए तथ्यों से शब्दांकन बनाता है।' },
+  'Locked recipient': { mr: 'निश्चित प्राप्तकर्ता', hi: 'स्थिर प्राप्तकर्ता' },
+  'Confirmed complaint facts': { mr: 'पुष्टी केलेली तक्रार तथ्ये', hi: 'पुष्टि किए शिकायत तथ्य' },
+  'Location or landmark (optional)': { mr: 'स्थान किंवा ओळखचिन्ह (ऐच्छिक)', hi: 'स्थान या पहचान-चिह्न (वैकल्पिक)' },
+  'Draft language': { mr: 'मसुद्याची भाषा', hi: 'मसौदे की भाषा' },
+  'Drafts are currently available in Marathi and English.': { mr: 'मसुदे सध्या मराठी आणि इंग्रजीत उपलब्ध आहेत.', hi: 'मसौदे अभी मराठी और अंग्रेज़ी में उपलब्ध हैं।' },
+  'Create complaint draft': { mr: 'तक्रारीचा मसुदा तयार करा', hi: 'शिकायत का मसौदा बनाएँ' },
+  'Confirmed recipient': { mr: 'पुष्टी केलेला प्राप्तकर्ता', hi: 'पुष्टि किया प्राप्तकर्ता' },
+  'Manual fallback': { mr: 'हाताने लिहिण्याचा पर्याय', hi: 'हाथ से लिखने का विकल्प' },
+  'Automatic drafting is unavailable. Write or edit your complaint below; the confirmed route above is unchanged.': { mr: 'स्वयंचलित मसुदा उपलब्ध नाही. खाली तक्रार लिहा किंवा बदला; वरील पुष्टी केलेला मार्ग बदललेला नाही.', hi: 'स्वचालित मसौदा उपलब्ध नहीं है। नीचे शिकायत लिखें या बदलें; ऊपर का पुष्टि किया मार्ग नहीं बदला है।' },
+  'Complaint body': { mr: 'तक्रारीचा मजकूर', hi: 'शिकायत का विवरण' },
+  'Copy manual complaint': { mr: 'हाताने लिहिलेली तक्रार कॉपी करा', hi: 'हाथ से लिखी शिकायत कॉपी करें' },
+  'Recipient': { mr: 'प्राप्तकर्ता', hi: 'प्राप्तकर्ता' },
+  'Missing fact': { mr: 'गहाळ तथ्य', hi: 'अनुपलब्ध तथ्य' },
+  'Add a location or landmark before submitting if one is available. It was not invented in this draft.': { mr: 'उपलब्ध असल्यास दाखल करण्यापूर्वी स्थान किंवा ओळखचिन्ह जोडा. मसुद्यात ते बनवलेले नाही.', hi: 'यदि उपलब्ध हो तो दर्ज करने से पहले स्थान या पहचान-चिह्न जोड़ें। मसौदे में इसे गढ़ा नहीं गया है।' },
+  'Subject': { mr: 'विषय', hi: 'विषय' },
+  'I reviewed the facts, recipient and wording.': { mr: 'मी तथ्ये, प्राप्तकर्ता आणि मजकूर तपासला.', hi: 'मैंने तथ्य, प्राप्तकर्ता और शब्दांकन जाँच लिया है।' },
+  'Save changes': { mr: 'बदल जतन करा', hi: 'बदलाव सहेजें' },
+  'Copy reviewed complaint': { mr: 'तपासलेली तक्रार कॉपी करा', hi: 'जाँची गई शिकायत कॉपी करें' },
+  'No complaint is submitted automatically. The saved record remains a DRAFT owned by your anonymous account.': { mr: 'कोणतीही तक्रार आपोआप दाखल होत नाही. जतन केलेली नोंद तुमच्या अनामिक खात्याचा मसुदा राहते.', hi: 'कोई शिकायत अपने आप दर्ज नहीं होती। सहेजा रिकॉर्ड आपके गुमनाम खाते का मसौदा रहता है।' },
+  'Report lifecycle': { mr: 'अहवालाची स्थिती', hi: 'रिपोर्ट की स्थिति' },
+  'Derived points': { mr: 'मिळालेले गुण', hi: 'प्राप्त अंक' },
+  'Confirm real-world actions here. Seewik records them but never files a complaint for you.': { mr: 'प्रत्यक्ष केलेल्या कृतींची येथे पुष्टी करा. सीविक नोंद ठेवते, पण तुमच्यासाठी तक्रार दाखल करत नाही.', hi: 'वास्तविक कार्यों की यहाँ पुष्टि करें। सीविक रिकॉर्ड रखता है, पर आपकी ओर से शिकायत दर्ज नहीं करता।' },
+  'Channel you used': { mr: 'वापरलेला संपर्क मार्ग', hi: 'उपयोग किया माध्यम' },
+  'Not recorded': { mr: 'नोंदवलेले नाही', hi: 'दर्ज नहीं' },
+  'Acknowledgement / tracking ID (optional)': { mr: 'पोच / ट्रॅकिंग आयडी (ऐच्छिक)', hi: 'पावती / ट्रैकिंग आईडी (वैकल्पिक)' },
+  'I filed this complaint': { mr: 'मी ही तक्रार दाखल केली', hi: 'मैंने यह शिकायत दर्ज की' },
+  'Possible duplicate': { mr: 'संभाव्य पुनरावृत्ती', hi: 'संभावित डुप्लिकेट' },
+  'This is a different issue — file with 0 points': { mr: 'ही वेगळी समस्या आहे — 0 गुणांसह दाखल करा', hi: 'यह अलग समस्या है — 0 अंक के साथ दर्ज करें' },
+  'Overdue: unknown': { mr: 'विलंबित: अज्ञात', hi: 'विलंबित: अज्ञात' },
+  'No verified SLA exists, so Seewik will not invent a due date.': { mr: 'पडताळलेली वेळमर्यादा उपलब्ध नाही, म्हणून सीविक अंतिम तारीख बनवणार नाही.', hi: 'सत्यापित समय-सीमा उपलब्ध नहीं है, इसलिए सीविक अंतिम तारीख नहीं गढ़ेगा।' },
+  'Record a repair claim': { mr: 'दुरुस्तीचा दावा नोंदवा', hi: 'मरम्मत का दावा दर्ज करें' },
+  'Verify fixed': { mr: 'दुरुस्तीची पुष्टी करा', hi: 'सुधार की पुष्टि करें' },
+  'Reject repair claim': { mr: 'दुरुस्तीचा दावा नाकारा', hi: 'मरम्मत का दावा अस्वीकार करें' },
+  'Report recurrence': { mr: 'समस्या पुन्हा झाल्याची नोंद करा', hi: 'समस्या फिर होने की रिपोर्ट करें' },
+  'COMPLAINT REVIEW': { mr: 'तक्रार तपासणी', hi: 'शिकायत समीक्षा' },
+  'Review your saved complaint': { mr: 'जतन केलेली तक्रार तपासा', hi: 'सहेजी शिकायत जाँचें' },
+  'No draft is ready in this session.': { mr: 'या सत्रात कोणताही मसुदा तयार नाही.', hi: 'इस सत्र में कोई मसौदा तैयार नहीं है।' },
+  'Create or open a saved draft before reviewing it.': { mr: 'तपासण्यापूर्वी जतन केलेला मसुदा तयार करा किंवा उघडा.', hi: 'समीक्षा से पहले सहेजा मसौदा बनाएँ या खोलें।' },
+  'Editable draft': { mr: 'बदलता येणारा मसुदा', hi: 'संपादन योग्य मसौदा' },
+  'Filed report — facts and wording are frozen': { mr: 'दाखल अहवाल — तथ्ये आणि मजकूर निश्चित आहेत', hi: 'दर्ज रिपोर्ट — तथ्य और शब्दांकन स्थिर हैं' },
+  'Record real-world filing': { mr: 'प्रत्यक्ष दाखल केल्याची नोंद', hi: 'वास्तविक दर्ज करने का रिकॉर्ड' },
+  'Possible reward': { mr: 'संभाव्य गुण', hi: 'संभावित अंक' },
+  'Seewik never submits the complaint. Use this only after you file it yourself.': { mr: 'सीविक तक्रार दाखल करत नाही. तुम्ही स्वतः दाखल केल्यानंतरच हा पर्याय वापरा.', hi: 'सीविक शिकायत दर्ज नहीं करता। स्वयं दर्ज करने के बाद ही इसका उपयोग करें।' },
+  'Return to report builder': { mr: 'अहवाल तयार करण्याकडे परत जा', hi: 'रिपोर्ट बनाने पर लौटें' },
+  'This report cannot be resumed': { mr: 'हा अहवाल पुन्हा सुरू करता येत नाही', hi: 'यह रिपोर्ट फिर शुरू नहीं हो सकती' },
+  'Once filed, the complaint wording and frozen route facts cannot be edited.': { mr: 'दाखल केल्यानंतर तक्रारीचा मजकूर आणि निश्चित मार्ग तथ्ये बदलता येत नाहीत.', hi: 'दर्ज होने के बाद शिकायत का शब्दांकन और स्थिर मार्ग तथ्य बदले नहीं जा सकते।' },
+  'View report timeline': { mr: 'अहवालाचा घटनाक्रम पाहा', hi: 'रिपोर्ट की समयरेखा देखें' },
+  'MY REPORTS': { mr: 'माझे अहवाल', hi: 'मेरी रिपोर्टें' },
+  'Your saved civic work': { mr: 'तुमचे जतन केलेले नागरी काम', hi: 'आपका सहेजा नागरिक कार्य' },
+  'Drafts can be resumed. Filed reports open as immutable records.': { mr: 'मसुदे पुन्हा सुरू करता येतात. दाखल अहवाल बदलता न येणाऱ्या नोंदी म्हणून उघडतात.', hi: 'मसौदे फिर शुरू किए जा सकते हैं। दर्ज रिपोर्टें अपरिवर्तनीय रिकॉर्ड के रूप में खुलती हैं।' },
+  'Refresh': { mr: 'ताजे करा', hi: 'रीफ़्रेश करें' },
+  'No reports are saved for this anonymous account.': { mr: 'या अनामिक खात्यासाठी कोणताही अहवाल जतन केलेला नाही.', hi: 'इस गुमनाम खाते के लिए कोई रिपोर्ट सहेजी नहीं गई है।' },
+  'Create a report to save an owner-protected draft.': { mr: 'तुमच्यासाठी संरक्षित मसुदा जतन करण्यासाठी अहवाल तयार करा.', hi: 'अपने लिए सुरक्षित मसौदा सहेजने हेतु रिपोर्ट बनाएँ।' },
+  'Create a report': { mr: 'अहवाल तयार करा', hi: 'रिपोर्ट बनाएँ' },
+  'Resume draft': { mr: 'मसुदा पुन्हा उघडा', hi: 'मसौदा फिर खोलें' },
+  'View report': { mr: 'अहवाल पाहा', hi: 'रिपोर्ट देखें' },
+  'REPORT DETAILS': { mr: 'अहवाल तपशील', hi: 'रिपोर्ट विवरण' },
+  'Loading report': { mr: 'अहवाल लोड होत आहे', hi: 'रिपोर्ट लोड हो रही है' },
+  'Choose a report from My reports.': { mr: 'माझे अहवाल मधून एक अहवाल निवडा.', hi: 'मेरी रिपोर्टें से एक रिपोर्ट चुनें।' },
+  'Open the review screen to edit this draft.': { mr: 'हा मसुदा बदलण्यासाठी तपासणी स्क्रीन उघडा.', hi: 'इस मसौदे को बदलने के लिए समीक्षा स्क्रीन खोलें।' },
+  'Filed record — complaint and route facts are immutable': { mr: 'दाखल नोंद — तक्रार आणि मार्ग तथ्ये बदलता येत नाहीत', hi: 'दर्ज रिकॉर्ड — शिकायत और मार्ग तथ्य अपरिवर्तनीय हैं' },
+  'Prabhag': { mr: 'प्रभाग', hi: 'प्रभाग' },
+  'Route': { mr: 'मार्ग', hi: 'मार्ग' },
+  'Pack': { mr: 'पॅक', hi: 'पैक' },
+  'Authority': { mr: 'प्राधिकरण', hi: 'प्राधिकरण' },
+  'Acknowledgement': { mr: 'पोच', hi: 'पावती' },
+  'Updated': { mr: 'अद्ययावत', hi: 'अपडेट' },
+  'Not provided': { mr: 'दिलेली नाही', hi: 'नहीं दिया' },
+  'Frozen route department': { mr: 'निश्चित मार्ग विभाग', hi: 'स्थिर मार्ग विभाग' },
+  'Please keep in mind': { mr: 'कृपया लक्षात ठेवा', hi: 'कृपया ध्यान रखें' },
+  'Derived points for this anonymous account': { mr: 'या अनामिक खात्याचे मिळालेले गुण', hi: 'इस गुमनाम खाते के प्राप्त अंक' },
+  'MY POINTS': { mr: 'माझे गुण', hi: 'मेरे अंक' },
+  'derived points': { mr: 'मिळालेले गुण', hi: 'प्राप्त अंक' },
+  'Totals are calculated from immutable ledger entries rather than stored as an editable score.': { mr: 'एकूण गुण बदलता येणाऱ्या संख्येऐवजी बदलता न येणाऱ्या नोंदींवरून मोजले जातात.', hi: 'कुल अंक संपादन योग्य स्कोर के बजाय अपरिवर्तनीय रिकॉर्ड से निकाले जाते हैं।' },
+  'First accepted filing': { mr: 'पहिली स्वीकारलेली नोंद', hi: 'पहला स्वीकार किया दर्ज' },
+  'First verified fix': { mr: 'पहिली पडताळलेली दुरुस्ती', hi: 'पहला सत्यापित सुधार' },
+  'Duplicate override, reopening or re-verification': { mr: 'पुनरावृत्ती ओव्हरराइड, पुन्हा उघडणे किंवा पुन्हा पडताळणी', hi: 'डुप्लिकेट ओवरराइड, फिर खोलना या पुनः सत्यापन' },
+  'Refresh my points': { mr: 'माझे गुण ताजे करा', hi: 'मेरे अंक रीफ़्रेश करें' },
+  'Built for local civic action': { mr: 'स्थानिक नागरी कृतीसाठी', hi: 'स्थानीय नागरिक कार्रवाई के लिए' },
+  'Dedupe is not evaluated when location is unavailable.': { mr: 'स्थान उपलब्ध नसल्यास पुनरावृत्ती तपासली जात नाही.', hi: 'स्थान उपलब्ध न होने पर डुप्लिकेट जाँच नहीं होती।' },
+  'DEMO DATA · SYNTHETIC CLOCK · EXCLUDED FROM ANALYTICS AND REWARDS': { mr: 'प्रात्यक्षिक डेटा · कृत्रिम वेळ · विश्लेषण आणि गुणांमधून वगळलेले', hi: 'डेमो डेटा · कृत्रिम समय · विश्लेषण और अंकों से बाहर' },
+  '90-second lifecycle demo': { mr: '90 सेकंदांचे स्थिती प्रात्यक्षिक', hi: '90 सेकंड का स्थिति डेमो' },
+  'This local walkthrough demonstrates every state without creating a report or changing your real points.': { mr: 'हा स्थानिक नमुना अहवाल तयार न करता किंवा खरे गुण न बदलता सर्व स्थिती दाखवतो.', hi: 'यह स्थानीय नमूना रिपोर्ट बनाए बिना या वास्तविक अंक बदले बिना सभी स्थितियाँ दिखाता है।' },
+  'Simulated report state': { mr: 'अनुकरण केलेली अहवाल स्थिती', hi: 'अनुकरण की गई रिपोर्ट स्थिति' },
+  'Next simulated transition': { mr: 'पुढील अनुकरण स्थिती', hi: 'अगली अनुकरण स्थिति' },
+  'Reset demo': { mr: 'प्रात्यक्षिक पुन्हा सुरू करा', hi: 'डेमो रीसेट करें' },
+  'The secure service path remains available for technical validation.': { mr: 'तांत्रिक तपासणीसाठी सुरक्षित सेवा मार्ग उपलब्ध आहे.', hi: 'तकनीकी जाँच के लिए सुरक्षित सेवा मार्ग उपलब्ध है।' },
+  'Verify cloud services': { mr: 'क्लाउड सेवा तपासा', hi: 'क्लाउड सेवाएँ जाँचें' },
+  'Draft saved; nothing submitted': { mr: 'मसुदा जतन केला; काहीही दाखल नाही', hi: 'मसौदा सहेजा; कुछ दर्ज नहीं हुआ' },
+  'Citizen confirms manual filing · +5 demo points': { mr: 'नागरिक स्वतः दाखल केल्याची पुष्टी करतो · +5 नमुना गुण', hi: 'नागरिक स्वयं दर्ज करने की पुष्टि करता है · +5 डेमो अंक' },
+  'Synthetic verified dueAt passes on the simulated clock': { mr: 'अनुकरण वेळेत कृत्रिम अंतिम वेळ ओलांडली', hi: 'अनुकरण समय में कृत्रिम अंतिम समय पार हुआ' },
+  'Repair claim recorded': { mr: 'दुरुस्तीचा दावा नोंदवला', hi: 'मरम्मत का दावा दर्ज हुआ' },
+  'Citizen attestation recorded · +40 demo points': { mr: 'नागरिक पुष्टी नोंदवली · +40 नमुना गुण', hi: 'नागरिक पुष्टि दर्ज हुई · +40 डेमो अंक' },
+  'Issue recurred; no points awarded': { mr: 'समस्या पुन्हा झाली; गुण नाहीत', hi: 'समस्या फिर हुई; अंक नहीं मिले' },
+  'Time pending': { mr: 'वेळ प्रलंबित', hi: 'समय लंबित' },
+  'Garbage / solid waste': { mr: 'कचरा / घनकचरा', hi: 'कचरा / ठोस अपशिष्ट' },
+  'Illegal dumping': { mr: 'बेकायदेशीर कचरा टाकणे', hi: 'अवैध कचरा फेंकना' },
+  'Public-area cleanliness': { mr: 'सार्वजनिक परिसर स्वच्छता', hi: 'सार्वजनिक क्षेत्र की सफाई' },
+  'Pothole / road damage': { mr: 'खड्डा / रस्त्याचे नुकसान', hi: 'गड्ढा / सड़क क्षति' },
+  'Streetlight': { mr: 'पथदिवा', hi: 'स्ट्रीट लाइट' },
+  'Drainage / sewage': { mr: 'निचरा / सांडपाणी', hi: 'नाली / सीवेज' },
+  'Water supply': { mr: 'पाणीपुरवठा', hi: 'जल आपूर्ति' },
+  'Public toilet / sanitation': { mr: 'सार्वजनिक शौचालय / स्वच्छता', hi: 'सार्वजनिक शौचालय / स्वच्छता' },
+  'Mosquito / fogging request': { mr: 'डास / फॉगिंग विनंती', hi: 'मच्छर / फॉगिंग अनुरोध' },
+  'Dead animal removal': { mr: 'मृत प्राणी हटवणे', hi: 'मृत पशु हटाना' },
+  'Public-road obstruction': { mr: 'सार्वजनिक रस्त्यातील अडथळा', hi: 'सार्वजनिक सड़क अवरोध' },
+  'DRAFT': { mr: 'मसुदा', hi: 'मसौदा' },
+  'FILED': { mr: 'दाखल', hi: 'दर्ज' },
+  'OVERDUE': { mr: 'विलंबित', hi: 'विलंबित' },
+  'CLAIMED FIXED': { mr: 'दुरुस्तीचा दावा', hi: 'सुधार का दावा' },
+  'VERIFIED FIXED': { mr: 'दुरुस्ती पडताळली', hi: 'सुधार सत्यापित' },
+  'REOPENED': { mr: 'पुन्हा उघडले', hi: 'फिर खोला' },
+  'PUBLISHED': { mr: 'प्रकाशित', hi: 'प्रकाशित' },
+  'CANCELLED': { mr: 'रद्द', hi: 'रद्द' },
+  'COMPLETED': { mr: 'पूर्ण', hi: 'पूर्ण' },
+};
+
+export function isInterfaceLanguage(value: string | null | undefined): value is InterfaceLanguage {
+  return value === 'en' || value === 'mr' || value === 'hi';
+}
+
+export function deviceLanguage(languages: readonly string[] = []): InterfaceLanguage {
+  for (const value of languages) {
+    const base = value.toLowerCase().split('-')[0];
+    if (isInterfaceLanguage(base)) return base;
+  }
+  return 'en';
+}
+
+export function initialLanguage(storageValue: string | null, languages: readonly string[]): InterfaceLanguage {
+  return isInterfaceLanguage(storageValue) ? storageValue : deviceLanguage(languages);
+}
+
+export function translate(language: InterfaceLanguage, source: string): string {
+  if (language === 'en') return source;
+  return COPY[source]?.[language] ?? source;
+}
+
+export function formatDateTime(language: InterfaceLanguage, value: number): string {
+  const locales: Record<InterfaceLanguage, string> = { en: 'en-IN', mr: 'mr-IN', hi: 'hi-IN' };
+  return new Intl.DateTimeFormat(locales[language], { dateStyle: 'medium', timeStyle: 'short' }).format(value);
+}
+
+export function localizedStatus(language: InterfaceLanguage, status: string): string {
+  return translate(language, status.replaceAll('_', ' '));
+}
+
+export function localizedRuntimeMessage(language: InterfaceLanguage, message: string): string {
+  if (language === 'en' || !message) return message;
+  const exact: Record<string, string> = {
+    'Share your location to discover activities nearby.': language === 'mr' ? 'जवळचे उपक्रम शोधण्यासाठी तुमचे स्थान शेअर करा.' : 'आसपास की गतिविधियाँ खोजने के लिए अपना स्थान साझा करें।',
+    'Finding nearby activities…': language === 'mr' ? 'जवळचे उपक्रम शोधत आहोत…' : 'आसपास की गतिविधियाँ खोजी जा रही हैं…',
+    'Checking your location…': language === 'mr' ? 'तुमचे स्थान तपासत आहोत…' : 'आपका स्थान जाँचा जा रहा है…',
+    'Location is unavailable in this browser.': language === 'mr' ? 'या ब्राउझरमध्ये स्थान उपलब्ध नाही.' : 'इस ब्राउज़र में स्थान उपलब्ध नहीं है।',
+    'Location permission was not provided.': language === 'mr' ? 'स्थानाची परवानगी दिली नाही.' : 'स्थान की अनुमति नहीं दी गई।',
+    'Publishing activity…': language === 'mr' ? 'उपक्रम प्रकाशित होत आहे…' : 'गतिविधि प्रकाशित हो रही है…',
+    'Joining activity…': language === 'mr' ? 'उपक्रमात सहभागी होत आहोत…' : 'गतिविधि से जुड़ा जा रहा है…',
+    'Loading reports…': language === 'mr' ? 'अहवाल लोड होत आहेत…' : 'रिपोर्टें लोड हो रही हैं…',
+    'Resolving location…': language === 'mr' ? 'स्थान तपासत आहोत…' : 'स्थान जाँचा जा रहा है…',
+    'Checking the category…': language === 'mr' ? 'प्रकार तपासत आहोत…' : 'श्रेणी जाँची जा रही है…',
+    'Creating complaint draft…': language === 'mr' ? 'तक्रारीचा मसुदा तयार होत आहे…' : 'शिकायत का मसौदा बन रहा है…',
+    'Connecting…': language === 'mr' ? 'जोडत आहोत…' : 'कनेक्ट हो रहा है…',
+    'Seewik systems online': language === 'mr' ? 'सीविक सेवा उपलब्ध आहेत' : 'सीविक सेवाएँ उपलब्ध हैं',
+    'Backend returned an unexpected response': language === 'mr' ? 'सेवेकडून अनपेक्षित प्रतिसाद मिळाला' : 'सेवा से अनपेक्षित उत्तर मिला',
+    'The category could not be checked. Choose it manually below.': language === 'mr' ? 'प्रकार तपासता आला नाही. खाली हाताने निवडा.' : 'श्रेणी जाँची नहीं जा सकी। नीचे हाथ से चुनें।',
+  };
+  return exact[message] ?? message;
+}
+
+export function classificationSuggestionMessage(language: InterfaceLanguage, issue: string): string {
+  if (language === 'mr') return `सुचवलेला प्रकार: ${issue}. कृपया पुष्टी करा किंवा बदला.`;
+  if (language === 'hi') return `सुझाई गई श्रेणी: ${issue}। कृपया पुष्टि करें या बदलें।`;
+  return `Suggested category: ${issue}. Please confirm or correct it.`;
+}
+
+export function classificationConfirmedMessage(language: InterfaceLanguage, issue: string): string {
+  if (language === 'mr') return `${issue} निश्चित केला. स्वयंचलित वर्गीकरण प्राधिकरण किंवा विभाग निवडत नाही.`;
+  if (language === 'hi') return `${issue} की पुष्टि हुई। स्वचालित वर्गीकरण प्राधिकरण या विभाग नहीं चुनता।`;
+  return `${issue} confirmed. Automatic classification does not choose the authority or department.`;
+}
+
+export function translationCoverage(): { keyCount: number; missingMarathi: string[]; missingHindi: string[] } {
+  const entries = Object.entries(COPY);
+  return {
+    keyCount: entries.length,
+    missingMarathi: entries.filter(([, value]) => !value.mr.trim()).map(([key]) => key),
+    missingHindi: entries.filter(([, value]) => !value.hi.trim()).map(([key]) => key),
+  };
+}
