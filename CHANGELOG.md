@@ -4,6 +4,13 @@ All notable changes to the versioned Civic Pack and its deterministic routing im
 
 ## Unreleased
 
+- Added organiser-only `PUBLISHED → CANCELLED` and `PUBLISHED → COMPLETED` Initiative transitions with required cancellation reason, scheduled-time enforcement, idempotent append-only events, final-state discovery exclusion, joined-citizen status visibility and zero reward changes.
+- Added `My activities` controls and corrected report evidence freshness so replacing complaint text or a photograph clears the previous classification, confirmed facts, route and draft before new evidence is classified.
+- Added green-main quality and deployment workflows covering backend/frontend gates, frozen evaluation integrity, repository policy, dependency checks, an isolated zero-traffic backend candidate, health-before-traffic, frontend route verification and rollback.
+- Restricted deployment identity to the production repository and `main` branch, recorded the deployed Git SHA, and avoided long-lived cloud deployment keys.
+- Updated the supported backend dependency baseline until the fixed high/critical scan passed; the gate was not bypassed or weakened.
+- Deployed Day 8 Set 2 revision `seewik-api-00026-yen` at 100% traffic and removed all temporary test activity, participation, event, ledger and user records.
+- Deferred survey scoring while response collection remains open; the frozen answer key is unchanged and the deferral does not block the application release.
 - Replaced snapshot fail-fast startup with an explicit degraded manual-selection mode when packaged prabhag data is missing, corrupt or checksum-invalid; no automatic prabhag is guessed, and degraded requests are counted.
 - Added `unsupported_route_total` and `low_confidence_clarification_total`, and documented the precise mapping between write-up concepts and existing prabhag, fallback, breaker, failure and latency metrics.
 - Preserved the 1,500 ms BigQuery deadline as a pre-measurement conservative choice, then verified ten explicit warm samples and three autoscaling-confirmed cold starts against the deployed image.

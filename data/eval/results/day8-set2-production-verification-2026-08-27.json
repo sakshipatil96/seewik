@@ -1,0 +1,97 @@
+{
+  "evidenceType": "DAY8_SET2_PRODUCTION_VERIFICATION",
+  "recordedDate": "2026-08-27",
+  "surveyScoring": {
+    "status": "DEFERRED_BY_PRODUCT_OWNER",
+    "reason": "Response collection remains open",
+    "blocksApplicationRelease": false,
+    "answerKeyChanged": false
+  },
+  "source": {
+    "branch": "main",
+    "deployedGitSha": "4f477eae7e23724c7b197d74f178e9af650e6751",
+    "localHeadMatchesOriginMain": true,
+    "qualityRunId": 33144593657,
+    "qualityConclusion": "SUCCESS",
+    "deploymentRunId": 33144645239,
+    "deploymentConclusion": "SUCCESS"
+  },
+  "production": {
+    "backendUrl": "https://seewik-api-528138216934.asia-south1.run.app",
+    "frontendUrl": "https://seewik.web.app",
+    "backendRevision": "seewik-api-00026-yen",
+    "trafficPercent": 100,
+    "healthStatus": 200,
+    "healthBody": {
+      "service": "seewik-api",
+      "status": "ok"
+    },
+    "maxInstances": 20,
+    "concurrency": 80,
+    "timeoutSeconds": 300,
+    "memory": "512Mi",
+    "cpu": "1"
+  },
+  "gates": {
+    "backendTests": {
+      "passed": 177,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "frontendTestsPassed": 5,
+    "frontendProductionBuild": "PASS",
+    "frontendNpmHighSeverityAudit": "PASS",
+    "fixedHighCriticalDependencyGate": "PASS",
+    "evaluationChecksumValidation": "PASS",
+    "repositoryContentPolicy": "PASS",
+    "gitWhitespace": "PASS"
+  },
+  "liveInitiativeVerification": {
+    "test": "ProductionDay8Set2ReleaseIT",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "temporaryUsers": 2,
+    "temporaryInitiatives": 2,
+    "crossUserCancelRejected": true,
+    "crossUserCompleteRejected": true,
+    "forgedParticipantCountIgnored": true,
+    "concurrentDuplicateJoinCountedOnce": true,
+    "cancelIdempotent": true,
+    "completeIdempotent": true,
+    "oppositeFinalTransitionsRejected": true,
+    "initiativePointsRemainZero": true,
+    "participantCanSeeFinalStatus": true,
+    "temporaryDataRemoved": true,
+    "temporaryUsersRemoved": true
+  },
+  "directClientWriteVerification": {
+    "initiativeWriteDenied": true,
+    "initiativeEventWriteDenied": true,
+    "pointsLedgerWriteDenied": true,
+    "temporaryUserRemoved": true
+  },
+  "postReleaseLogAudit": {
+    "revision": "seewik-api-00026-yen",
+    "rawLogContentPreserved": false,
+    "bearerMatches": 0,
+    "idTokenStructureMatches": 0,
+    "knownLifecycleDescriptionMatches": 0,
+    "knownCancellationReasonMatches": 0,
+    "knownLifecycleTitleMatches": 0,
+    "encodedImageMarkerMatches": 0,
+    "multipartMetadataMatches": 0,
+    "apiKeyMatches": 0,
+    "errorSeverityEntries": 0
+  },
+  "rollback": {
+    "previousHealthyRevision": "seewik-api-00021-rat",
+    "failedCandidateRunId": 33144226561,
+    "failedCandidateRevision": "seewik-api-00024-zuq",
+    "productionTrafficWasPreserved": true,
+    "failedCandidateTagRemoved": true,
+    "reason": "Candidate tag URL lookup returned empty before traffic shift"
+  }
+}
