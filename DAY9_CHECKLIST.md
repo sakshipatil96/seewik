@@ -108,3 +108,12 @@ Day 9 absorbs the former Set 3 work and incorporates the approximate prabhag geo
 - [ ] Record app, local, remote, checked and deployed commit identifiers separately.
 
 Survey scoring remains deferred while responses are still being collected. It is not a Day 9 blocker.
+
+## Day 9 closure and carry-over
+
+- Day 9 closes after completed Sets 1, 2, 3 and 5.
+- Set 4 performance work moves to Day 11 after the attendance UI is stable.
+- Set 6's verification-design concern is split into Day 11 self-attestation and a later hardened QR/geolocation phase; Initiative rewards remain zero.
+- Set 7 final verification moves behind the architectural login change as Day 10 Set 7.
+- Day 10 introduces recoverable Google-linked profiles while preserving the existing Firebase UID whenever account linking succeeds.
+- Day 11 adds self-attested attendance before the carried performance work.

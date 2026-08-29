@@ -1,9 +1,22 @@
-import React, { lazy, Suspense, useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
-import { signInAnonymously } from 'firebase/auth';
+import type { AuthCredential } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import { getBytes, ref, uploadBytes } from 'firebase/storage';
-import { auth, db, storage } from './firebase';
+import { db, storage } from './firebase';
+import { AccountControl, type AccountDialog } from './AccountControl';
+import {
+  accountCredentialFromError,
+  continueWithExistingAccount,
+  ensureAnonymousSession,
+  finalizeExistingAccountCollision,
+  linkCurrentSession,
+  observeAccount,
+  sessionToken,
+  signIntoAccount,
+  signOutWithoutStartingAnonymousWork,
+} from './accountService';
+import { accountErrorMessage, isCredentialCollisionCode, type AccountIdentityState } from './accountIdentity';
 import { LANGUAGE_OPTIONS, LANGUAGE_STORAGE_KEY, classificationConfirmedMessage, classificationSuggestionMessage, formatDateTime, initialLanguage, localizedRuntimeMessage, localizedStatus, prabhagConfirmedMessage, translate, type InterfaceLanguage } from './i18n';
 import { canEditReport, canResumeReport, draftRouteIsCurrent, pathForScreen, reportIdFromPath, reportIdFromReviewSearch, screenFromPath, type AppScreen } from './reportNavigation';
 import './styles.css';
@@ -308,6 +321,13 @@ function App() {
   const [initiativeStartAt, setInitiativeStartAt] = useState('');
   const [initiativePlaceName, setInitiativePlaceName] = useState('');
   const [initiativeNeeds, setInitiativeNeeds] = useState('');
+  const [accountState, setAccountState] = useState<AccountIdentityState>('ANONYMOUS_SESSION');
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
+  const [accountDialog, setAccountDialog] = useState<AccountDialog>('CLOSED');
+  const [accountBusy, setAccountBusy] = useState(false);
+  const [accountError, setAccountError] = useState('');
+  const [collisionCredential, setCollisionCredential] = useState<AuthCredential | null>(null);
+  const pendingMutation = useRef<(() => Promise<void>) | null>(null);
   const t = (source: string) => translate(language, source);
   const runtimeMessage = (message: string) => localizedRuntimeMessage(language, message);
   const classificationSourceLabel = (source: string) => source === 'CITIZEN_CONFIRMED_GEMINI' || source === 'GEMINI_SUGGESTED' ? t('Automatic suggestion confirmed') : t('Selected manually');
@@ -336,6 +356,11 @@ function App() {
     document.documentElement.lang = language;
     document.title = language === 'mr' ? 'सीविक · स्थानिक नागरी कृती' : language === 'hi' ? 'सीविक · स्थानीय नागरिक कार्रवाई' : 'Seewik · Local civic action';
   }, [language]);
+
+  useEffect(() => observeAccount(({ state, user }) => {
+    setAccountState(state);
+    setAccountEmail(user?.email ?? null);
+  }), []);
 
   function navigate(nextScreen: AppScreen, replace = false, reportId?: string) {
     const path = pathForScreen(nextScreen, reportId);
@@ -397,6 +422,133 @@ function App() {
     navigate('new-report');
   }
 
+  function clearAccountBoundState() {
+    setSavedReports([]);
+    setSelectedReport(null);
+    setReportsStatus('');
+    setPointsTotal(0);
+    setInitiatives([]);
+    setMyInitiatives([]);
+    setInitiativeStatus('');
+    setCancellationReasons({});
+    setInitiativeCoordinates(null);
+    setInitiativeTitle('');
+    setInitiativeDescription('');
+    setInitiativeStartAt('');
+    setInitiativePlaceName('');
+    setInitiativeNeeds('');
+    setEvidenceText('');
+    setEvidenceImage(null);
+    setComplaintFacts('');
+    setLocationDetails('');
+    resetDraft();
+  }
+
+  function requestLinkedMutation(action: () => Promise<void>) {
+    if (accountState === 'GOOGLE_LINKED') {
+      void action();
+      return;
+    }
+    pendingMutation.current = action;
+    setAccountError('');
+    setAccountDialog('LINK');
+  }
+
+  function openAccount() {
+    setAccountError('');
+    setAccountDialog(accountState === 'GOOGLE_LINKED' ? 'PROFILE' : 'LINK');
+  }
+
+  function closeAccount() {
+    if (accountBusy) return;
+    pendingMutation.current = null;
+    setCollisionCredential(null);
+    setAccountError('');
+    setAccountDialog('CLOSED');
+  }
+
+  async function resumePendingMutation() {
+    const action = pendingMutation.current;
+    pendingMutation.current = null;
+    setAccountDialog('CLOSED');
+    if (action) await action();
+  }
+
+  async function connectGoogleAccount() {
+    setAccountBusy(true);
+    setAccountError('');
+    try {
+      const user = accountState === 'SIGNED_OUT'
+        ? await signIntoAccount('GOOGLE')
+        : await linkCurrentSession('GOOGLE');
+      setAccountState('GOOGLE_LINKED');
+      setAccountEmail(user.email);
+      await resumePendingMutation();
+    } catch (error) {
+      const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : undefined;
+      if (isCredentialCollisionCode(code)) {
+        const credential = accountCredentialFromError('GOOGLE', error);
+        if (credential) {
+          setCollisionCredential(credential);
+          setAccountDialog('COLLISION');
+        } else {
+          setAccountError('The existing Google account was found, but Firebase did not return a safe sign-in credential. Cancel and try again.');
+        }
+      } else {
+        setAccountError(accountErrorMessage(code));
+      }
+    } finally {
+      setAccountBusy(false);
+    }
+  }
+
+  async function acceptExistingGoogleAccount() {
+    if (!collisionCredential) return;
+    setAccountBusy(true);
+    setAccountError('');
+    try {
+      const user = await continueWithExistingAccount(collisionCredential);
+      clearAccountBoundState();
+      pendingMutation.current = null;
+      setAccountState('GOOGLE_LINKED');
+      setAccountEmail(user.email);
+      setCollisionCredential(null);
+      navigate('home');
+      try {
+        await finalizeExistingAccountCollision(user);
+      } catch {
+        setAccountDialog('PROFILE');
+        setAccountError('The existing account opened, but its local profile record could not be updated. No accounts or civic records were merged.');
+        return;
+      }
+      setAccountDialog('CLOSED');
+      await Promise.allSettled([loadMyReports(), refreshDerivedPoints(), loadMyInitiatives()]);
+    } catch (error) {
+      const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : undefined;
+      setAccountError(accountErrorMessage(code));
+    } finally {
+      setAccountBusy(false);
+    }
+  }
+
+  async function signOutAccount() {
+    setAccountBusy(true);
+    setAccountError('');
+    try {
+      await signOutWithoutStartingAnonymousWork();
+      clearAccountBoundState();
+      setAccountState('SIGNED_OUT');
+      setAccountEmail(null);
+      setAccountDialog('CLOSED');
+      navigate('home');
+    } catch (error) {
+      const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : undefined;
+      setAccountError(accountErrorMessage(code));
+    } finally {
+      setAccountBusy(false);
+    }
+  }
+
   useEffect(() => {
     fetch(`${API_URL}/health`).then((response) => response.json()).then((data) => {
       setStatus(data.status === 'ok' ? 'Seewik systems online' : 'Backend returned an unexpected response');
@@ -446,8 +598,7 @@ function App() {
   }, [screen, initiativeCoordinates, initiativeRadiusKm]);
 
   async function authenticatedToken() {
-    const credential = auth.currentUser ? { user: auth.currentUser } : await signInAnonymously(auth);
-    return credential.user.getIdToken();
+    return sessionToken();
   }
 
   async function discoverInitiatives(background = false) {
@@ -576,14 +727,14 @@ function App() {
 
   async function verifyFirebase() {
     setDetails([]);
-    const credential = await signInAnonymously(auth);
-    add(`Anonymous auth: ${credential.user.uid.slice(0, 8)}…`);
-    const testRef = doc(db, 'day1_checks', credential.user.uid);
+    const user = await ensureAnonymousSession();
+    add(`Firebase auth: ${user.uid.slice(0, 8)}…`);
+    const testRef = doc(db, 'day1_checks', user.uid);
     await setDoc(testRef, { ok: true, checkedAt: serverTimestamp() });
     const snapshot = await getDoc(testRef);
     add(`Firestore write/read: ${snapshot.data()?.ok === true ? 'ok' : 'failed'}`);
     const pixel = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='), (character) => character.charCodeAt(0));
-    const objectRef = ref(storage, `day1_checks/${credential.user.uid}/pixel.png`);
+    const objectRef = ref(storage, `day1_checks/${user.uid}/pixel.png`);
     await uploadBytes(objectRef, pixel, { contentType: 'image/png' });
     await getBytes(objectRef, 1024 * 1024);
     add('Storage upload/read: ok');
@@ -679,8 +830,7 @@ function App() {
     const form = new FormData();
     if (evidenceImage) form.append('image', evidenceImage);
     if (evidenceText.trim()) form.append('text', evidenceText.trim());
-    const credential = auth.currentUser ? { user: auth.currentUser } : await signInAnonymously(auth);
-    const idToken = await credential.user.getIdToken();
+    const idToken = await sessionToken();
     const response = await fetch(`${API_URL}/api/civic/classify`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${idToken}` },
@@ -745,10 +895,10 @@ function App() {
     if (!result.routeId || !result.prabhagId || !result.authority || !result.language || !result.subject || !result.body || !result.packVersion || !result.schemaVersion) {
       throw new Error('Draft metadata is incomplete and was not saved.');
     }
-    const credential = auth.currentUser ? { user: auth.currentUser } : await signInAnonymously(auth);
+    const user = await ensureAnonymousSession();
     const reportRef = doc(collection(db, 'reports'));
     await setDoc(reportRef, {
-      ownerUid: credential.user.uid,
+      ownerUid: user.uid,
       status: 'DRAFT',
       confirmedIssueType: issueType,
       prabhagId: result.prabhagId,
@@ -768,7 +918,7 @@ function App() {
     const now = new Date();
     const localReport: SavedReport = {
       id: reportRef.id,
-      ownerUid: credential.user.uid,
+      ownerUid: user.uid,
       status: 'DRAFT',
       confirmedIssueType: issueType,
       prabhagId: result.prabhagId,
@@ -787,6 +937,16 @@ function App() {
     return reportRef.id;
   }
 
+  async function saveGeneratedDraft(result: ComplaintDraftResult) {
+    try {
+      const reportId = await persistNewDraft(result);
+      setDraftStatus(`Saved as Firestore DRAFT · ${reportId.slice(0, 8)}…`);
+      navigate('review', false, reportId);
+    } catch (error) {
+      setDraftStatus(`Draft created but could not be saved: ${(error as Error).message}`);
+    }
+  }
+
   async function createComplaintDraft() {
     if (routeResult?.status !== 'SUPPORTED_ROUTE') {
       setDraftStatus('Get a supported civic route before drafting.');
@@ -798,8 +958,7 @@ function App() {
     }
     resetDraft();
     setDraftStatus(`Creating ${draftLanguage === 'MR' ? 'Marathi' : 'English'} complaint draft…`);
-    const credential = auth.currentUser ? { user: auth.currentUser } : await signInAnonymously(auth);
-    const idToken = await credential.user.getIdToken();
+    const idToken = await sessionToken();
     const response = await fetch(`${API_URL}/api/civic/draft-complaint`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
@@ -825,13 +984,10 @@ function App() {
     setDraftSubject(result.subject);
     setDraftBody(result.body);
     setDraftReviewed(false);
-    try {
-      const reportId = await persistNewDraft(result);
-      setDraftStatus(`Saved as Firestore DRAFT · ${reportId.slice(0, 8)}…`);
-      navigate('review', false, reportId);
-    } catch (error) {
-      setDraftStatus(`Draft created but could not be saved: ${(error as Error).message}`);
+    if (accountState !== 'GOOGLE_LINKED') {
+      setDraftStatus('Draft ready. Connect Google to save it without losing this form.');
     }
+    requestLinkedMutation(() => saveGeneratedDraft(result));
   }
 
   async function copyManualComplaint() {
@@ -901,8 +1057,8 @@ function App() {
 
   async function loadMyReports() {
     setReportsStatus('Loading your reports…');
-    const credential = auth.currentUser ? { user: auth.currentUser } : await signInAnonymously(auth);
-    const snapshot = await getDocs(query(collection(db, 'reports'), where('ownerUid', '==', credential.user.uid)));
+    const user = await ensureAnonymousSession();
+    const snapshot = await getDocs(query(collection(db, 'reports'), where('ownerUid', '==', user.uid)));
     const reports = snapshot.docs
       .map((item) => savedReport(item.id, item.data()))
       .sort((left, right) => timestampMillis(right.updatedAt) - timestampMillis(left.updatedAt));
@@ -973,9 +1129,9 @@ function App() {
 
   async function loadReportById(reportId: string, resumeRequested: boolean) {
     setReportsStatus('Loading report…');
-    const credential = auth.currentUser ? { user: auth.currentUser } : await signInAnonymously(auth);
+    const user = await ensureAnonymousSession();
     const snapshot = await getDoc(doc(db, 'reports', reportId));
-    if (!snapshot.exists() || snapshot.data().ownerUid !== credential.user.uid) throw new Error('The report was not found for this anonymous account.');
+    if (!snapshot.exists() || snapshot.data().ownerUid !== user.uid) throw new Error('The report was not found for this account.');
     const report = savedReport(snapshot.id, snapshot.data());
     await hydrateReport(report);
     setReportsStatus('Report loaded.');
@@ -1003,10 +1159,10 @@ function App() {
   }
 
   async function refreshDerivedPoints() {
-    const credential = auth.currentUser ? { user: auth.currentUser } : await signInAnonymously(auth);
+    const user = await ensureAnonymousSession();
     const snapshot = await getDocs(query(
       collection(db, 'pointsLedger'),
-      where('ownerUid', '==', credential.user.uid),
+      where('ownerUid', '==', user.uid),
     ));
     setPointsTotal(snapshot.docs.reduce((total, item) => total + Number(item.data().awardedPoints ?? 0), 0));
   }
@@ -1016,8 +1172,7 @@ function App() {
       setLifecycleStatus('Save a draft before changing its lifecycle.');
       return;
     }
-    const credential = auth.currentUser ? { user: auth.currentUser } : await signInAnonymously(auth);
-    const idToken = await credential.user.getIdToken();
+    const idToken = await sessionToken();
     setLifecycleStatus(`Recording ${toStatus.replaceAll('_', ' ').toLowerCase()}…`);
     const isFiling = toStatus === 'FILED';
     const response = await fetch(`${API_URL}/api/reports/${draftDocumentId}/transitions`, {
@@ -1099,8 +1254,25 @@ function App() {
           <button aria-current={navCurrent(screen === 'points')} className={screen === 'points' ? 'active' : ''} onClick={() => navigate('points')}>{t('My points')}</button>
         </nav>
         <label className="language-switcher"><span>{t('Language')}</span><select aria-label={t('Language')} value={language} onChange={(event) => setLanguage(event.target.value as InterfaceLanguage)}>{LANGUAGE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        <AccountControl
+          state={accountState}
+          dialog={accountDialog}
+          email={accountEmail}
+          busy={accountBusy}
+          error={accountError}
+          t={t}
+          onOpen={openAccount}
+          onClose={closeAccount}
+          onGoogle={() => { void connectGoogleAccount(); }}
+          onCollisionContinue={() => { void acceptExistingGoogleAccount(); }}
+          onSignOut={() => { void signOutAccount(); }}
+        />
       </div>
     </header>
+    {accountState === 'GOOGLE_LINK_REQUIRED' && <aside className="account-device-warning" role="status" aria-live="polite">
+      <div><strong>{t('Device-only access')}</strong><span>{t('This temporary account is not recoverable yet. If you clear this browser before connecting Google, you may permanently lose access to its reports, drafts, points and Initiative activity.')}</span></div>
+      <button className="secondary" onClick={openAccount}>{t('Connect Google')}</button>
+    </aside>}
     {['new-report', 'review', 'reports', 'report-detail'].includes(screen) && <div className="page-tools"><span>{t('Saved reports are not deleted by Start over.')}</span><button className="secondary" onClick={startOver}>{t('Start over')}</button></div>}
 
     {screen === 'home' && <>
@@ -1130,8 +1302,8 @@ function App() {
                 <input id={`cancel-reason-${initiative.initiativeId}`} maxLength={300} value={cancellationReasons[initiative.initiativeId] ?? ''} onChange={(event) => setCancellationReasons((values) => ({ ...values, [initiative.initiativeId]: event.target.value }))} placeholder={t('Required only when cancelling')} />
               </label>
               <div className="draft-actions">
-                <button className="secondary" disabled={!cancellationReasons[initiative.initiativeId]?.trim()} onClick={() => changeInitiativeStatus(initiative.initiativeId, 'CANCELLED').catch((error) => setInitiativeStatus(error.message))}>{t('Cancel activity')}</button>
-                <button disabled={Date.now() < Date.parse(initiative.startAt)} title={Date.now() < Date.parse(initiative.startAt) ? t('Available after the scheduled activity time') : undefined} onClick={() => changeInitiativeStatus(initiative.initiativeId, 'COMPLETED').catch((error) => setInitiativeStatus(error.message))}>{t('Mark completed')}</button>
+                <button className="secondary" disabled={!cancellationReasons[initiative.initiativeId]?.trim()} onClick={() => requestLinkedMutation(() => changeInitiativeStatus(initiative.initiativeId, 'CANCELLED').catch((error) => setInitiativeStatus(error.message)))}>{t('Cancel activity')}</button>
+                <button disabled={Date.now() < Date.parse(initiative.startAt)} title={Date.now() < Date.parse(initiative.startAt) ? t('Available after the scheduled activity time') : undefined} onClick={() => requestLinkedMutation(() => changeInitiativeStatus(initiative.initiativeId, 'COMPLETED').catch((error) => setInitiativeStatus(error.message)))}>{t('Mark completed')}</button>
               </div>
             </div>}
             <small>{t('Activity status changes and participation do not earn points.')}</small>
@@ -1150,7 +1322,7 @@ function App() {
           <div className="initiative-card-top"><span className="status-chip">{initiativeCategoryLabel(initiative.category)}</span><span className="live-count"><i aria-hidden="true" />{t('LIVE')} · {initiative.participantCount} {initiative.participantCount === 1 ? t('person') : t('people')}</span></div>
           <h2>{initiative.title}</h2><p>{initiative.description}</p>
           <dl><div><dt>{t('When')}</dt><dd>{timestampLabel(initiative.startAt, language)}</dd></div><div><dt>{t('Where')}</dt><dd>{initiative.placeName}</dd></div><div><dt>{t('Distance')}</dt><dd>{initiative.distanceKm.toFixed(2)} km</dd></div><div><dt>{t('What is needed')}</dt><dd>{initiative.needs || t('Just bring yourself')}</dd></div></dl>
-          <button disabled={initiative.joined} onClick={() => joinInitiative(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message))}>{initiative.joined ? t('Joined') : t('Join this activity')}</button>
+          <button disabled={initiative.joined} onClick={() => requestLinkedMutation(() => joinInitiative(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message)))}>{initiative.joined ? t('Joined') : t('Join this activity')}</button>
           <small>{t('Creating or joining is recorded in the contribution ledger but earns no points until participation can be verified.')}</small>
         </article>)}
         {!initiatives.length && initiativeCoordinates && !initiativeStatus.startsWith('Finding') && <div className="card empty-state"><b>{t('No nearby activity is listed yet.')}</b><p>{t('You can create the first one without inventing an impact claim.')}</p><button onClick={() => navigate('new-initiative')}>{t('Create an activity')}</button></div>}
@@ -1167,7 +1339,7 @@ function App() {
       <label>{t('Supplies or volunteers needed (optional)')}<textarea maxLength={500} value={initiativeNeeds} onChange={(event) => setInitiativeNeeds(event.target.value)} /></label>
       <button className="secondary" onClick={() => locateForInitiatives('CREATE')}>{initiativeCoordinates ? t('Activity location captured') : t('Use my location for discovery')}</button>
       <small>{t('Coordinates support nearby discovery. Other citizens see the public place name and distance, not your raw coordinates.')}</small>
-      <div className="draft-actions"><button className="secondary" onClick={() => navigate('initiatives')}>{t('Cancel')}</button><button disabled={!initiativeCoordinates || !initiativeTitle.trim() || !initiativeDescription.trim() || !initiativePlaceName.trim() || !initiativeStartAt} onClick={() => createInitiative().catch((error) => setInitiativeStatus(error.message))}>{t('Publish activity')}</button></div>
+      <div className="draft-actions"><button className="secondary" onClick={() => navigate('initiatives')}>{t('Cancel')}</button><button disabled={!initiativeCoordinates || !initiativeTitle.trim() || !initiativeDescription.trim() || !initiativePlaceName.trim() || !initiativeStartAt} onClick={() => requestLinkedMutation(() => createInitiative().catch((error) => setInitiativeStatus(error.message)))}>{t('Publish activity')}</button></div>
       {initiativeStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{runtimeMessage(initiativeStatus)}</div>}
     </section>}
 
@@ -1300,10 +1472,10 @@ function App() {
           }} /></label>
           <label className="review-check"><input type="checkbox" checked={draftReviewed} onChange={(event) => setDraftReviewed(event.target.checked)} /><span>{t('I reviewed the facts, recipient and wording.')}</span></label>
           <div className="draft-actions">
-            <button className="secondary" disabled={!draftDocumentId} onClick={() => saveDraftEdits().catch((error) => setDraftStatus(`Draft save failed: ${error.message}`))}>{t('Save changes')}</button>
-            <button disabled={!draftReviewed || !draftDocumentId} onClick={() => copyReviewedDraft().catch((error) => setDraftStatus(`Copy failed: ${error.message}`))}>{t('Copy reviewed complaint')}</button>
+            <button className="secondary" disabled={!draftDocumentId} onClick={() => requestLinkedMutation(() => saveDraftEdits().then(() => undefined).catch((error) => setDraftStatus(`Draft save failed: ${error.message}`)))}>{t('Save changes')}</button>
+            <button disabled={!draftReviewed || !draftDocumentId} onClick={() => requestLinkedMutation(() => copyReviewedDraft().catch((error) => setDraftStatus(`Copy failed: ${error.message}`)))}>{t('Copy reviewed complaint')}</button>
           </div>
-          <small>{t('No complaint is submitted automatically. The saved record remains a DRAFT owned by your anonymous account.')}</small>
+          <small>{t('No complaint is submitted automatically. The saved record remains a DRAFT owned by your recoverable profile.')}</small>
         </div>}
         {draftDocumentId && <div className="lifecycle-panel">
           <div className="lifecycle-heading">
@@ -1317,23 +1489,23 @@ function App() {
               {routeResult.officialChannels?.map((channel) => <option key={channel.channelId} value={channel.channelId}>{channel.label}</option>)}
             </select></label>}
             <label>{t('Acknowledgement / tracking ID (optional)')}<input maxLength={200} value={acknowledgementId} onChange={(event) => setAcknowledgementId(event.target.value)} /></label>
-            <button onClick={() => transitionReport('FILED').catch((error) => setLifecycleStatus(error.message))}>{t('I filed this complaint')}</button>
+            <button onClick={() => requestLinkedMutation(() => transitionReport('FILED').catch((error) => setLifecycleStatus(error.message)))}>{t('I filed this complaint')}</button>
             {!currentCoordinates && <small>{t('Dedupe is not evaluated when location is unavailable.')}</small>}
           </>}
           {duplicateWarning && <div className="duplicate-warning">
             <b>{t('Possible duplicate')}</b>
             <span>A same-category report is {duplicateWarning.measuredDistanceMeters?.toFixed(1)} m away. The 75 m threshold is an MVP heuristic, not a civic boundary.</span>
-            <button className="secondary" onClick={() => transitionReport('FILED', true).catch((error) => setLifecycleStatus(error.message))}>{t('This is a different issue — file with 0 points')}</button>
+            <button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('FILED', true).catch((error) => setLifecycleStatus(error.message)))}>{t('This is a different issue — file with 0 points')}</button>
           </div>}
           {['FILED', 'OVERDUE', 'REOPENED'].includes(reportStatus) && <>
             {reportStatus === 'FILED' && <div className="overdue-unknown"><b>{t('Overdue: unknown')}</b><span>{t('No verified SLA exists, so Seewik will not invent a due date.')}</span></div>}
-            <button onClick={() => transitionReport('CLAIMED_FIXED').catch((error) => setLifecycleStatus(error.message))}>{t('Record a repair claim')}</button>
+            <button onClick={() => requestLinkedMutation(() => transitionReport('CLAIMED_FIXED').catch((error) => setLifecycleStatus(error.message)))}>{t('Record a repair claim')}</button>
           </>}
           {reportStatus === 'CLAIMED_FIXED' && <div className="lifecycle-actions">
-            <button onClick={() => transitionReport('VERIFIED_FIXED').catch((error) => setLifecycleStatus(error.message))}>{t('Verify fixed')}</button>
-            <button className="secondary" onClick={() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message))}>{t('Reject repair claim')}</button>
+            <button onClick={() => requestLinkedMutation(() => transitionReport('VERIFIED_FIXED').catch((error) => setLifecycleStatus(error.message)))}>{t('Verify fixed')}</button>
+            <button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message)))}>{t('Reject repair claim')}</button>
           </div>}
-          {reportStatus === 'VERIFIED_FIXED' && <button className="secondary" onClick={() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message))}>{t('Report recurrence')}</button>}
+          {reportStatus === 'VERIFIED_FIXED' && <button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message)))}>{t('Report recurrence')}</button>}
           {lifecycleStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(lifecycleStatus)}</div>}
           <ol className="timeline">
             {timeline.map((item, index) => <li key={`${item.occurredAt}-${index}`}>
@@ -1354,13 +1526,13 @@ function App() {
         <label>{t('Complaint body')}<textarea className="draft-body" maxLength={2500} readOnly={!canEditReport(reportStatus)} value={draftBody} onChange={(event) => { setDraftBody(event.target.value); setDraftReviewed(false); }} /></label>
         {canEditReport(reportStatus) ? <>
           <label className="review-check"><input type="checkbox" checked={draftReviewed} onChange={(event) => setDraftReviewed(event.target.checked)} /><span>{t('I reviewed the facts, recipient and wording.')}</span></label>
-          <div className="draft-actions"><button className="secondary" onClick={() => saveDraftEdits().catch((error) => setDraftStatus(`Draft save failed: ${error.message}`))}>{t('Save changes')}</button><button disabled={!draftReviewed} onClick={() => copyReviewedDraft().catch((error) => setDraftStatus(`Copy failed: ${error.message}`))}>{t('Copy reviewed complaint')}</button></div>
+          <div className="draft-actions"><button className="secondary" onClick={() => requestLinkedMutation(() => saveDraftEdits().then(() => undefined).catch((error) => setDraftStatus(`Draft save failed: ${error.message}`)))}>{t('Save changes')}</button><button disabled={!draftReviewed} onClick={() => requestLinkedMutation(() => copyReviewedDraft().catch((error) => setDraftStatus(`Copy failed: ${error.message}`)))}>{t('Copy reviewed complaint')}</button></div>
           <div className="lifecycle-panel filing-panel"><div className="lifecycle-heading"><div><small>{t('Record real-world filing')}</small><strong>{t('DRAFT')}</strong></div><div className="points-pill"><span>{t('Possible reward')}</span><b>+5</b></div></div><p>{t('Seewik never submits the complaint. Use this only after you file it yourself.')}</p>
             {(routeResult?.officialChannels?.length ?? 0) > 0 && <label>{t('Channel you used')}<select value={filingChannelId} onChange={(event) => setFilingChannelId(event.target.value)}><option value="">{t('Not recorded')}</option>{routeResult?.officialChannels?.map((channel) => <option key={channel.channelId} value={channel.channelId}>{channel.label}</option>)}</select></label>}
             <label>{t('Acknowledgement / tracking ID (optional)')}<input maxLength={200} value={acknowledgementId} onChange={(event) => setAcknowledgementId(event.target.value)} /></label>
-            <button disabled={!draftReviewed} onClick={() => fileReviewedReport().catch((error) => setLifecycleStatus(error.message))}>{t('I filed this complaint')}</button>
+            <button disabled={!draftReviewed} onClick={() => requestLinkedMutation(() => fileReviewedReport().catch((error) => setLifecycleStatus(error.message)))}>{t('I filed this complaint')}</button>
             {!currentCoordinates && <small>{t('Dedupe is not evaluated when location is unavailable.')}</small>}
-            {duplicateWarning && <div className="duplicate-warning"><b>{t('Possible duplicate')}</b><span>A same-category report is {duplicateWarning.measuredDistanceMeters?.toFixed(1)} m away.</span><button className="secondary" onClick={() => fileReviewedReport(true).catch((error) => setLifecycleStatus(error.message))}>{t('This is a different issue — file with 0 points')}</button></div>}
+            {duplicateWarning && <div className="duplicate-warning"><b>{t('Possible duplicate')}</b><span>A same-category report is {duplicateWarning.measuredDistanceMeters?.toFixed(1)} m away.</span><button className="secondary" onClick={() => requestLinkedMutation(() => fileReviewedReport(true).catch((error) => setLifecycleStatus(error.message)))}>{t('This is a different issue — file with 0 points')}</button></div>}
             {lifecycleStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(lifecycleStatus)}</div>}
           </div>
           <button className="text-action" onClick={() => navigate('new-report')}>{t('Return to report builder')}</button>
@@ -1372,7 +1544,7 @@ function App() {
     {screen === 'reports' && <section className="card page-card">
       <span className="eyebrow">{t('MY REPORTS')}</span><h2>{t('Your saved civic work')}</h2><p>{t('Drafts can be resumed. Filed reports open as immutable records.')}</p>
       <div className="reports-toolbar"><span role="status" aria-live="polite">{runtimeMessage(reportsStatus)}</span><button className="secondary" onClick={() => loadMyReports().catch((error) => setReportsStatus(`Reports could not be loaded: ${error.message}`))}>{t('Refresh')}</button></div>
-      {!savedReports.length && !reportsStatus.startsWith('Loading') ? <div className="empty-state"><b>{t('No reports are saved for this anonymous account.')}</b><p>{t('Create a report to save an owner-protected draft.')}</p><button onClick={() => navigate('new-report')}>{t('Create a report')}</button></div> : <div className="report-list">{savedReports.map((report) => <article className="report-list-item" key={report.id}><div><span className={`status-chip status-${report.status.toLowerCase()}`}>{localizedStatus(language, report.status)}</span><h3>{issueLabel(report.confirmedIssueType, language)}</h3><p>{report.prabhagId} · {t('Updated')} {timestampLabel(report.updatedAt, language)}</p><small>{report.id.slice(0, 12)}… · {report.packVersion}</small></div>{canResumeReport(report.status) ? <button onClick={() => resumeSavedReport(report).catch((error) => setReportsStatus(`Draft could not be resumed: ${error.message}`))}>{t('Resume draft')}</button> : <button onClick={() => openSavedReport(report).catch((error) => setReportsStatus(`Report could not be opened: ${error.message}`))}>{t('View report')}</button>}</article>)}</div>}
+      {!savedReports.length && !reportsStatus.startsWith('Loading') ? <div className="empty-state"><b>{t('No reports are saved for this profile.')}</b><p>{t('Create a report to save an owner-protected draft.')}</p><button onClick={() => navigate('new-report')}>{t('Create a report')}</button></div> : <div className="report-list">{savedReports.map((report) => <article className="report-list-item" key={report.id}><div><span className={`status-chip status-${report.status.toLowerCase()}`}>{localizedStatus(language, report.status)}</span><h3>{issueLabel(report.confirmedIssueType, language)}</h3><p>{report.prabhagId} · {t('Updated')} {timestampLabel(report.updatedAt, language)}</p><small>{report.id.slice(0, 12)}… · {report.packVersion}</small></div>{canResumeReport(report.status) ? <button onClick={() => resumeSavedReport(report).catch((error) => setReportsStatus(`Draft could not be resumed: ${error.message}`))}>{t('Resume draft')}</button> : <button onClick={() => openSavedReport(report).catch((error) => setReportsStatus(`Report could not be opened: ${error.message}`))}>{t('View report')}</button>}</article>)}</div>}
     </section>}
 
     {screen === 'report-detail' && <section className="card page-card">
@@ -1382,11 +1554,11 @@ function App() {
         <dl className="report-facts"><div><dt>{t('Prabhag')}</dt><dd>{selectedReport.prabhagId}</dd></div><div><dt>{t('Route')}</dt><dd>{selectedReport.routeSnapshot?.routeId || selectedReport.routeId}</dd></div><div><dt>{t('Pack')}</dt><dd>{selectedReport.routeSnapshot?.packVersion || selectedReport.packVersion}</dd></div><div><dt>{t('Authority')}</dt><dd>{selectedReport.routeSnapshot?.authority || selectedReport.authority}</dd></div><div><dt>{t('Acknowledgement')}</dt><dd>{selectedReport.acknowledgementId || t('Not provided')}</dd></div><div><dt>{t('Updated')}</dt><dd>{timestampLabel(selectedReport.updatedAt, language)}</dd></div></dl>
         {selectedReport.routeSnapshot?.department && <div className="locked-recipient"><small>{t('Frozen route department')}</small><strong>{selectedReport.routeSnapshot.department.displayName}</strong><span>{selectedReport.routeSnapshot.department.status} · {selectedReport.routeSnapshot.sourceStatus} · {selectedReport.routeSnapshot.reviewStatus}</span></div>}
         {(selectedReport.routeSnapshot?.knownLimitations?.length ?? 0) > 0 && <div className="route-limitations"><b>{t('Please keep in mind')}</b><ul>{selectedReport.routeSnapshot?.knownLimitations?.map((limitation) => <li key={limitation.code}>{limitation.citizenMessage}</li>)}</ul></div>}
-        <div className="points-summary"><span>{t('Derived points for this anonymous account')}</span><b>{pointsTotal}</b></div>
+        <div className="points-summary"><span>{t('Derived points for this profile')}</span><b>{pointsTotal}</b></div>
         {reportStatus === 'DRAFT' && <button onClick={() => resumeSavedReport(selectedReport).catch((error) => setReportsStatus(error.message))}>{t('Resume draft')}</button>}
-        {['FILED', 'OVERDUE', 'REOPENED'].includes(reportStatus) && <><div className="overdue-unknown"><b>{t('Overdue: unknown')}</b><span>{t('No verified SLA exists, so Seewik will not invent a due date.')}</span></div><button onClick={() => transitionReport('CLAIMED_FIXED').catch((error) => setLifecycleStatus(error.message))}>{t('Record a repair claim')}</button></>}
-        {reportStatus === 'CLAIMED_FIXED' && <div className="lifecycle-actions"><button onClick={() => transitionReport('VERIFIED_FIXED').catch((error) => setLifecycleStatus(error.message))}>{t('Verify fixed')}</button><button className="secondary" onClick={() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message))}>{t('Reject repair claim')}</button></div>}
-        {reportStatus === 'VERIFIED_FIXED' && <button className="secondary" onClick={() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message))}>{t('Report recurrence')}</button>}
+        {['FILED', 'OVERDUE', 'REOPENED'].includes(reportStatus) && <><div className="overdue-unknown"><b>{t('Overdue: unknown')}</b><span>{t('No verified SLA exists, so Seewik will not invent a due date.')}</span></div><button onClick={() => requestLinkedMutation(() => transitionReport('CLAIMED_FIXED').catch((error) => setLifecycleStatus(error.message)))}>{t('Record a repair claim')}</button></>}
+        {reportStatus === 'CLAIMED_FIXED' && <div className="lifecycle-actions"><button onClick={() => requestLinkedMutation(() => transitionReport('VERIFIED_FIXED').catch((error) => setLifecycleStatus(error.message)))}>{t('Verify fixed')}</button><button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message)))}>{t('Reject repair claim')}</button></div>}
+        {reportStatus === 'VERIFIED_FIXED' && <button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message)))}>{t('Report recurrence')}</button>}
         {lifecycleStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(lifecycleStatus)}</div>}
         <ol className="timeline">{timeline.map((item, index) => <li key={`${item.occurredAt}-${index}`}><span>{index + 1}</span><div><b>{localizedStatus(language, item.toStatus)}</b><small>{item.eventType} · {item.verificationBasis}{item.pointsAwarded ? ` · +${item.pointsAwarded}` : ''}</small></div></li>)}</ol>
       </>}
@@ -1412,7 +1584,7 @@ function App() {
         <button className="secondary" disabled={demoStep === 0} onClick={() => setDemoStep(0)}>{t('Reset demo')}</button>
       </div>
     </section>
-    <section className="card systems"><h2>{runtimeMessage(status)}</h2><p>{t('The secure service path remains available for technical validation.')}</p><button onClick={() => verifyFirebase().catch((error) => add(`Service check failed: ${error.message}`))}>{t('Verify cloud services')}</button>{details.length > 0 && <ul>{details.map((detail, index) => <li key={`${index}-${detail}`}>{detail}</li>)}</ul>}</section>
+    <section className="card systems"><h2>{runtimeMessage(status)}</h2><p>{t('The secure service path remains available for technical validation.')}</p><button onClick={() => requestLinkedMutation(() => verifyFirebase().catch((error) => add(`Service check failed: ${error.message}`)))}>{t('Verify cloud services')}</button>{details.length > 0 && <ul>{details.map((detail, index) => <li key={`${index}-${detail}`}>{detail}</li>)}</ul>}</section>
     </>}
     <footer>{t('Built for local civic action')}</footer>
     <nav className="mobile-nav" aria-label={t('Mobile navigation')}>

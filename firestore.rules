@@ -5,6 +5,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function googleLinked() {
+      return signedIn()
+        && request.auth.token.firebase.identities["google.com"] != null;
+    }
+
     function ownsReport(reportId) {
       return signedIn()
         && get(/databases/$(database)/documents/reports/$(reportId)).data.ownerUid
@@ -62,6 +67,40 @@ service cloud.firestore {
 
     match /day1_checks/{uid} {
       allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /profiles/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if googleLinked()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly([
+          'ownerUid', 'authProvider', 'recoverable', 'schemaVersion', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'ownerUid', 'authProvider', 'recoverable', 'schemaVersion', 'updatedAt'
+        ])
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.authProvider == 'GOOGLE'
+        && request.resource.data.recoverable == true
+        && request.resource.data.schemaVersion == 'citizen-profile-v0.1'
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /accountAuditEvents/{eventId} {
+      allow create: if googleLinked()
+        && request.resource.data.keys().hasOnly([
+          'ownerUid', 'eventType', 'outcome', 'schemaVersion', 'occurredAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'ownerUid', 'eventType', 'outcome', 'schemaVersion', 'occurredAt'
+        ])
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.eventType == 'ACCOUNT_COLLISION_EXISTING_ACCOUNT_WON'
+        && request.resource.data.outcome == 'EXISTING_ACCOUNT_SELECTED'
+        && request.resource.data.schemaVersion == 'account-audit-v0.1'
+        && request.resource.data.occurredAt == request.time;
+      allow read, update, delete: if false;
     }
 
     match /reports/{reportId} {
