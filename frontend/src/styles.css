@@ -141,6 +141,8 @@ main {
 .account-status > div { display: grid; gap: 3px; min-width: 0; }
 .account-status small { overflow-wrap: anywhere; color: var(--color-muted); }
 .account-privacy { margin-top: var(--space-3); font-size: .8rem; }
+.account-error { display: grid; gap: var(--space-2); }
+.account-error code { overflow-wrap: anywhere; font-size: .76rem; }
 .page-tools { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); width: min(100%, 620px); margin: var(--space-5) auto calc(-1 * var(--space-6)); color: var(--color-faint); font-size: .72rem; }
 .page-tools button { width: auto; min-height: 44px; margin: 0; padding: 8px 13px; }
 .page-hero { margin-bottom: var(--space-6); }

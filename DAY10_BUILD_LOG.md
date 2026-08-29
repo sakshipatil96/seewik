@@ -66,3 +66,14 @@ Release status: local only. Not committed, pushed or deployed. Set 3 anonymous-w
 - Scope: the existing Google OAuth client secret appeared in a private task-tool output. It was not added to the repository or frontend bundle, and no secret value is recorded here.
 - Risk decision: treat the limited private exposure as low severity and do not disrupt the enabled Google provider during Day 10 authentication acceptance testing.
 - Deferred remediation: before public launch, rotate the credential. If the console still offers no reset control, create a replacement client while the existing client remains active, update the Firebase provider configuration, test immediately, and retire the old client only after successful verification.
+
+## 2026-08-29 — First production Google-link attempt
+
+- Result: Google linking did not complete; UID preservation remains inconclusive and no civic mutation was resumed.
+- Observability finding: the application caught the Firebase exception and preserved the form, but its generic fallback hid the privacy-safe `auth/...` error code and left the browser console empty.
+- Named issue: `GOOGLE_SIGN_IN_ERROR_CODE_NOT_OBSERVABLE`.
+- Remediation: display only a sanitized Firebase Auth diagnostic code alongside the citizen-facing message. Do not display provider messages, tokens, email addresses or OAuth configuration values.
+- Configuration note: the project support email is contact information shown to users; it does not need to match the Google account selected for sign-in. If the OAuth audience remains in Testing, the selected account must separately appear in the configured test-user list.
+- Root-cause candidate found before the retry: the production workflow deployed Hosting but omitted the new Firestore profile rules. A successful Google link could therefore be followed by a `permission-denied` profile write, which the generic fallback previously hid.
+- Deployment correction: deploy `hosting,firestore:rules` together and lock that requirement in an integrity test. The retry remains necessary to confirm this was the observed production failure.
+- Fix verification before push: 30 frontend tests, frontend production build, 178 backend tests, dependency audit, repository content policy, boundary checksum and whitespace checks passed. The first plain local Maven attempt hit the known macOS test-agent attachment limitation; the complete suite passed with the Byte Buddy agent supplied explicitly, matching the established local procedure.

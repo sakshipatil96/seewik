@@ -48,9 +48,17 @@ export function accountErrorMessage(code: string | undefined) {
       return 'Google sign-in is temporarily unavailable. Your form has not been cleared.';
     case 'auth/unauthorized-domain':
       return 'Google sign-in is not authorized on this website yet.';
+    case 'permission-denied':
+      return 'Your Google account connected, but Seewik could not finish the recoverable profile. Please try again after the update completes.';
     default:
       return 'Google sign-in could not be completed. Your form has not been cleared.';
   }
+}
+
+export function safeAccountErrorCode(code: string | undefined) {
+  if (code && /^auth\/[a-z0-9-]+$/.test(code)) return code;
+  if (code && ['permission-denied', 'failed-precondition', 'internal', 'unavailable', 'unknown'].includes(code)) return code;
+  return 'auth/unknown';
 }
 
 export function minimalProfileData(uid: string) {

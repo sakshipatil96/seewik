@@ -9,6 +9,7 @@ import {
   collisionAuditData,
   isCredentialCollisionCode,
   minimalProfileData,
+  safeAccountErrorCode,
 } from '../src/accountIdentity.ts';
 
 test('identity states distinguish anonymous, linked, and deliberate sign-out', () => {
@@ -24,6 +25,24 @@ test('credential collision codes are separated from ordinary popup failures', ()
   assert.equal(isCredentialCollisionCode('auth/popup-blocked'), false);
   assert.match(accountErrorMessage('auth/popup-closed-by-user'), /form is still here/i);
   assert.match(accountErrorMessage('auth/operation-not-allowed'), /temporarily unavailable/i);
+  assert.equal(safeAccountErrorCode('auth/internal-error'), 'auth/internal-error');
+  assert.equal(safeAccountErrorCode('auth/unauthorized-domain'), 'auth/unauthorized-domain');
+  assert.equal(safeAccountErrorCode('permission-denied'), 'permission-denied');
+  assert.equal(safeAccountErrorCode('contains private details'), 'auth/unknown');
+  assert.equal(safeAccountErrorCode(undefined), 'auth/unknown');
+});
+
+test('caught Google failures expose only a privacy-safe diagnostic code', async () => {
+  const source = await readFile(new URL('../src/main.tsx', import.meta.url), 'utf8');
+  const control = await readFile(new URL('../src/AccountControl.tsx', import.meta.url), 'utf8');
+  assert.match(source, /setAccountErrorCode\(safeAccountErrorCode\(code\)\)/);
+  assert.match(control, /Diagnostic code/);
+  assert.doesNotMatch(control, /error\.message/);
+});
+
+test('production deploy includes the profile security rules required after linking', async () => {
+  const workflow = await readFile(new URL('../../.github/workflows/deploy.yml', import.meta.url), 'utf8');
+  assert.match(workflow, /--only hosting,firestore:rules/);
 });
 
 test('profile contract is versioned, UID-preserving, and contains no copied Google PII', () => {

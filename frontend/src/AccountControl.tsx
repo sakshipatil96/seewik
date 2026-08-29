@@ -10,6 +10,7 @@ type AccountControlProps = {
   email: string | null;
   busy: boolean;
   error: string;
+  errorCode: string;
   t: (source: string) => string;
   onOpen: () => void;
   onClose: () => void;
@@ -24,6 +25,7 @@ export function AccountControl({
   email,
   busy,
   error,
+  errorCode,
   t,
   onOpen,
   onClose,
@@ -142,7 +144,10 @@ export function AccountControl({
           <small>{t('Signing out does not delete reports, drafts, points or Initiative activity. Seewik will not silently create a new temporary working account after sign-out.')}</small>
         </>}
 
-        {error && <div className="status-panel state-warning" role="status" aria-live="polite">{t(error)}</div>}
+        {error && <div className="status-panel state-warning account-error" role="status" aria-live="polite">
+          <span>{t(error)}</span>
+          {errorCode && <code>{t('Diagnostic code')}: {errorCode}</code>}
+        </div>}
       </section>
     </div>, document.body)}
   </>;

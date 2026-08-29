@@ -16,7 +16,7 @@ import {
   signIntoAccount,
   signOutWithoutStartingAnonymousWork,
 } from './accountService';
-import { accountErrorMessage, isCredentialCollisionCode, type AccountIdentityState } from './accountIdentity';
+import { accountErrorMessage, isCredentialCollisionCode, safeAccountErrorCode, type AccountIdentityState } from './accountIdentity';
 import { LANGUAGE_OPTIONS, LANGUAGE_STORAGE_KEY, classificationConfirmedMessage, classificationSuggestionMessage, formatDateTime, initialLanguage, localizedRuntimeMessage, localizedStatus, prabhagConfirmedMessage, translate, type InterfaceLanguage } from './i18n';
 import { canEditReport, canResumeReport, draftRouteIsCurrent, pathForScreen, reportIdFromPath, reportIdFromReviewSearch, screenFromPath, type AppScreen } from './reportNavigation';
 import './styles.css';
@@ -326,6 +326,7 @@ function App() {
   const [accountDialog, setAccountDialog] = useState<AccountDialog>('CLOSED');
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountError, setAccountError] = useState('');
+  const [accountErrorCode, setAccountErrorCode] = useState('');
   const [collisionCredential, setCollisionCredential] = useState<AuthCredential | null>(null);
   const pendingMutation = useRef<(() => Promise<void>) | null>(null);
   const t = (source: string) => translate(language, source);
@@ -444,18 +445,28 @@ function App() {
     resetDraft();
   }
 
+  function clearAccountError() {
+    setAccountError('');
+    setAccountErrorCode('');
+  }
+
+  function showAccountError(code: string | undefined) {
+    setAccountError(accountErrorMessage(code));
+    setAccountErrorCode(safeAccountErrorCode(code));
+  }
+
   function requestLinkedMutation(action: () => Promise<void>) {
     if (accountState === 'GOOGLE_LINKED') {
       void action();
       return;
     }
     pendingMutation.current = action;
-    setAccountError('');
+    clearAccountError();
     setAccountDialog('LINK');
   }
 
   function openAccount() {
-    setAccountError('');
+    clearAccountError();
     setAccountDialog(accountState === 'GOOGLE_LINKED' ? 'PROFILE' : 'LINK');
   }
 
@@ -463,7 +474,7 @@ function App() {
     if (accountBusy) return;
     pendingMutation.current = null;
     setCollisionCredential(null);
-    setAccountError('');
+    clearAccountError();
     setAccountDialog('CLOSED');
   }
 
@@ -476,7 +487,7 @@ function App() {
 
   async function connectGoogleAccount() {
     setAccountBusy(true);
-    setAccountError('');
+    clearAccountError();
     try {
       const user = accountState === 'SIGNED_OUT'
         ? await signIntoAccount('GOOGLE')
@@ -493,9 +504,10 @@ function App() {
           setAccountDialog('COLLISION');
         } else {
           setAccountError('The existing Google account was found, but Firebase did not return a safe sign-in credential. Cancel and try again.');
+          setAccountErrorCode(safeAccountErrorCode(code));
         }
       } else {
-        setAccountError(accountErrorMessage(code));
+        showAccountError(code);
       }
     } finally {
       setAccountBusy(false);
@@ -505,7 +517,7 @@ function App() {
   async function acceptExistingGoogleAccount() {
     if (!collisionCredential) return;
     setAccountBusy(true);
-    setAccountError('');
+    clearAccountError();
     try {
       const user = await continueWithExistingAccount(collisionCredential);
       clearAccountBoundState();
@@ -519,13 +531,14 @@ function App() {
       } catch {
         setAccountDialog('PROFILE');
         setAccountError('The existing account opened, but its local profile record could not be updated. No accounts or civic records were merged.');
+        setAccountErrorCode('auth/profile-write-failed');
         return;
       }
       setAccountDialog('CLOSED');
       await Promise.allSettled([loadMyReports(), refreshDerivedPoints(), loadMyInitiatives()]);
     } catch (error) {
       const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : undefined;
-      setAccountError(accountErrorMessage(code));
+      showAccountError(code);
     } finally {
       setAccountBusy(false);
     }
@@ -533,7 +546,7 @@ function App() {
 
   async function signOutAccount() {
     setAccountBusy(true);
-    setAccountError('');
+    clearAccountError();
     try {
       await signOutWithoutStartingAnonymousWork();
       clearAccountBoundState();
@@ -543,7 +556,7 @@ function App() {
       navigate('home');
     } catch (error) {
       const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : undefined;
-      setAccountError(accountErrorMessage(code));
+      showAccountError(code);
     } finally {
       setAccountBusy(false);
     }
@@ -1260,6 +1273,7 @@ function App() {
           email={accountEmail}
           busy={accountBusy}
           error={accountError}
+          errorCode={accountErrorCode}
           t={t}
           onOpen={openAccount}
           onClose={closeAccount}

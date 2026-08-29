@@ -105,8 +105,8 @@ jobs:
           npm ci
           npm run build
 
-      - name: Deploy frontend
-        run: npx firebase-tools@15.28.2 deploy --only hosting --project seewik --non-interactive
+      - name: Deploy frontend and Firestore rules
+        run: npx firebase-tools@15.28.2 deploy --only hosting,firestore:rules --project seewik --non-interactive
 
       - name: Verify production routes
         run: |
