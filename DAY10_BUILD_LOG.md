@@ -77,3 +77,38 @@ Release status: local only. Not committed, pushed or deployed. Set 3 anonymous-w
 - Root-cause candidate found before the retry: the production workflow deployed Hosting but omitted the new Firestore profile rules. A successful Google link could therefore be followed by a `permission-denied` profile write, which the generic fallback previously hid.
 - Deployment correction: deploy `hosting,firestore:rules` together and lock that requirement in an integrity test. The retry remains necessary to confirm this was the observed production failure.
 - Fix verification before push: 30 frontend tests, frontend production build, 178 backend tests, dependency audit, repository content policy, boundary checksum and whitespace checks passed. The first plain local Maven attempt hit the known macOS test-agent attachment limitation; the complete suite passed with the Byte Buddy agent supplied explicitly, matching the established local procedure.
+
+## 2026-08-29 — Production identity acceptance and signed-out report-state correction
+
+### Production identity acceptance
+
+- First-time Google linking preserved the anonymous Firebase UID and refreshed the identity to a Google-linked, recoverable profile.
+- The profile document remained keyed by the preserved UID and contained only `ownerUid`, `authProvider`, `recoverable`, `schemaVersion` and `updatedAt`; no Google email, display name or photo was copied into Firestore.
+- A deliberate sign-out followed by sign-in restored the same UID and profile document.
+- A clean-browser credential collision displayed the explicit existing-account warning, switched to the established Google-linked UID and did not merge, delete or expose the losing anonymous session's civic data.
+- The unlinked anonymous state displayed the device-only access warning before Google was connected.
+- One no-write anonymous session created during collision acceptance remains pending separately confirmed cleanup; this change does not delete authentication records.
+
+### Named UX defects
+
+- `SIGNED_OUT_MY_REPORTS_FALSE_EMPTY_STATE`: deliberate sign-out displayed an empty-profile result even though saved work remained attached to the Google account.
+- `ACCOUNT_SIGNED_OUT_RAW_CODE_LEAK`: an internal state code appeared directly in citizen-facing copy.
+- `REPORT_START_OVER_VISUAL_AMBIGUITY`: the report workflow's Start Over control remained visible behind My Reports and could be mistaken for a report-state action.
+- Recurring lesson: `INTERNAL_STATE_PRESENTATION_BOUNDARY` — internal codes and hidden states need an explicit, tested citizen-facing presentation contract.
+
+### Correction
+
+- Added explicit `SIGNED_OUT`, `LINKED_EMPTY`, `ANONYMOUS_EMPTY`, `LOADING` and `HAS_REPORTS` report-view states.
+- The signed-out My Reports and report-detail screens now explain that signing out deletes nothing, saved work remains attached to Google and signing in restores access.
+- Signed-out report screens no longer request report data or show Refresh, Create Report, false empty-profile content or Start Over.
+- Successful sign-in while My Reports is open now reloads account-owned report state automatically.
+- Raw `ACCOUNT_SIGNED_OUT` messages are mapped to localized recovery copy in English, Marathi and Hindi.
+
+### Verification
+
+- Frontend tests: 32 passed, including report-state and citizen-copy integrity coverage.
+- Frontend production build: passed; the existing initial-bundle size warning remains deferred performance work.
+- Backend regression suite: 178 passed with the established inherited Byte Buddy test agent setting.
+- Dependency audit: zero vulnerabilities.
+- Repository content policy, boundary integrity and whitespace checks: passed.
+- Local visual acceptance passed on My Reports at the default desktop viewport and 390 × 844 phone viewport in English, Marathi and Hindi. Recovery copy wrapped correctly, the primary action remained visible and no misleading report controls appeared.

@@ -9,6 +9,7 @@ import {
   collisionAuditData,
   isCredentialCollisionCode,
   minimalProfileData,
+  reportsViewState,
   safeAccountErrorCode,
 } from '../src/accountIdentity.ts';
 
@@ -17,6 +18,14 @@ test('identity states distinguish anonymous, linked, and deliberate sign-out', (
   assert.equal(accountIdentityState({ uid: 'linked-1', isAnonymous: false, providerIds: ['google.com'] }), 'GOOGLE_LINKED');
   assert.equal(accountIdentityState({ uid: null, isAnonymous: false, providerIds: [], deliberatelySignedOut: true }), 'SIGNED_OUT');
   assert.equal(accountIdentityState({ uid: null, isAnonymous: false, providerIds: [] }), 'ANONYMOUS_SESSION');
+});
+
+test('report states distinguish sign-out, recovery, and zero-report ownership', () => {
+  assert.equal(reportsViewState('SIGNED_OUT', 0, false), 'SIGNED_OUT');
+  assert.equal(reportsViewState('GOOGLE_LINK_REQUIRED', 0, true), 'LOADING');
+  assert.equal(reportsViewState('GOOGLE_LINK_REQUIRED', 0, false), 'ANONYMOUS_EMPTY');
+  assert.equal(reportsViewState('GOOGLE_LINKED', 0, false), 'LINKED_EMPTY');
+  assert.equal(reportsViewState('GOOGLE_LINKED', 2, true), 'HAS_REPORTS');
 });
 
 test('credential collision codes are separated from ordinary popup failures', () => {
@@ -123,4 +132,16 @@ test('an unlinked anonymous session receives an explicit device-only recovery wa
   assert.match(source, /accountState === 'GOOGLE_LINK_REQUIRED'/);
   assert.match(source, /Device-only access/);
   assert.match(source, /clear this browser before connecting Google/);
+});
+
+test('signed-out reports show recovery copy without raw codes or misleading controls', async () => {
+  const source = await readFile(new URL('../src/main.tsx', import.meta.url), 'utf8');
+  const i18n = await readFile(new URL('../src/i18n.ts', import.meta.url), 'utf8');
+  assert.match(source, /reportsView === 'SIGNED_OUT'/);
+  assert.match(source, /Sign in to view your saved civic work/);
+  assert.match(source, /Signing out doesn't delete anything/);
+  assert.match(source, /reportsView === 'LINKED_EMPTY'/);
+  assert.match(source, /\['new-report', 'review'\]\.includes\(screen\)/);
+  assert.doesNotMatch(source, /\['new-report', 'review', 'reports', 'report-detail'\]\.includes\(screen\)/);
+  assert.match(i18n, /message\.includes\('ACCOUNT_SIGNED_OUT'\)/);
 });

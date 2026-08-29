@@ -16,7 +16,7 @@ import {
   signIntoAccount,
   signOutWithoutStartingAnonymousWork,
 } from './accountService';
-import { accountErrorMessage, isCredentialCollisionCode, safeAccountErrorCode, type AccountIdentityState } from './accountIdentity';
+import { accountErrorMessage, isCredentialCollisionCode, reportsViewState, safeAccountErrorCode, type AccountIdentityState } from './accountIdentity';
 import { LANGUAGE_OPTIONS, LANGUAGE_STORAGE_KEY, classificationConfirmedMessage, classificationSuggestionMessage, formatDateTime, initialLanguage, localizedRuntimeMessage, localizedStatus, prabhagConfirmedMessage, translate, type InterfaceLanguage } from './i18n';
 import { canEditReport, canResumeReport, draftRouteIsCurrent, pathForScreen, reportIdFromPath, reportIdFromReviewSearch, screenFromPath, type AppScreen } from './reportNavigation';
 import './styles.css';
@@ -343,6 +343,7 @@ function App() {
       : resolution?.status === 'CANDIDATE_PRABHAG'
         ? 'AUTOMATIC_CANDIDATE' as const
         : undefined;
+  const reportsView = reportsViewState(accountState, savedReports.length, reportsStatus.startsWith('Loading'));
   const initiativeCategoryLabel = (category: string) => ({
     CLEANUP: t('Neighbourhood clean-up'),
     PLANTATION: t('Plantation'),
@@ -579,9 +580,16 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (screen === 'reports') loadMyReports().catch((error) => setReportsStatus(`Reports could not be loaded: ${error.message}`));
+    if (screen === 'reports') {
+      if (accountState === 'SIGNED_OUT') {
+        setSavedReports([]);
+        setReportsStatus('');
+      } else {
+        loadMyReports().catch((error) => setReportsStatus(`Reports could not be loaded: ${error.message}`));
+      }
+    }
     if (screen === 'points') refreshDerivedPoints().catch(() => undefined);
-    if (screen === 'report-detail') {
+    if (screen === 'report-detail' && accountState !== 'SIGNED_OUT') {
       const reportId = reportIdFromPath(window.location.pathname);
       if (reportId && selectedReport?.id !== reportId) {
         loadReportById(reportId, false).catch((error) => setReportsStatus(`Report could not be loaded: ${error.message}`));
@@ -599,7 +607,7 @@ function App() {
         discoverInitiatives(false).catch((error) => setInitiativeStatus(`Activities could not be loaded: ${error.message}`));
       }
     }
-  }, [screen, locationKey]);
+  }, [screen, locationKey, accountState]);
 
   useEffect(() => {
     if (screen !== 'initiatives' || !initiativeCoordinates) return;
@@ -1287,7 +1295,7 @@ function App() {
       <div><strong>{t('Device-only access')}</strong><span>{t('This temporary account is not recoverable yet. If you clear this browser before connecting Google, you may permanently lose access to its reports, drafts, points and Initiative activity.')}</span></div>
       <button className="secondary" onClick={openAccount}>{t('Connect Google')}</button>
     </aside>}
-    {['new-report', 'review', 'reports', 'report-detail'].includes(screen) && <div className="page-tools"><span>{t('Saved reports are not deleted by Start over.')}</span><button className="secondary" onClick={startOver}>{t('Start over')}</button></div>}
+    {['new-report', 'review'].includes(screen) && <div className="page-tools"><span>{t('Saved reports are not deleted by Start over.')}</span><button className="secondary" onClick={startOver}>{t('Start over')}</button></div>}
 
     {screen === 'home' && <>
       <section className="hero"><span className="eyebrow">{t('LOCAL CIVIC ACTION')}</span><h1>{t('A Civic Intelligence Platform')}</h1><p>{t('Identify a civic issue, find the confirmed route, prepare a complaint and track the outcome.')}</p></section>
@@ -1557,13 +1565,22 @@ function App() {
 
     {screen === 'reports' && <section className="card page-card">
       <span className="eyebrow">{t('MY REPORTS')}</span><h2>{t('Your saved civic work')}</h2><p>{t('Drafts can be resumed. Filed reports open as immutable records.')}</p>
-      <div className="reports-toolbar"><span role="status" aria-live="polite">{runtimeMessage(reportsStatus)}</span><button className="secondary" onClick={() => loadMyReports().catch((error) => setReportsStatus(`Reports could not be loaded: ${error.message}`))}>{t('Refresh')}</button></div>
-      {!savedReports.length && !reportsStatus.startsWith('Loading') ? <div className="empty-state"><b>{t('No reports are saved for this profile.')}</b><p>{t('Create a report to save an owner-protected draft.')}</p><button onClick={() => navigate('new-report')}>{t('Create a report')}</button></div> : <div className="report-list">{savedReports.map((report) => <article className="report-list-item" key={report.id}><div><span className={`status-chip status-${report.status.toLowerCase()}`}>{localizedStatus(language, report.status)}</span><h3>{issueLabel(report.confirmedIssueType, language)}</h3><p>{report.prabhagId} · {t('Updated')} {timestampLabel(report.updatedAt, language)}</p><small>{report.id.slice(0, 12)}… · {report.packVersion}</small></div>{canResumeReport(report.status) ? <button onClick={() => resumeSavedReport(report).catch((error) => setReportsStatus(`Draft could not be resumed: ${error.message}`))}>{t('Resume draft')}</button> : <button onClick={() => openSavedReport(report).catch((error) => setReportsStatus(`Report could not be opened: ${error.message}`))}>{t('View report')}</button>}</article>)}</div>}
+      {reportsView === 'SIGNED_OUT' ? <div className="empty-state account-recovery-state">
+        <b>{t('Sign in to view your saved civic work.')}</b>
+        <p>{t("Signing out doesn't delete anything.")}</p>
+        <p>{t('Your saved work stays attached to your Google account — sign in to see it.')}</p>
+        <button onClick={openAccount}>{t('Continue with Google')}</button>
+      </div> : <>
+        <div className="reports-toolbar"><span role="status" aria-live="polite">{runtimeMessage(reportsStatus)}</span><button className="secondary" onClick={() => loadMyReports().catch((error) => setReportsStatus(`Reports could not be loaded: ${error.message}`))}>{t('Refresh')}</button></div>
+        {reportsView === 'LINKED_EMPTY' && <div className="empty-state"><b>{t('Signed in. No saved reports yet.')}</b><p>{t('Create a report to save an owner-protected draft.')}</p><button onClick={() => navigate('new-report')}>{t('Create a report')}</button></div>}
+        {reportsView === 'ANONYMOUS_EMPTY' && <div className="empty-state"><b>{t('No reports are saved for this anonymous account.')}</b><p>{t('Create a report to save an owner-protected draft.')}</p><button onClick={() => navigate('new-report')}>{t('Create a report')}</button></div>}
+        {reportsView === 'HAS_REPORTS' && <div className="report-list">{savedReports.map((report) => <article className="report-list-item" key={report.id}><div><span className={`status-chip status-${report.status.toLowerCase()}`}>{localizedStatus(language, report.status)}</span><h3>{issueLabel(report.confirmedIssueType, language)}</h3><p>{report.prabhagId} · {t('Updated')} {timestampLabel(report.updatedAt, language)}</p><small>{report.id.slice(0, 12)}… · {report.packVersion}</small></div>{canResumeReport(report.status) ? <button onClick={() => resumeSavedReport(report).catch((error) => setReportsStatus(`Draft could not be resumed: ${error.message}`))}>{t('Resume draft')}</button> : <button onClick={() => openSavedReport(report).catch((error) => setReportsStatus(`Report could not be opened: ${error.message}`))}>{t('View report')}</button>}</article>)}</div>}
+      </>}
     </section>}
 
     {screen === 'report-detail' && <section className="card page-card">
       <span className="eyebrow">{t('REPORT DETAILS')}</span><h2>{selectedReport ? issueLabel(selectedReport.confirmedIssueType, language) : t('Loading report')}</h2>
-      {!selectedReport ? <div className="empty-state"><p>{runtimeMessage(reportsStatus) || t('Choose a report from My reports.')}</p><button onClick={() => navigate('reports')}>{t('Open my reports')}</button></div> : <>
+      {accountState === 'SIGNED_OUT' ? <div className="empty-state account-recovery-state"><b>{t('Sign in to view your saved civic work.')}</b><p>{t('Your saved work stays attached to your Google account — sign in to see it.')}</p><button onClick={openAccount}>{t('Continue with Google')}</button></div> : !selectedReport ? <div className="empty-state"><p>{runtimeMessage(reportsStatus) || t('Choose a report from My reports.')}</p><button onClick={() => navigate('reports')}>{t('Open my reports')}</button></div> : <>
         <div className="report-status-banner immutable"><b>{localizedStatus(language, reportStatus)}</b><span>{reportStatus === 'DRAFT' ? t('Open the review screen to edit this draft.') : t('Filed record — complaint and route facts are immutable')}</span></div>
         <dl className="report-facts"><div><dt>{t('Prabhag')}</dt><dd>{selectedReport.prabhagId}</dd></div><div><dt>{t('Route')}</dt><dd>{selectedReport.routeSnapshot?.routeId || selectedReport.routeId}</dd></div><div><dt>{t('Pack')}</dt><dd>{selectedReport.routeSnapshot?.packVersion || selectedReport.packVersion}</dd></div><div><dt>{t('Authority')}</dt><dd>{selectedReport.routeSnapshot?.authority || selectedReport.authority}</dd></div><div><dt>{t('Acknowledgement')}</dt><dd>{selectedReport.acknowledgementId || t('Not provided')}</dd></div><div><dt>{t('Updated')}</dt><dd>{timestampLabel(selectedReport.updatedAt, language)}</dd></div></dl>
         {selectedReport.routeSnapshot?.department && <div className="locked-recipient"><small>{t('Frozen route department')}</small><strong>{selectedReport.routeSnapshot.department.displayName}</strong><span>{selectedReport.routeSnapshot.department.status} · {selectedReport.routeSnapshot.sourceStatus} · {selectedReport.routeSnapshot.reviewStatus}</span></div>}

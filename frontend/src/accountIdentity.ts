@@ -9,6 +9,13 @@ export type AccountIdentityState =
   | 'GOOGLE_LINKED'
   | 'SIGNED_OUT';
 
+export type ReportsViewState =
+  | 'SIGNED_OUT'
+  | 'LOADING'
+  | 'HAS_REPORTS'
+  | 'LINKED_EMPTY'
+  | 'ANONYMOUS_EMPTY';
+
 export type IdentitySnapshot = {
   uid: string | null;
   isAnonymous: boolean;
@@ -25,6 +32,13 @@ export function accountIdentityState(snapshot: IdentitySnapshot): AccountIdentit
   if (!snapshot.uid) return 'ANONYMOUS_SESSION';
   if (isGoogleLinked(snapshot.providerIds)) return 'GOOGLE_LINKED';
   return 'GOOGLE_LINK_REQUIRED';
+}
+
+export function reportsViewState(accountState: AccountIdentityState, reportCount: number, loading: boolean): ReportsViewState {
+  if (accountState === 'SIGNED_OUT') return 'SIGNED_OUT';
+  if (reportCount > 0) return 'HAS_REPORTS';
+  if (loading) return 'LOADING';
+  return accountState === 'GOOGLE_LINKED' ? 'LINKED_EMPTY' : 'ANONYMOUS_EMPTY';
 }
 
 export function isCredentialCollisionCode(code: string | undefined) {

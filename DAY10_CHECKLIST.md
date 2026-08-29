@@ -60,23 +60,28 @@ Local implementation complete. Real Google popup verification remains a pre-rele
 - [x] Clear stale in-memory civic state after the account switch so one UID's data is never displayed under another UID.
 - [x] Reload reports, points and Initiative memberships for the winning UID.
 - [x] Write a privacy-safe collision outcome event suitable for operational diagnosis.
-- [ ] Test both directions: unused Google credential preserves the anonymous UID; existing Google credential switches to the established UID.
+- [x] Test both directions: unused Google credential preserves the anonymous UID; existing Google credential switches to the established UID.
 
-Local implementation complete. The two real-account directions remain pending live testing with the enabled Google provider.
+Production acceptance complete: first-time linking preserved the anonymous UID, and the collision path switched cleanly to the established Google-linked UID without merging or deleting civic data.
 
 ## Set 5 — Profile and recovery experience
 
 - [x] Create the minimal profile record only after successful Google linking.
 - [x] Show whether the current account is linked and recoverable.
 - [x] Warn an unlinked anonymous session that access to its existing data remains device-only and can be lost if browser data is cleared.
-- [ ] Confirm that the same Google account restores the same Firebase UID and data on another browser or device.
+- [x] Confirm that the same Google account restores the same Firebase UID and data on another browser or device.
 - [x] Define sign-out behavior without deleting civic data.
 - [x] Prevent accidental creation of a second anonymous working state immediately after sign-out.
 - [x] Preserve unsent form input across a cancelled login attempt where safe.
 - [x] Add privacy copy explaining what account information is stored and why.
 - [x] Keep account deletion and cross-account data transfer out of scope until their retention and audit rules are designed.
+- [x] Give deliberate sign-out its own My Reports recovery state instead of showing a false zero-report result.
+- [x] Explain that signing out does not delete saved work and that signing back in restores it.
+- [x] Distinguish signed-out, linked-empty and anonymous-empty report states.
+- [x] Remove Refresh, Create Report and Start Over controls when they would be misleading on the signed-out report screen.
+- [x] Prevent the internal `ACCOUNT_SIGNED_OUT` code from reaching citizen-facing copy.
 
-Local implementation complete. Clean-browser/device recovery confirmation remains pending live testing with the enabled Google provider.
+Production recovery acceptance complete. The signed-out/report-state correction is implemented and locally verified in English, Marathi and Hindi at desktop and phone-sized layouts.
 
 ## Set 6 — Identity regression and security gates
 
@@ -99,10 +104,10 @@ This carries forward the former Day 9 Set 7 after the identity change is complet
 - [ ] Run repository-content, dataset-integrity and whitespace checks.
 - [ ] Deploy only from green `main` and preserve the previous healthy revision for rollback.
 - [ ] Verify a new anonymous session is prompted to link Google before its first write.
-- [ ] Verify successful linking preserves the UID and existing records.
-- [ ] Verify the collision flow does not crash, merge data or expose the losing UID's records.
-- [ ] Verify same-account recovery on a separate clean browser session.
-- [ ] Verify an unlinked anonymous session shows the device-only access warning before Google is connected.
+- [x] Verify successful linking preserves the UID and existing records.
+- [x] Verify the collision flow does not crash, merge data or expose the losing UID's records.
+- [x] Verify same-account recovery on a separate clean browser session.
+- [x] Verify an unlinked anonymous session shows the device-only access warning before Google is connected.
 - [ ] Verify reports, drafts, points and Initiative organiser/participant ownership in production.
 - [ ] Verify production routes, all three languages, boundary fallbacks, narrow layouts and browser console.
 - [ ] Preserve representative privacy-safe production screenshots in English, Marathi and Hindi.

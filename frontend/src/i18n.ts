@@ -244,6 +244,10 @@ const COPY: Record<string, LocalizedCopy> = {
   'Refresh': { mr: 'ताजे करा', hi: 'रीफ़्रेश करें' },
   'No reports are saved for this anonymous account.': { mr: 'या अनामिक खात्यासाठी कोणताही अहवाल जतन केलेला नाही.', hi: 'इस गुमनाम खाते के लिए कोई रिपोर्ट सहेजी नहीं गई है।' },
   'No reports are saved for this profile.': { mr: 'या प्रोफाइलसाठी कोणतेही अहवाल जतन केलेले नाहीत.', hi: 'इस प्रोफ़ाइल के लिए कोई रिपोर्ट सहेजी नहीं गई है।' },
+  'Sign in to view your saved civic work.': { mr: 'तुमचे जतन केलेले नागरी काम पाहण्यासाठी साइन इन करा.', hi: 'अपना सहेजा नागरिक कार्य देखने के लिए साइन इन करें।' },
+  "Signing out doesn't delete anything.": { mr: 'साइन आउट केल्याने काहीही हटवले जात नाही.', hi: 'साइन आउट करने से कुछ भी नहीं मिटता।' },
+  'Your saved work stays attached to your Google account — sign in to see it.': { mr: 'तुमचे जतन केलेले काम तुमच्या Google खात्याशी जोडलेले राहते — ते पाहण्यासाठी साइन इन करा.', hi: 'आपका सहेजा कार्य आपके Google खाते से जुड़ा रहता है — उसे देखने के लिए साइन इन करें।' },
+  'Signed in. No saved reports yet.': { mr: 'साइन इन झाले. अद्याप कोणतेही जतन केलेले अहवाल नाहीत.', hi: 'साइन इन हो गया। अभी कोई सहेजी हुई रिपोर्ट नहीं है।' },
   'Create a report to save an owner-protected draft.': { mr: 'तुमच्यासाठी संरक्षित मसुदा जतन करण्यासाठी अहवाल तयार करा.', hi: 'अपने लिए सुरक्षित मसौदा सहेजने हेतु रिपोर्ट बनाएँ।' },
   'Create a report': { mr: 'अहवाल तयार करा', hi: 'रिपोर्ट बनाएँ' },
   'Resume draft': { mr: 'मसुदा पुन्हा उघडा', hi: 'मसौदा फिर खोलें' },
@@ -341,7 +345,9 @@ export function localizedStatus(language: InterfaceLanguage, status: string): st
 }
 
 export function localizedRuntimeMessage(language: InterfaceLanguage, message: string): string {
-  if (language === 'en' || !message) return message;
+  if (!message) return message;
+  if (message.includes('ACCOUNT_SIGNED_OUT')) return translate(language, 'Sign in to view your saved civic work.');
+  if (language === 'en') return message;
   const exact: Record<string, string> = {
     'Share your location to discover activities nearby.': language === 'mr' ? 'जवळचे उपक्रम शोधण्यासाठी तुमचे स्थान शेअर करा.' : 'आसपास की गतिविधियाँ खोजने के लिए अपना स्थान साझा करें।',
     'Finding nearby activities…': language === 'mr' ? 'जवळचे उपक्रम शोधत आहोत…' : 'आसपास की गतिविधियाँ खोजी जा रही हैं…',
@@ -354,6 +360,8 @@ export function localizedRuntimeMessage(language: InterfaceLanguage, message: st
     'Publishing activity…': language === 'mr' ? 'उपक्रम प्रकाशित होत आहे…' : 'गतिविधि प्रकाशित हो रही है…',
     'Joining activity…': language === 'mr' ? 'उपक्रमात सहभागी होत आहोत…' : 'गतिविधि से जुड़ा जा रहा है…',
     'Loading reports…': language === 'mr' ? 'अहवाल लोड होत आहेत…' : 'रिपोर्टें लोड हो रही हैं…',
+    'Loading your reports…': language === 'mr' ? 'तुमचे अहवाल लोड होत आहेत…' : 'आपकी रिपोर्टें लोड हो रही हैं…',
+    'No saved reports yet.': language === 'mr' ? 'अद्याप कोणतेही जतन केलेले अहवाल नाहीत.' : 'अभी कोई सहेजी हुई रिपोर्ट नहीं है।',
     'Resolving location…': language === 'mr' ? 'स्थान तपासत आहोत…' : 'स्थान जाँचा जा रहा है…',
     'Checking the category…': language === 'mr' ? 'प्रकार तपासत आहोत…' : 'श्रेणी जाँची जा रही है…',
     'Creating complaint draft…': language === 'mr' ? 'तक्रारीचा मसुदा तयार होत आहे…' : 'शिकायत का मसौदा बन रहा है…',
