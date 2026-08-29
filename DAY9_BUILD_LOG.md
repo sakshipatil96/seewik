@@ -159,10 +159,22 @@ Scored evaluation:
 
 The comparison with frozen Track A is structural, not an accuracy comparison: Track A produced zero schema failures in 120 text-only calls, while Track B produced four in 16 image-only calls. These eight private, purpose-selected photographs remain a small evaluation set. Track B's value is the discovered image-path failure mode, not a broad image-accuracy estimate. Raw endpoint responses are preserved in the private evaluation archive, while the repository contains only sanitized case metadata and analytical results. The temporary evaluation account was deleted after both runs.
 
-Set 5 verification passed: 18 frontend/integrity tests, the production frontend build, 178 backend tests, shell syntax, JSON parsing, repository-content policy and whitespace checks. The existing large initial-chunk warning remains assigned to paused Set 4.
+Set 5 verification passed: 19 frontend/integrity tests, the production frontend build, 178 backend tests, shell syntax, JSON parsing, repository-content policy and whitespace checks. The existing large initial-chunk warning remains assigned to paused Set 4.
 
 ### Diagnostic follow-up instrumentation
 
 After the frozen two-run result was analyzed, the backend gained privacy-safe schema-failure diagnostics for future calls: validator subcode, generated-output character length, provider finish reason and candidate-token count. The public error envelope still excludes generated text, descriptions, image content and private identifiers. A specific operational counter is also recorded per validator subcode.
 
 The diagnostic runner forces `DIAGNOSTIC_UNSCORED`, records `labelMatch` independently and sets every diagnostic call's `scored` field to false. Therefore, a later diagnostic pass cannot alter the frozen 12/12 category-correctness or 12/16 schema-validity findings above.
+
+The diagnostic instrumentation was committed at `34f6f8d03820a19513be947d4ea337eb9eaf1ba6`, passed the protected Quality workflow and was deployed as Cloud Run revision `seewik-api-00032-gag`. One separately labelled eight-image diagnostic pass was then run against that revision with no silent retries:
+
+- all eight rows were marked `DIAGNOSTIC_UNSCORED` and `scored: false`; the frozen scored findings above remain unchanged;
+- six responses were schema-valid and all six matched their reviewed category, with zero misclassifications;
+- `TB-IMG-006` reproduced as a failure for a third consecutive pass, but this call failed upstream as `MODEL_CALL_FAILED`; because no generated classification reached the validator, the schema-only diagnostic fields were correctly absent and the exact upstream cause remains unresolved;
+- `TB-IMG-008` failed local validation with subcode `MALFORMED_JSON`; its provider finish reason was `MAX_TOKENS`, generated-output length was 209 characters and candidate-token count was 60;
+- this is direct evidence of truncation for the `TB-IMG-008` diagnostic call despite the 512-token request ceiling: the provider stopped at `MAX_TOKENS` after reporting 60 candidate tokens, and the resulting partial JSON was rejected fail-closed;
+- the other six calls completed normally, and the temporary diagnostic account was deleted after the run;
+- sanitized diagnostic rows and the summary are committed, while the raw response envelopes remain only in the private evaluation archive.
+
+The follow-up therefore diagnoses one concrete instance of the broader image-path instability—`IMAGE_PATH_MAX_TOKENS_MALFORMED_JSON` for `TB-IMG-008`—without retroactively assigning that cause to the four historical schema failures. It also exposes a narrower remaining observability gap: schema rejections are now diagnosable, while generic upstream model-call failures such as the diagnostic `TB-IMG-006` response still lack a privacy-safe provider error subcode.

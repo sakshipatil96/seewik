@@ -7,12 +7,16 @@ const caseSetUrl = new URL('../../data/eval/classification-image-cases-v0.1-draf
 const run1Url = new URL('../../data/eval/results/classification-image-results-2026-08-28-day9-set5-run1.ndjson', import.meta.url);
 const run2Url = new URL('../../data/eval/results/classification-image-results-2026-08-28-day9-set5-run2.ndjson', import.meta.url);
 const repeatabilitySummaryUrl = new URL('../../data/eval/results/classification-image-repeatability-summary-2026-08-28-day9-set5.json', import.meta.url);
+const diagnosticRunUrl = new URL('../../data/eval/results/classification-image-results-2026-08-28-day9-set5-diagnostic1.ndjson', import.meta.url);
+const diagnosticSummaryUrl = new URL('../../data/eval/results/classification-image-summary-2026-08-28-day9-set5-diagnostic1.json', import.meta.url);
 const backendSourceUrl = new URL('../../backend/src/main/java/com/seewik/api/CivicClassificationService.java', import.meta.url);
 const frontendSourceUrl = new URL('../src/main.tsx', import.meta.url);
 const caseSet = JSON.parse(await readFile(caseSetUrl, 'utf8'));
 const run1 = (await readFile(run1Url, 'utf8')).trim().split('\n').map(JSON.parse);
 const run2 = (await readFile(run2Url, 'utf8')).trim().split('\n').map(JSON.parse);
 const repeatabilitySummary = JSON.parse(await readFile(repeatabilitySummaryUrl, 'utf8'));
+const diagnosticRun = (await readFile(diagnosticRunUrl, 'utf8')).trim().split('\n').map(JSON.parse);
+const diagnosticSummary = JSON.parse(await readFile(diagnosticSummaryUrl, 'utf8'));
 const backendSource = await readFile(backendSourceUrl, 'utf8');
 const frontendSource = await readFile(frontendSourceUrl, 'utf8');
 
@@ -118,4 +122,38 @@ test('Track B reports category correctness separately from image-path schema val
     { caseId: 'TB-IMG-006', occurrences: 2 },
   ]);
   assert.equal(repeatabilitySummary.namedFailureMode.rejectedProviderPayloadAvailable, false);
+});
+
+test('Track B diagnostic follow-up is unscored and preserves privacy-safe failure evidence', () => {
+  assert.equal(diagnosticSummary.gitSha, '34f6f8d03820a19513be947d4ea337eb9eaf1ba6');
+  assert.equal(diagnosticSummary.runMode, 'DIAGNOSTIC_UNSCORED');
+  assert.equal(diagnosticSummary.total, 8);
+  assert.equal(diagnosticSummary.scored, 0);
+  assert.equal(diagnosticSummary.accuracy, null);
+  assert.equal(diagnosticSummary.validResponses, 6);
+  assert.equal(diagnosticSummary.categoryCorrectOnValidResponses, 6);
+  assert.equal(diagnosticSummary.misclassifications, 0);
+  assert.equal(diagnosticRun.length, 8);
+  assert.equal(diagnosticRun.every(({ runMode, scored }) => runMode === 'DIAGNOSTIC_UNSCORED' && scored === false), true);
+
+  const failures = diagnosticRun.filter(({ failureClass }) => failureClass !== 'NONE');
+  assert.deepEqual(failures.map(({ case_id, failureClass, errorCode }) => ({ case_id, failureClass, errorCode })), [
+    { case_id: 'TB-IMG-006', failureClass: 'MODEL', errorCode: 'MODEL_CALL_FAILED' },
+    { case_id: 'TB-IMG-008', failureClass: 'SCHEMA', errorCode: 'SCHEMA_VALIDATION_FAILED' },
+  ]);
+
+  const schemaFailure = failures.find(({ case_id }) => case_id === 'TB-IMG-008');
+  assert.deepEqual({
+    validatorSubcode: schemaFailure.validatorSubcode,
+    generatedOutputLength: schemaFailure.generatedOutputLength,
+    finishReason: schemaFailure.finishReason,
+    candidatesTokenCount: schemaFailure.candidatesTokenCount,
+  }, {
+    validatorSubcode: 'MALFORMED_JSON',
+    generatedOutputLength: 209,
+    finishReason: 'MAX_TOKENS',
+    candidatesTokenCount: 60,
+  });
+  assert.equal(Object.hasOwn(schemaFailure, 'generatedOutput'), false);
+  assert.equal(Object.hasOwn(schemaFailure, 'description'), false);
 });
