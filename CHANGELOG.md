@@ -4,6 +4,7 @@ All notable changes to the versioned Civic Pack and its deterministic routing im
 
 ## Unreleased
 
+- Enforced Google-linked identity for every durable report, Initiative and technical-check write across backend, Firestore and Storage while preserving anonymous owner-scoped reads and transient civic assistance; added explicit `GOOGLE_LINK_REQUIRED` API responses, atomic rules deployment and a production direct-bypass acceptance script.
 - Replaced the signed-out My Reports false-empty state and raw `ACCOUNT_SIGNED_OUT` code with a localized recovery panel that explains saved work remains attached to Google; distinguished linked-empty and anonymous-empty states, reloads reports after sign-in, and removed misleading Refresh, Create Report and Start Over controls from signed-out report screens.
 - Froze the Day 9 language/boundary contract: English, Marathi and Hindi interface support; supported-device first-use language; persistent change-anytime selector; Marathi/English-only complaint drafts; and unchanged deterministic civic facts.
 - Classified the 20-polygon `official-map-digitized-v0.1` dataset as an approximate digitization from an official Nagar Parishad map image, not official GIS geometry; pinned its checksum and kept it inactive for resolver use pending georeference review.

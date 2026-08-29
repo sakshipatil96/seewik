@@ -1,6 +1,6 @@
 # Day 10 identity and recovery contract v0.1
 
-Status: frozen for local implementation on 2026-08-29. The existing enabled Google provider is approved for a deployed acceptance candidate; production write enforcement remains blocked until live authentication tests pass.
+Status: frozen on 2026-08-29. Live UID-preservation, collision and recovery acceptance passed. The owner approved activation of the Set 3 boundary with existing anonymous reads preserved and the next durable write paused for Google linking without clearing unfinished work.
 
 ## Identity states
 
@@ -72,8 +72,8 @@ If Google reports that the credential already belongs to another Firebase user:
 
 ## Sign-out and recovery
 
-Signing out never deletes civic data. A deliberate local marker suppresses automatic anonymous-account creation after sign-out. Signing in with the same Google account restores the same Firebase UID and therefore the same owner-protected records. Cross-browser/device recovery and the real collision path require live OAuth acceptance testing before release.
+Signing out never deletes civic data. A deliberate local marker suppresses automatic anonymous-account creation after sign-out. Signing in with the same Google account restores the same Firebase UID and therefore the same owner-protected records. Cross-browser recovery and the real collision path passed live OAuth acceptance testing. Physical Android Chrome popup-versus-redirect behavior remains a documented device-only follow-up.
 
 ## Enforcement boundary
 
-Sets 2, 4 and 5 provide the local client flow and the profile/audit rules needed by it. They do not activate the Set 3 production denial boundary. Anonymous-write rejection must be released atomically across frontend, backend and Firestore only after live Google linking, UID preservation, collision and recovery tests pass.
+Set 3 rejects anonymous durable writes at each independent boundary: backend report/Initiative mutations, direct Firestore report and technical-check writes, and technical Storage writes. The backend and rules inspect the linked identities map rather than only the provider used for the latest sign-in. Owner-scoped reads and transient classification, complaint wording, route and discovery behavior remain available. The release deploys backend, frontend, Firestore rules and Storage rules through green main with the previously healthy revision recorded for rollback.

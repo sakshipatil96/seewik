@@ -38,17 +38,21 @@ Frozen contract: `data/contracts/day10-identity-migration-contract-v0.1.md`.
 
 Local implementation complete. Real Google popup verification remains a pre-release Set 7 acceptance check.
 
+Emulated mobile acceptance complete at 390 × 844 in English, Marathi and Hindi. The account prompt, recovery state, focus and actions fit correctly. A physical Android Chrome popup-versus-redirect check remains explicitly deferred until a device is available; it does not weaken the server-side write boundary.
+
 ## Set 3 — Enforce linked ownership on every write
 
-- [ ] Extend the authenticated-citizen contract to distinguish anonymous sessions from Google-linked identities while preserving the UID.
-- [ ] Enforce Google-linked identity on backend Initiative mutations.
-- [ ] Enforce Google-linked identity on backend report lifecycle mutations and any server-created ledger effects.
-- [ ] Enforce the same rule in Firestore rules for direct report and draft writes.
-- [ ] Keep lifecycle events, Initiative events and points-ledger entries server-only and append-only.
-- [ ] Ensure a linked citizen can still read records owned by the unchanged UID.
-- [ ] Verify organiser-only Initiative transitions remain organiser-only after linking.
-- [ ] Confirm that anonymous users cannot bypass the gate with direct API or Firestore calls.
-- [ ] Keep read-only public/nearby discovery behavior aligned with the frozen Set 1 decision.
+- [x] Extend the authenticated-citizen contract to distinguish anonymous sessions from Google-linked identities while preserving the UID.
+- [x] Enforce Google-linked identity on backend Initiative mutations.
+- [x] Enforce Google-linked identity on backend report lifecycle mutations and any server-created ledger effects.
+- [x] Enforce the same rule in Firestore rules for direct report and draft writes.
+- [x] Keep lifecycle events, Initiative events and points-ledger entries server-only and append-only.
+- [x] Ensure a linked citizen can still read records owned by the unchanged UID.
+- [x] Verify organiser-only Initiative transitions remain organiser-only after linking.
+- [x] Confirm that anonymous users cannot bypass the gate with direct API, Firestore or Storage calls.
+- [x] Keep read-only public/nearby discovery behavior aligned with the frozen Set 1 decision.
+
+Set 3 release candidate complete. Anonymous ID tokens retain owner-scoped reads and transient assistance, while durable report, Initiative and technical-check writes require a non-empty `firebase.identities["google.com"]` claim. Production acceptance runs only after green-main deployment.
 
 ## Set 4 — Handle existing-account collisions safely
 
@@ -85,15 +89,15 @@ Production recovery acceptance complete. The signed-out/report-state correction 
 
 ## Set 6 — Identity regression and security gates
 
-- [ ] Update tests that currently assume anonymous writes while preserving their ownership assertions.
-- [ ] Add tests for UID preservation, token refresh and retried writes after successful linking.
-- [ ] Add tests for collision cancellation and existing-account-wins behavior.
-- [ ] Add tests proving no automatic merge, overwrite or cross-account data exposure.
-- [ ] Add Firestore-rule tests for anonymous denial and linked-owner acceptance.
-- [ ] Add backend tests for anonymous mutation denial and linked-Google mutation acceptance.
-- [ ] Re-run report, draft, lifecycle, points and Initiative regression suites.
-- [ ] Verify existing anonymous records are not migrated, re-keyed or deleted.
-- [ ] Verify profile and audit records contain no complaint or Initiative evidence.
+- [x] Update tests that currently assume anonymous writes while preserving their ownership assertions.
+- [x] Add tests for UID preservation, token refresh and retried writes after successful linking.
+- [x] Add tests for collision cancellation and existing-account-wins behavior.
+- [x] Add tests proving no automatic merge, overwrite or cross-account data exposure.
+- [x] Add Firestore-rule tests for anonymous denial; linked-owner acceptance was confirmed in production during UID-preservation testing.
+- [x] Add backend tests for anonymous mutation denial and linked-Google mutation acceptance.
+- [x] Re-run report, draft, lifecycle, points and Initiative regression suites.
+- [x] Verify existing anonymous records are not migrated, re-keyed or deleted.
+- [x] Verify profile and audit records contain no complaint or Initiative evidence.
 
 ## Set 7 — Final verification, documentation and deployment
 

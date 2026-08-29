@@ -29,8 +29,10 @@ public class InitiativeController {
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestBody(required = false) InitiativeService.CreateRequest request) {
         try {
-            var citizen = identityVerifier.verifyBearer(authorization);
+            var citizen = CitizenIdentityVerifier.requireGoogleLinked(identityVerifier.verifyBearer(authorization));
             return ResponseEntity.status(HttpStatus.CREATED).body(initiativeService.create(citizen.uid(), request));
+        } catch (CitizenIdentityVerifier.LinkedIdentityRequiredException exception) {
+            return googleLinkRequired(exception);
         } catch (CitizenIdentityVerifier.AuthenticationException exception) {
             return unauthorized(exception);
         } catch (InitiativeService.InitiativeException exception) {
@@ -43,7 +45,6 @@ public class InitiativeController {
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestBody(required = false) InitiativeService.DiscoveryRequest request) {
         try {
-            identityVerifier.verifyBearer(authorization);
             var citizen = identityVerifier.verifyBearer(authorization);
             InitiativeService.DiscoveryRequest ownedRequest = request == null
                     ? new InitiativeService.DiscoveryRequest(citizen.uid(), null, null, null)
@@ -75,8 +76,10 @@ public class InitiativeController {
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestBody(required = false) InitiativeService.CancelRequest request) {
         try {
-            var citizen = identityVerifier.verifyBearer(authorization);
+            var citizen = CitizenIdentityVerifier.requireGoogleLinked(identityVerifier.verifyBearer(authorization));
             return ResponseEntity.ok(initiativeService.cancel(citizen.uid(), initiativeId, request));
+        } catch (CitizenIdentityVerifier.LinkedIdentityRequiredException exception) {
+            return googleLinkRequired(exception);
         } catch (CitizenIdentityVerifier.AuthenticationException exception) {
             return unauthorized(exception);
         } catch (InitiativeService.InitiativeException exception) {
@@ -89,8 +92,10 @@ public class InitiativeController {
             @PathVariable String initiativeId,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
         try {
-            var citizen = identityVerifier.verifyBearer(authorization);
+            var citizen = CitizenIdentityVerifier.requireGoogleLinked(identityVerifier.verifyBearer(authorization));
             return ResponseEntity.ok(initiativeService.complete(citizen.uid(), initiativeId));
+        } catch (CitizenIdentityVerifier.LinkedIdentityRequiredException exception) {
+            return googleLinkRequired(exception);
         } catch (CitizenIdentityVerifier.AuthenticationException exception) {
             return unauthorized(exception);
         } catch (InitiativeService.InitiativeException exception) {
@@ -103,8 +108,10 @@ public class InitiativeController {
             @PathVariable String initiativeId,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
         try {
-            var citizen = identityVerifier.verifyBearer(authorization);
+            var citizen = CitizenIdentityVerifier.requireGoogleLinked(identityVerifier.verifyBearer(authorization));
             return ResponseEntity.ok(initiativeService.join(citizen.uid(), initiativeId));
+        } catch (CitizenIdentityVerifier.LinkedIdentityRequiredException exception) {
+            return googleLinkRequired(exception);
         } catch (CitizenIdentityVerifier.AuthenticationException exception) {
             return unauthorized(exception);
         } catch (InitiativeService.InitiativeException exception) {
@@ -116,6 +123,12 @@ public class InitiativeController {
             CitizenIdentityVerifier.AuthenticationException exception) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(error("AUTHENTICATION_REQUIRED", exception.getMessage()));
+    }
+
+    private static ResponseEntity<Map<String, String>> googleLinkRequired(
+            CitizenIdentityVerifier.LinkedIdentityRequiredException exception) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(error("GOOGLE_LINK_REQUIRED", exception.getMessage()));
     }
 
     private static ResponseEntity<Map<String, String>> failure(InitiativeService.InitiativeException exception) {

@@ -7,7 +7,8 @@ service cloud.firestore {
 
     function googleLinked() {
       return signedIn()
-        && request.auth.token.firebase.identities["google.com"] != null;
+        && request.auth.token.firebase.identities["google.com"] != null
+        && request.auth.token.firebase.identities["google.com"].size() > 0;
     }
 
     function ownsReport(reportId) {
@@ -66,7 +67,8 @@ service cloud.firestore {
     }
 
     match /day1_checks/{uid} {
-      allow read, write: if signedIn() && request.auth.uid == uid;
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if googleLinked() && request.auth.uid == uid;
     }
 
     match /profiles/{uid} {
@@ -104,13 +106,13 @@ service cloud.firestore {
     }
 
     match /reports/{reportId} {
-      allow create: if signedIn()
+      allow create: if googleLinked()
         && request.resource.data.ownerUid == request.auth.uid
         && validDraft(request.resource.data);
 
       allow read: if signedIn() && resource.data.ownerUid == request.auth.uid;
 
-      allow update: if signedIn()
+      allow update: if googleLinked()
         && resource.data.ownerUid == request.auth.uid
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.createdAt == resource.data.createdAt
@@ -118,7 +120,7 @@ service cloud.firestore {
           .hasOnly(['draftSubject', 'draftBody', 'updatedAt'])
         && validDraft(request.resource.data);
 
-      allow delete: if signedIn()
+      allow delete: if googleLinked()
         && resource.data.ownerUid == request.auth.uid
         && resource.data.status == 'DRAFT';
     }

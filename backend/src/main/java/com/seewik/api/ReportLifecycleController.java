@@ -30,12 +30,16 @@ public class ReportLifecycleController {
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestBody(required = false) ReportLifecycleService.TransitionRequest request) {
         try {
-            CitizenIdentityVerifier.AuthenticatedCitizen citizen = identityVerifier.verifyBearer(authorization);
+            CitizenIdentityVerifier.AuthenticatedCitizen citizen = CitizenIdentityVerifier.requireGoogleLinked(
+                    identityVerifier.verifyBearer(authorization));
             ReportLifecycleService.TransitionResponse response =
                     lifecycleService.transition(citizen.uid(), reportId, request);
             return "POSSIBLE_DUPLICATE".equals(response.status())
                     ? ResponseEntity.status(HttpStatus.CONFLICT).body(response)
                     : ResponseEntity.ok(response);
+        } catch (CitizenIdentityVerifier.LinkedIdentityRequiredException exception) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(error("GOOGLE_LINK_REQUIRED", exception.getMessage()));
         } catch (CitizenIdentityVerifier.AuthenticationException exception) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(error("AUTHENTICATION_REQUIRED", exception.getMessage()));

@@ -58,6 +58,19 @@ class ReportLifecycleControllerTest {
     }
 
     @Test
+    void anonymousFirebaseTokenCannotBypassLifecycleWriteGate() throws Exception {
+        when(verifier.verifyBearer("Bearer anonymous-token"))
+                .thenReturn(new CitizenIdentityVerifier.AuthenticatedCitizen("anonymous-owner", false));
+        mvc.perform(post("/api/reports/report-1/transitions")
+                        .header("Authorization", "Bearer anonymous-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(filedRequest()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value("GOOGLE_LINK_REQUIRED"));
+        verify(service, never()).transition(any(), any(), any());
+    }
+
+    @Test
     void crossOwnerTransitionReturnsForbidden() throws Exception {
         when(verifier.verifyBearer("Bearer valid-token"))
                 .thenReturn(new CitizenIdentityVerifier.AuthenticatedCitizen("owner-2"));

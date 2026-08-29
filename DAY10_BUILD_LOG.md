@@ -112,3 +112,37 @@ Release status: local only. Not committed, pushed or deployed. Set 3 anonymous-w
 - Dependency audit: zero vulnerabilities.
 - Repository content policy, boundary integrity and whitespace checks: passed.
 - Local visual acceptance passed on My Reports at the default desktop viewport and 390 × 844 phone viewport in English, Marathi and Hindi. Recovery copy wrapped correctly, the primary action remained visible and no misleading report controls appeared.
+
+## 2026-08-29 — Next 2 mobile emulation and Set 3 enforcement candidate
+
+### Approved existing-anonymous policy
+
+- Existing anonymous users retain owner-scoped read access to reports, drafts, points and Initiative membership state.
+- Their next durable write opens the Google-link explanation and preserves unfinished in-memory work while authentication is cancelled or completed.
+- No anonymous record is migrated, re-keyed, merged or deleted by enforcement activation.
+
+### Next 2 — mobile acceptance
+
+- Verified the account prompt and signed-out recovery state at 390 × 844 in English, Marathi and Hindi.
+- Headings, privacy copy and Google/Not now actions wrap without overflow; focusable controls remain reachable.
+- No Google credential action was started during emulation.
+- Physical Android Chrome popup-versus-redirect behavior is explicitly deferred until a device is available.
+
+### Next 3 — independent write enforcement
+
+- Added a verified-token identity flag derived from the non-empty Firebase `firebase.identities["google.com"]` list.
+- Backend Initiative create/join/cancel/complete and report lifecycle transitions return HTTP 403 with `GOOGLE_LINK_REQUIRED` before reaching persistence for an anonymous token.
+- Anonymous nearby discovery, My Initiatives reads, classification, complaint wording and owner-scoped record reads remain available.
+- Firestore report create/update/delete and technical-check writes now require the linked Google identity; report and points reads remain owner-scoped and available.
+- Storage technical-check writes now require the same identity claim.
+- The protected deployment now publishes Hosting, Firestore rules and Storage rules together.
+- Added a privacy-safe production bypass script that creates one temporary anonymous test account, performs no successful write, verifies direct API/Firestore/Storage denial plus preserved reads, and removes the temporary account in cleanup.
+
+### Pre-release verification and rollback
+
+- Rollback app commit: `665dabcd193455fbdf0ebb7f9d450b6fe6b7c975`.
+- Rollback Cloud Run revision: `seewik-api-00048-jut`, healthy at 100% before this candidate.
+- Backend suite: 182 passed.
+- Frontend suite: 33 passed; production build passed with the existing deferred initial-bundle warning.
+- Firebase Rules API syntax and semantic tests returned no issues for `firestore.rules` or `storage.rules`; neither test published a ruleset.
+- Repository content policy and whitespace checks passed before commit.

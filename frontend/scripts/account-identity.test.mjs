@@ -51,7 +51,7 @@ test('caught Google failures expose only a privacy-safe diagnostic code', async 
 
 test('production deploy includes the profile security rules required after linking', async () => {
   const workflow = await readFile(new URL('../../.github/workflows/deploy.yml', import.meta.url), 'utf8');
-  assert.match(workflow, /--only hosting,firestore:rules/);
+  assert.match(workflow, /--only hosting,firestore:rules,storage/);
 });
 
 test('profile contract is versioned, UID-preserving, and contains no copied Google PII', () => {
@@ -105,6 +105,22 @@ test('Firestore profile and audit writes require a linked Google token', async (
   assert.match(rules, /match \/profiles\/\{uid\}/);
   assert.match(rules, /match \/accountAuditEvents\/\{eventId\}/);
   assert.match(rules, /allow delete: if false;/);
+});
+
+test('anonymous callers cannot bypass report or technical write gates', async () => {
+  const firestoreRules = await readFile(new URL('../../firestore.rules', import.meta.url), 'utf8');
+  const storageRules = await readFile(new URL('../../storage.rules', import.meta.url), 'utf8');
+  const initiativeController = await readFile(new URL('../../backend/src/main/java/com/seewik/api/InitiativeController.java', import.meta.url), 'utf8');
+  const lifecycleController = await readFile(new URL('../../backend/src/main/java/com/seewik/api/ReportLifecycleController.java', import.meta.url), 'utf8');
+  assert.match(firestoreRules, /match \/day1_checks\/\{uid\}[\s\S]*?allow write: if googleLinked\(\)/);
+  assert.match(firestoreRules, /match \/reports\/\{reportId\}[\s\S]*?allow create: if googleLinked\(\)/);
+  assert.match(firestoreRules, /allow update: if googleLinked\(\)/);
+  assert.match(firestoreRules, /allow delete: if googleLinked\(\)/);
+  assert.match(storageRules, /allow write: if googleLinked\(\)/);
+  assert.match(initiativeController, /requireGoogleLinked/);
+  assert.match(lifecycleController, /requireGoogleLinked/);
+  assert.match(initiativeController, /GOOGLE_LINK_REQUIRED/);
+  assert.match(lifecycleController, /GOOGLE_LINK_REQUIRED/);
 });
 
 test('linking preserves the UID, refreshes the token, and deliberate sign-out suppresses anonymous recreation', async () => {

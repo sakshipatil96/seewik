@@ -19,6 +19,9 @@ class InitiativeControllerTest {
     @BeforeEach
     void setUp() {
         CitizenIdentityVerifier verifier = header -> {
+            if ("Bearer anonymous".equals(header)) {
+                return new CitizenIdentityVerifier.AuthenticatedCitizen("anonymous-1", false);
+            }
             if (!"Bearer valid".equals(header)) {
                 throw new CitizenIdentityVerifier.AuthenticationException("A Firebase ID token is required");
             }
@@ -88,6 +91,39 @@ class InitiativeControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("JOINED"))
                 .andExpect(jsonPath("$.participantCount").value(2));
+    }
+
+    @Test
+    void anonymousCitizenCanDiscoverButCannotBypassInitiativeWriteGate() throws Exception {
+        mvc.perform(post("/api/initiatives/nearby")
+                        .header("Authorization", "Bearer anonymous")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"latitude\":21.36,\"longitude\":74.24}"))
+                .andExpect(status().isOk());
+
+        mvc.perform(post("/api/initiatives")
+                        .header("Authorization", "Bearer anonymous")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value("GOOGLE_LINK_REQUIRED"));
+
+        mvc.perform(post("/api/initiatives/init-1/join")
+                        .header("Authorization", "Bearer anonymous"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value("GOOGLE_LINK_REQUIRED"));
+
+        mvc.perform(post("/api/initiatives/init-1/cancel")
+                        .header("Authorization", "Bearer anonymous")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Rain\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value("GOOGLE_LINK_REQUIRED"));
+
+        mvc.perform(post("/api/initiatives/init-1/complete")
+                        .header("Authorization", "Bearer anonymous"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value("GOOGLE_LINK_REQUIRED"));
     }
 
     @Test

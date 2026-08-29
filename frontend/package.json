@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "scripts": {"dev":"vite","build":"tsc -b && vite build","preview":"vite preview","test":"node --experimental-strip-types --test scripts/*.test.mjs","test:firestore-rules":"node scripts/test-firestore-draft-ownership.mjs","test:initiative-rules":"node scripts/test-firestore-initiative-protection.mjs"},
+  "scripts": {"dev":"vite","build":"tsc -b && vite build","preview":"vite preview","test":"node --experimental-strip-types --test scripts/*.test.mjs","test:firestore-rules":"node scripts/test-firestore-draft-ownership.mjs","test:initiative-rules":"node scripts/test-firestore-initiative-protection.mjs","test:google-write-enforcement":"node scripts/test-google-write-enforcement.mjs"},
   "dependencies": {"@vitejs/plugin-react":"latest","firebase":"latest","vite":"latest","react":"latest","react-dom":"latest"},
   "devDependencies": {"@types/react":"latest","@types/react-dom":"latest","typescript":"latest"}
 }
