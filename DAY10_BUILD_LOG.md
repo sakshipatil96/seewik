@@ -187,3 +187,10 @@ Release status: local only. Not committed, pushed or deployed. Set 3 anonymous-w
 - All Day 10 work that does not require a physical Android device is complete.
 - Physical Android Chrome Google popup-versus-redirect behavior remains the only device-dependent acceptance item.
 - Attendance and the carried performance work begin under `DAY11_CHECKLIST.md`.
+
+### Closeout release
+
+- Closeout commit: `5b67ce97b08ec92ef12dd9bbdcc56ee7484b3e66`.
+- Quality workflow `33298520210`: passed.
+- Deployment workflow `33298564024`: passed, including candidate health, traffic routing, Hosting, Firestore rules, Storage rules and production route verification.
+- Active backend revision: `seewik-api-00058-viy`, 100% production traffic.
