@@ -146,3 +146,16 @@ Release status: local only. Not committed, pushed or deployed. Set 3 anonymous-w
 - Frontend suite: 33 passed; production build passed with the existing deferred initial-bundle warning.
 - Firebase Rules API syntax and semantic tests returned no issues for `firestore.rules` or `storage.rules`; neither test published a ruleset.
 - Repository content policy and whitespace checks passed before commit.
+
+### Production release and direct-bypass acceptance
+
+- Checked and deployed app commit: `47b2a74d7d47d31ce7020b7bd77d0c7ab792feba`.
+- Quality workflow: `33281783161`, passed.
+- Deployment workflow: `33281831787`. Its first attempt failed while resolving the default Firebase Storage bucket because the deployer lacked `firebasestorage.defaultBucket.get`; the workflow restored `seewik-api-00048-jut` to 100% and removed the failed candidate tag.
+- Named deployment finding: `STORAGE_RULES_DEPLOYER_BUCKET_LOOKUP_PERMISSION_GAP`.
+- Remediation: added only the read-only `roles/firebasestorage.viewer` role to `seewik-deployer@seewik.iam.gserviceaccount.com`, then reran the unchanged green commit.
+- The deployment retry passed backend candidate verification, traffic routing, Hosting, Firestore rules, Storage rules and production route verification.
+- Active backend revision: `seewik-api-00055-juy`, 100% traffic, labelled with the deployed app commit.
+- Production bypass result: anonymous owner-scoped report, points and Initiative reads remained available; Initiative API mutations, report lifecycle mutations, direct report writes, technical Firestore writes and technical Storage writes were denied.
+- The acceptance script created one temporary anonymous account, made no successful civic write and removed the account during cleanup.
+- Commit identifiers at acceptance close: app/deployed/checked `47b2a74d7d47d31ce7020b7bd77d0c7ab792feba`; local and remote documentation head are recorded by the following closeout commit.

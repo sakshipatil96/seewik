@@ -52,7 +52,7 @@ Emulated mobile acceptance complete at 390 × 844 in English, Marathi and Hindi.
 - [x] Confirm that anonymous users cannot bypass the gate with direct API, Firestore or Storage calls.
 - [x] Keep read-only public/nearby discovery behavior aligned with the frozen Set 1 decision.
 
-Set 3 release candidate complete. Anonymous ID tokens retain owner-scoped reads and transient assistance, while durable report, Initiative and technical-check writes require a non-empty `firebase.identities["google.com"]` claim. Production acceptance runs only after green-main deployment.
+Set 3 is active in production. Anonymous ID tokens retain owner-scoped reads and transient assistance, while durable report, Initiative and technical-check writes require a non-empty `firebase.identities["google.com"]` claim. The direct production bypass check passed after green-main deployment.
 
 ## Set 4 — Handle existing-account collisions safely
 
@@ -104,10 +104,10 @@ Production recovery acceptance complete. The signed-out/report-state correction 
 This carries forward the former Day 9 Set 7 after the identity change is complete.
 
 - [ ] Update `DAY10_BUILD_LOG.md`, `CHANGELOG.md`, the Day 9 closure note and the parent project guide.
-- [ ] Run affected backend and frontend gates.
-- [ ] Run repository-content, dataset-integrity and whitespace checks.
-- [ ] Deploy only from green `main` and preserve the previous healthy revision for rollback.
-- [ ] Verify a new anonymous session is prompted to link Google before its first write.
+- [x] Run affected backend and frontend gates.
+- [x] Run repository-content, dataset-integrity and whitespace checks.
+- [x] Deploy only from green `main` and preserve the previous healthy revision for rollback.
+- [x] Verify a new anonymous session is prompted to link Google before its first write.
 - [x] Verify successful linking preserves the UID and existing records.
 - [x] Verify the collision flow does not crash, merge data or expose the losing UID's records.
 - [x] Verify same-account recovery on a separate clean browser session.
@@ -115,7 +115,7 @@ This carries forward the former Day 9 Set 7 after the identity change is complet
 - [ ] Verify reports, drafts, points and Initiative organiser/participant ownership in production.
 - [ ] Verify production routes, all three languages, boundary fallbacks, narrow layouts and browser console.
 - [ ] Preserve representative privacy-safe production screenshots in English, Marathi and Hindi.
-- [ ] Record app, local, remote, checked and deployed commit identifiers separately.
+- [x] Record app, local, remote, checked and deployed commit identifiers separately.
 
 ## Explicitly deferred
 
