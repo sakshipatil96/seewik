@@ -140,6 +140,22 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /initiatives/{initiativeId} {
+      allow read, create, update, delete: if false;
+
+      match /events/{eventId} {
+        allow read, create, update, delete: if false;
+      }
+    }
+
+    match /initiativeParticipations/{participationId} {
+      allow read, create, update, delete: if false;
+    }
+
+    match /initiativeAttendanceAttempts/{attemptId} {
+      allow read, create, update, delete: if false;
+    }
+
     match /analyticsOutbox/{outboxId} {
       allow read, write: if false;
     }

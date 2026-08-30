@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://seewik.web.app/schemas/points-ledger-v0.3.json",
+  "title": "Seewik immutable contribution ledger entry",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "ledgerEntryId",
+    "ownerUid",
+    "sourceType",
+    "sourceId",
+    "triggerEventId",
+    "triggeringEvent",
+    "reason",
+    "basePoints",
+    "weight",
+    "awardedPoints",
+    "policyStatus",
+    "occurredAt",
+    "schemaVersion",
+    "rewardPolicyVersion"
+  ],
+  "properties": {
+    "ledgerEntryId": {"type": "string", "minLength": 1},
+    "ownerUid": {"type": "string", "minLength": 1},
+    "sourceType": {"enum": ["REPORT", "INITIATIVE"]},
+    "sourceId": {"type": "string", "minLength": 1},
+    "triggerEventId": {"type": "string", "minLength": 1},
+    "triggeringEvent": {
+      "enum": [
+        "REPORT_FILED",
+        "FIX_VERIFIED",
+        "INITIATIVE_CREATED",
+        "INITIATIVE_JOINED",
+        "INITIATIVE_ATTENDANCE_SELF_ATTESTED",
+        "INITIATIVE_ATTENDANCE_ORGANISER_CODE_ATTESTED",
+        "INITIATIVE_ORGANISER_COMPLETED_REWARDED"
+      ]
+    },
+    "reason": {"type": "string", "minLength": 1},
+    "basePoints": {"enum": [0, 5, 20, 40, 60]},
+    "weight": {"enum": [0.0, 1.0]},
+    "awardedPoints": {"enum": [0, 5, 20, 40, 60]},
+    "pointsAwarded": {"enum": [0, 5, 20, 40, 60]},
+    "policyStatus": {"enum": ["RECORDED_NOT_REWARDED", "AWARDED"]},
+    "schemaVersion": {"const": "points-ledger-v0.3"},
+    "rewardPolicyVersion": {"const": "reward-policy-v0.2"}
+  }
+}

@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -16,12 +17,19 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
 public class InitiativeService {
-    static final String SCHEMA_VERSION = "initiative-v0.1";
-    static final String LEDGER_SCHEMA_VERSION = "points-ledger-v0.2";
+    static final String SCHEMA_VERSION = "initiative-v0.2";
+    static final String ATTENDANCE_SCHEMA_VERSION = "initiative-attendance-v0.1";
+    static final String LEDGER_SCHEMA_VERSION = "points-ledger-v0.3";
+    static final String REWARD_POLICY_VERSION = "reward-policy-v0.2";
+    static final int CODE_ATTENDANCE_POINTS = 20;
+    static final int ORGANISER_COMPLETION_POINTS = 40;
+    static final Duration CODE_WINDOW = Duration.ofHours(3);
+    static final Duration SELF_ATTENDANCE_WINDOW = Duration.ofDays(7);
     static final double DEFAULT_RADIUS_KM = 5.0;
     static final double MAX_RADIUS_KM = 25.0;
     private static final Set<String> CATEGORIES = Set.of(
@@ -29,15 +37,27 @@ public class InitiativeService {
 
     private final InitiativeGateway gateway;
     private final Clock clock;
+    private final AttendanceCodeService attendanceCodes;
 
     @Autowired
-    public InitiativeService(InitiativeGateway gateway) {
+    public InitiativeService(
+            InitiativeGateway gateway,
+            @Value("${seewik.attendance-code-secret:}") String attendanceCodeSecret) {
+        this(gateway, Clock.systemUTC(), new AttendanceCodeService(attendanceCodeSecret));
+    }
+
+    InitiativeService(InitiativeGateway gateway) {
         this(gateway, Clock.systemUTC());
     }
 
     InitiativeService(InitiativeGateway gateway, Clock clock) {
+        this(gateway, clock, new AttendanceCodeService("unit-test-attendance-secret-32-bytes-minimum"));
+    }
+
+    InitiativeService(InitiativeGateway gateway, Clock clock, AttendanceCodeService attendanceCodes) {
         this.gateway = gateway;
         this.clock = clock;
+        this.attendanceCodes = attendanceCodes;
     }
 
     public InitiativeView create(String ownerUid, CreateRequest request) {
@@ -72,7 +92,8 @@ public class InitiativeService {
                 ledgerEntryId, initiativeId, eventId, ownerUid, "INITIATIVE_CREATED", now);
         Map<String, Object> saved = gateway.create(
                 ownerUid, initiativeId, initiative, event, participation, ledger);
-        return view(saved, 0.0, "ORGANISER");
+        return view(saved, 0.0, new InitiativeGateway.CitizenInitiative(
+                saved, "ORGANISER", participation, 0, 0, 0));
     }
 
     public DiscoveryResponse discover(DiscoveryRequest request) {
@@ -89,13 +110,15 @@ public class InitiativeService {
         for (InitiativeGateway.CitizenInitiative item : gateway.listPublished(request.ownerUid())) {
             Map<String, Object> initiative = item.initiative();
             Instant startAt = instant(initiative.get("startAt"));
-            if (startAt == null || startAt.isBefore(now)) continue;
+            if (startAt == null || now.isAfter(startAt.plus(CODE_WINDOW))) continue;
+            String status = String.valueOf(initiative.get("status"));
+            if (!"PUBLISHED".equals(status) && !"COMPLETED".equals(status)) continue;
             double distanceKm = haversineKm(
                     latitude,
                     longitude,
                     number(initiative.get("latitude")),
                     number(initiative.get("longitude")));
-            if (distanceKm <= radiusKm) nearby.add(view(initiative, distanceKm, item.role()));
+            if (distanceKm <= radiusKm) nearby.add(view(initiative, distanceKm, item));
         }
         nearby.sort(Comparator.comparingDouble(InitiativeView::distanceKm)
                 .thenComparing(InitiativeView::startAt));
@@ -114,7 +137,7 @@ public class InitiativeService {
 
     public MyInitiativesResponse mine(String ownerUid) {
         List<InitiativeView> activities = gateway.listForCitizen(ownerUid).stream()
-                .map(item -> view(item.initiative(), 0.0, item.role()))
+                .map(item -> view(item.initiative(), 0.0, item))
                 .sorted(Comparator.comparing(InitiativeView::startAt).reversed())
                 .toList();
         return new MyInitiativesResponse("MY_INITIATIVES", activities.size(), activities);
@@ -144,7 +167,75 @@ public class InitiativeService {
                 initiativeId,
                 targetStatus,
                 result.idempotentReplay(),
-                0);
+                result.pointsAwarded());
+    }
+
+    public AttendanceCodeResponse attendanceCode(String ownerUid, String initiativeId) {
+        String cleanId = clean(initiativeId, 80, "INVALID_INITIATIVE_ID", "Initiative ID is required");
+        InitiativeGateway.AttendanceContext context = gateway.attendanceContext(ownerUid, cleanId);
+        if (!"ORGANISER".equals(context.participation().get("role"))) {
+            throw new InitiativeException("INITIATIVE_FORBIDDEN", "Only the organiser can view this attendance code");
+        }
+        Instant now = clock.instant();
+        AttendanceWindow window = codeWindow(context.initiative());
+        if ("CANCELLED".equals(context.initiative().get("status"))) {
+            throw new InitiativeException("ATTENDANCE_UNAVAILABLE", "Attendance is unavailable for a cancelled activity");
+        }
+        if (now.isBefore(window.startAt()) || now.isAfter(window.endsAt())) {
+            throw new InitiativeException("ATTENDANCE_CODE_WINDOW_CLOSED", "The organiser code is outside its three-hour window");
+        }
+        String code = attendanceCodes.codeFor(cleanId, now);
+        Instant slotEndsAt = Instant.ofEpochSecond((attendanceCodes.slot(now) + 1) * AttendanceCodeService.SLOT_SECONDS);
+        Instant rotatesAt = slotEndsAt.isBefore(window.endsAt()) ? slotEndsAt : window.endsAt();
+        return new AttendanceCodeResponse(
+                "ATTENDANCE_CODE_ACTIVE",
+                cleanId,
+                code,
+                rotatesAt.toString(),
+                window.endsAt().toString(),
+                ATTENDANCE_SCHEMA_VERSION);
+    }
+
+    public AttendanceResponse selfAttend(String ownerUid, String initiativeId) {
+        String cleanId = clean(initiativeId, 80, "INVALID_INITIATIVE_ID", "Initiative ID is required");
+        return attendanceResponse(gateway.recordSelfAttendance(ownerUid, cleanId, clock.instant()));
+    }
+
+    public AttendanceResponse codeAttend(String ownerUid, String initiativeId, AttendanceCodeRequest request) {
+        String cleanId = clean(initiativeId, 80, "INVALID_INITIATIVE_ID", "Initiative ID is required");
+        String submitted = request == null || request.code() == null ? "" : request.code().strip();
+        Instant now = clock.instant();
+        InitiativeGateway.AttendanceResult result = gateway.recordCodeAttendance(
+                ownerUid,
+                cleanId,
+                now,
+                attendanceCodes.slot(now),
+                attendanceCodes.matches(cleanId, now, submitted));
+        if ("ATTENDANCE_CODE_INVALID".equals(result.status())) {
+            throw new InitiativeException("ATTENDANCE_CODE_INVALID", "The attendance code is incorrect");
+        }
+        if ("ATTENDANCE_RATE_LIMITED".equals(result.status())) {
+            throw new InitiativeException("ATTENDANCE_RATE_LIMITED", "Too many incorrect codes; wait for the next code");
+        }
+        return attendanceResponse(result);
+    }
+
+    private static AttendanceResponse attendanceResponse(InitiativeGateway.AttendanceResult result) {
+        Map<String, Object> participation = result.participation();
+        return new AttendanceResponse(
+                result.idempotentReplay() ? "ATTENDANCE_ALREADY_RECORDED" : "ATTENDANCE_RECORDED",
+                String.valueOf(result.initiative().get("initiativeId")),
+                String.valueOf(participation.getOrDefault("attendanceStatus", "")),
+                String.valueOf(participation.getOrDefault("attendanceBasis", "")),
+                String.valueOf(participation.getOrDefault("attendanceReportedAt", "")),
+                result.joinerCount(),
+                result.selfAttendanceCount(),
+                result.codeAttendanceCount(),
+                result.idempotentReplay(),
+                result.participantPointsAwarded(),
+                result.organiserPointsAwarded(),
+                ATTENDANCE_SCHEMA_VERSION,
+                REWARD_POLICY_VERSION);
     }
 
     static Map<String, Object> event(
@@ -156,6 +247,22 @@ public class InitiativeService {
         event.put("actorUidHash", hash(ownerUid));
         event.put("occurredAt", occurredAt.toString());
         event.put("schemaVersion", SCHEMA_VERSION);
+        return event;
+    }
+
+    static Map<String, Object> attendanceEvent(
+            String eventId,
+            String initiativeId,
+            String eventType,
+            String ownerUid,
+            String attendanceBasis,
+            int pointsAwarded,
+            Instant occurredAt) {
+        Map<String, Object> event = event(eventId, initiativeId, eventType, ownerUid, occurredAt);
+        event.put("attendanceStatus", "I_ATTENDED");
+        event.put("attendanceBasis", attendanceBasis);
+        event.put("pointsAwarded", pointsAwarded);
+        event.put("schemaVersion", ATTENDANCE_SCHEMA_VERSION);
         return event;
     }
 
@@ -199,6 +306,35 @@ public class InitiativeService {
         entry.put("policyStatus", "RECORDED_NOT_REWARDED");
         entry.put("occurredAt", occurredAt.toString());
         entry.put("schemaVersion", LEDGER_SCHEMA_VERSION);
+        entry.put("rewardPolicyVersion", REWARD_POLICY_VERSION);
+        return entry;
+    }
+
+    static Map<String, Object> rewardedLedger(
+            String ledgerEntryId,
+            String initiativeId,
+            String eventId,
+            String ownerUid,
+            String eventType,
+            int points,
+            Instant occurredAt) {
+        Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("ledgerEntryId", ledgerEntryId);
+        entry.put("ownerUid", ownerUid);
+        entry.put("sourceType", "INITIATIVE");
+        entry.put("sourceId", initiativeId);
+        entry.put("triggerEventId", eventId);
+        entry.put("triggeringEventId", eventId);
+        entry.put("triggeringEvent", eventType);
+        entry.put("reason", eventType);
+        entry.put("basePoints", points);
+        entry.put("weight", 1.0);
+        entry.put("awardedPoints", points);
+        entry.put("pointsAwarded", points);
+        entry.put("policyStatus", "AWARDED");
+        entry.put("occurredAt", occurredAt.toString());
+        entry.put("schemaVersion", LEDGER_SCHEMA_VERSION);
+        entry.put("rewardPolicyVersion", REWARD_POLICY_VERSION);
         return entry;
     }
 
@@ -299,7 +435,25 @@ public class InitiativeService {
         return 6371.0088 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
-    private static InitiativeView view(Map<String, Object> data, double distanceKm, String role) {
+    private InitiativeView view(
+            Map<String, Object> data,
+            double distanceKm,
+            InitiativeGateway.CitizenInitiative citizen) {
+        String role = citizen.role();
+        Map<String, Object> participation = citizen.participation();
+        Instant now = clock.instant();
+        Instant startAt = instant(data.get("startAt"));
+        Instant codeEndsAt = startAt == null ? null : startAt.plus(CODE_WINDOW);
+        Instant completedAt = instant(data.get("completedAt"));
+        String attendanceBasis = String.valueOf(participation.getOrDefault("attendanceBasis", ""));
+        boolean participant = "PARTICIPANT".equals(role);
+        boolean noAttendance = attendanceBasis.isBlank();
+        boolean codeWindowOpen = startAt != null && !now.isBefore(startAt) && !now.isAfter(codeEndsAt)
+                && !"CANCELLED".equals(data.get("status"));
+        boolean selfWindowOpen = completedAt != null
+                && !now.isBefore(completedAt)
+                && !now.isAfter(completedAt.plus(SELF_ATTENDANCE_WINDOW));
+        boolean showSelfAttendance = codeEndsAt != null && now.isAfter(codeEndsAt);
         return new InitiativeView(
                 String.valueOf(data.get("initiativeId")),
                 String.valueOf(data.get("title")),
@@ -315,7 +469,25 @@ public class InitiativeService {
                 role != null && !role.isBlank(),
                 role == null ? "" : role,
                 "ORGANISER".equals(role),
+                citizen.joinerCount(),
+                citizen.selfAttendanceCount(),
+                citizen.codeAttendanceCount(),
+                String.valueOf(participation.getOrDefault("attendanceStatus", "")),
+                attendanceBasis,
+                String.valueOf(participation.getOrDefault("attendanceReportedAt", "")),
+                codeEndsAt == null ? "" : codeEndsAt.toString(),
+                participant && noAttendance && codeWindowOpen,
+                participant && noAttendance && selfWindowOpen && showSelfAttendance,
+                "ORGANISER".equals(role) && codeWindowOpen,
                 String.valueOf(data.get("schemaVersion")));
+    }
+
+    private static AttendanceWindow codeWindow(Map<String, Object> initiative) {
+        Instant startAt = instant(initiative.get("startAt"));
+        if (startAt == null) {
+            throw new InitiativeException("ATTENDANCE_UNAVAILABLE", "The activity time could not be verified");
+        }
+        return new AttendanceWindow(startAt, startAt.plus(CODE_WINDOW));
     }
 
     private record ValidatedCreate(
@@ -350,6 +522,8 @@ public class InitiativeService {
 
     public record CancelRequest(String reason) {}
 
+    public record AttendanceCodeRequest(String code) {}
+
     public record InitiativeView(
             String initiativeId,
             String title,
@@ -365,6 +539,16 @@ public class InitiativeService {
             boolean joined,
             String role,
             boolean canManage,
+            int joinerCount,
+            int selfAttendanceCount,
+            int codeAttendanceCount,
+            String attendanceStatus,
+            String attendanceBasis,
+            String attendanceReportedAt,
+            String codeWindowEndsAt,
+            boolean canUseOrganiserCode,
+            boolean canSelfAttend,
+            boolean canViewAttendanceCode,
             String schemaVersion) {}
 
     public record DiscoveryResponse(
@@ -381,6 +565,31 @@ public class InitiativeService {
             String initiativeStatus,
             boolean idempotentReplay,
             int pointsAwarded) {}
+
+    public record AttendanceCodeResponse(
+            String status,
+            String initiativeId,
+            String code,
+            String rotatesAt,
+            String codeWindowEndsAt,
+            String schemaVersion) {}
+
+    public record AttendanceResponse(
+            String status,
+            String initiativeId,
+            String attendanceStatus,
+            String attendanceBasis,
+            String attendanceReportedAt,
+            int joinerCount,
+            int selfAttendanceCount,
+            int codeAttendanceCount,
+            boolean idempotentReplay,
+            int participantPointsAwarded,
+            int organiserPointsAwarded,
+            String schemaVersion,
+            String rewardPolicyVersion) {}
+
+    private record AttendanceWindow(Instant startAt, Instant endsAt) {}
 
     public static final class InitiativeException extends RuntimeException {
         private final String code;

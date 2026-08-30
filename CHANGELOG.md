@@ -4,6 +4,12 @@ All notable changes to the versioned Civic Pack and its deterministic routing im
 
 ## Unreleased
 
+- Added Google-linked, participant-owned Initiative attendance with a zero-point self-attested fallback after the organiser-code window and honest derived joiner counts that exclude the organiser.
+- Added server-generated six-digit organiser attendance codes that rotate every ten minutes, accept a two-minute boundary grace period only inside the three-hour event window, rate-limit incorrect entries per participant and slot, and never store plaintext codes.
+- Added append-only, idempotent Initiative attendance rewards: 20 points once per code-attending participant and 40 points once for a completed organiser after two distinct code attendees, regardless of whether completion or the attendance threshold occurs first.
+- Versioned the contribution ledger as `points-ledger-v0.3` under `reward-policy-v0.2`: first accepted filing remains 5 points, organiser-code attendance is 20, eligible completed organising is 40, first verified fix is 60 and self-attendance is zero; historical entries remain unchanged.
+- Extended late joining and discovery through `startAt + 3 hours`, including early-completed activities, blocked cancellation after the first code attendance and denied all direct Firestore client access to attendance records and attempt counters.
+- Added English, Marathi and Hindi attendance interfaces, numeric mobile code entry, production-isolated attendance acceptance coverage and 191 backend plus 37 frontend passing tests.
 - Closed the non-Android Day 10 acceptance with production owner-isolation coverage for drafts, points and Initiative roles, multilingual narrow-layout and boundary verification, zero console findings and privacy-safe English/Marathi/Hindi screenshots.
 - Enforced Google-linked identity for every durable report, Initiative and technical-check write across backend, Firestore and Storage while preserving anonymous owner-scoped reads and transient civic assistance; added explicit `GOOGLE_LINK_REQUIRED` API responses, atomic rules deployment and a production direct-bypass acceptance script.
 - Replaced the signed-out My Reports false-empty state and raw `ACCOUNT_SIGNED_OUT` code with a localized recovery panel that explains saved work remains attached to Google; distinguished linked-empty and anonymous-empty states, reloads reports after sign-in, and removed misleading Refresh, Create Report and Start Over controls from signed-out report screens.

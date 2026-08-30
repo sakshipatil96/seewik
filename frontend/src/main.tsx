@@ -196,6 +196,43 @@ type Initiative = {
   joined: boolean;
   role: string;
   canManage: boolean;
+  joinerCount: number;
+  selfAttendanceCount: number;
+  codeAttendanceCount: number;
+  attendanceStatus: string;
+  attendanceBasis: string;
+  attendanceReportedAt: string;
+  codeWindowEndsAt: string;
+  canUseOrganiserCode: boolean;
+  canSelfAttend: boolean;
+  canViewAttendanceCode: boolean;
+  schemaVersion: string;
+};
+
+type InitiativeAttendanceResponse = {
+  status: string;
+  initiativeId: string;
+  attendanceStatus: string;
+  attendanceBasis: string;
+  attendanceReportedAt: string;
+  joinerCount: number;
+  selfAttendanceCount: number;
+  codeAttendanceCount: number;
+  idempotentReplay: boolean;
+  participantPointsAwarded: number;
+  organiserPointsAwarded: number;
+  schemaVersion: string;
+  rewardPolicyVersion: string;
+  errorCode?: string;
+  message?: string;
+};
+
+type ActiveAttendanceCode = {
+  status: string;
+  initiativeId: string;
+  code: string;
+  rotatesAt: string;
+  codeWindowEndsAt: string;
   schemaVersion: string;
 };
 
@@ -313,6 +350,8 @@ function App() {
   const [myInitiatives, setMyInitiatives] = useState<Initiative[]>([]);
   const [initiativeStatus, setInitiativeStatus] = useState('');
   const [cancellationReasons, setCancellationReasons] = useState<Record<string, string>>({});
+  const [attendanceCodeInputs, setAttendanceCodeInputs] = useState<Record<string, string>>({});
+  const [activeAttendanceCodes, setActiveAttendanceCodes] = useState<Record<string, ActiveAttendanceCode>>({});
   const [initiativeCoordinates, setInitiativeCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
   const [initiativeRadiusKm, setInitiativeRadiusKm] = useState(5);
   const [initiativeTitle, setInitiativeTitle] = useState('');
@@ -618,6 +657,27 @@ function App() {
     return () => window.clearInterval(interval);
   }, [screen, initiativeCoordinates, initiativeRadiusKm]);
 
+  useEffect(() => {
+    if (screen !== 'initiatives') return;
+    const entries = Object.entries(activeAttendanceCodes);
+    if (!entries.length) return;
+    const nextRotation = Math.min(...entries.map(([, value]) => Date.parse(value.rotatesAt)));
+    const delay = Math.max(500, nextRotation - Date.now() + 250);
+    const timeout = window.setTimeout(() => {
+      for (const [initiativeId] of entries) {
+        loadAttendanceCode(initiativeId, true).catch(() => {
+          setActiveAttendanceCodes((values) => {
+            const updated = { ...values };
+            delete updated[initiativeId];
+            return updated;
+          });
+          loadMyInitiatives(true).catch(() => undefined);
+        });
+      }
+    }, delay);
+    return () => window.clearTimeout(timeout);
+  }, [screen, activeAttendanceCodes]);
+
   async function authenticatedToken() {
     return sessionToken();
   }
@@ -737,13 +797,82 @@ function App() {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.message ?? `Activity update failed (${response.status})`);
-    setMyInitiatives((items) => items.map((item) => item.initiativeId === initiativeId
-      ? { ...item, status: target, cancellationReason: target === 'CANCELLED' ? reason : item.cancellationReason }
-      : item));
     setInitiatives((items) => items.filter((item) => item.initiativeId !== initiativeId));
+    await loadMyInitiatives(true);
+    if (result.pointsAwarded) await refreshDerivedPoints();
     setInitiativeStatus(result.idempotentReplay
       ? `This activity was already ${target.toLowerCase()}.`
-      : `Activity ${target.toLowerCase()}. No points were awarded.`);
+      : result.pointsAwarded === 40
+        ? 'Activity completed. You earned 40 organiser points because two joiners used the organiser code.'
+        : target === 'COMPLETED'
+          ? 'Activity completed. The organiser award needs two code-attending joiners.'
+          : 'Activity cancelled.');
+  }
+
+  function applyAttendanceResult(result: InitiativeAttendanceResponse) {
+    setMyInitiatives((items) => items.map((item) => item.initiativeId === result.initiativeId
+      ? {
+          ...item,
+          attendanceStatus: result.attendanceStatus,
+          attendanceBasis: result.attendanceBasis,
+          attendanceReportedAt: result.attendanceReportedAt,
+          joinerCount: result.joinerCount,
+          selfAttendanceCount: result.selfAttendanceCount,
+          codeAttendanceCount: result.codeAttendanceCount,
+          canUseOrganiserCode: false,
+          canSelfAttend: false,
+        }
+      : item));
+  }
+
+  async function recordSelfAttendance(initiativeId: string) {
+    setInitiativeStatus('Recording your attendance report…');
+    const idToken = await authenticatedToken();
+    const response = await fetch(`${API_URL}/api/initiatives/${encodeURIComponent(initiativeId)}/attendance/self`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    const result: InitiativeAttendanceResponse = await response.json();
+    if (!response.ok) throw new Error(result.message ?? `Attendance could not be recorded (${response.status})`);
+    applyAttendanceResult(result);
+    setInitiativeStatus(result.idempotentReplay
+      ? 'Your self-reported attendance was already recorded.'
+      : 'Your attendance report was recorded. Self-attendance earns zero points.');
+  }
+
+  async function submitAttendanceCode(initiativeId: string) {
+    const code = attendanceCodeInputs[initiativeId]?.trim() ?? '';
+    if (!/^\d{6}$/.test(code)) {
+      setInitiativeStatus('Enter the six-digit organiser code.');
+      return;
+    }
+    setInitiativeStatus('Checking the organiser code…');
+    const idToken = await authenticatedToken();
+    const response = await fetch(`${API_URL}/api/initiatives/${encodeURIComponent(initiativeId)}/attendance/code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify({ code }),
+    });
+    const result: InitiativeAttendanceResponse = await response.json();
+    setAttendanceCodeInputs((values) => ({ ...values, [initiativeId]: '' }));
+    if (!response.ok) throw new Error(result.message ?? `Attendance code could not be accepted (${response.status})`);
+    applyAttendanceResult(result);
+    await refreshDerivedPoints();
+    setInitiativeStatus(result.idempotentReplay
+      ? 'Your organiser-code attendance was already recorded.'
+      : 'Attendance recorded using the organiser’s code. You earned 20 points.');
+  }
+
+  async function loadAttendanceCode(initiativeId: string, background = false) {
+    if (!background) setInitiativeStatus('Loading the organiser attendance code…');
+    const idToken = await authenticatedToken();
+    const response = await fetch(`${API_URL}/api/initiatives/${encodeURIComponent(initiativeId)}/attendance/code`, {
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message ?? `Attendance code could not be loaded (${response.status})`);
+    setActiveAttendanceCodes((values) => ({ ...values, [initiativeId]: result as ActiveAttendanceCode }));
+    if (!background) setInitiativeStatus('The organiser code is active. It rotates every 10 minutes.');
   }
 
   async function verifyFirebase() {
@@ -1255,7 +1384,7 @@ function App() {
     ['FILED', t('Citizen confirms manual filing · +5 demo points')],
     ['OVERDUE', t('Synthetic verified dueAt passes on the simulated clock')],
     ['CLAIMED_FIXED', t('Repair claim recorded')],
-    ['VERIFIED_FIXED', t('Citizen attestation recorded · +40 demo points')],
+    ['VERIFIED_FIXED', t('Citizen attestation recorded · +60 demo points')],
     ['REOPENED', t('Issue recurred; no points awarded')],
   ];
 
@@ -1324,11 +1453,37 @@ function App() {
                 <input id={`cancel-reason-${initiative.initiativeId}`} maxLength={300} value={cancellationReasons[initiative.initiativeId] ?? ''} onChange={(event) => setCancellationReasons((values) => ({ ...values, [initiative.initiativeId]: event.target.value }))} placeholder={t('Required only when cancelling')} />
               </label>
               <div className="draft-actions">
-                <button className="secondary" disabled={!cancellationReasons[initiative.initiativeId]?.trim()} onClick={() => requestLinkedMutation(() => changeInitiativeStatus(initiative.initiativeId, 'CANCELLED').catch((error) => setInitiativeStatus(error.message)))}>{t('Cancel activity')}</button>
+                <button className="secondary" disabled={!cancellationReasons[initiative.initiativeId]?.trim() || initiative.codeAttendanceCount > 0} title={initiative.codeAttendanceCount > 0 ? t('Cancellation is unavailable after code attendance is recorded') : undefined} onClick={() => requestLinkedMutation(() => changeInitiativeStatus(initiative.initiativeId, 'CANCELLED').catch((error) => setInitiativeStatus(error.message)))}>{t('Cancel activity')}</button>
                 <button disabled={Date.now() < Date.parse(initiative.startAt)} title={Date.now() < Date.parse(initiative.startAt) ? t('Available after the scheduled activity time') : undefined} onClick={() => requestLinkedMutation(() => changeInitiativeStatus(initiative.initiativeId, 'COMPLETED').catch((error) => setInitiativeStatus(error.message)))}>{t('Mark completed')}</button>
               </div>
             </div>}
-            <small>{t('Activity status changes and participation do not earn points.')}</small>
+            <div className="attendance-summary" aria-label={t('Attendance summary')}>
+              <p><strong>{initiative.codeAttendanceCount} {t('of')} {initiative.joinerCount}</strong> {t('joiners recorded attendance using the organiser’s code.')}</p>
+              <p><strong>{initiative.selfAttendanceCount} {t('of')} {initiative.joinerCount}</strong> {t('joiners reported attending.')}</p>
+              <small>{t('The organiser is not included in the joiner count. Neither attendance method is independently verified.')}</small>
+            </div>
+            {initiative.attendanceBasis === 'ORGANISER_CODE_ATTESTED' && <div className="attendance-result state-success" role="status"><b>{t('Attendance recorded using the organiser’s code')}</b><span>{t('You earned 20 points. This is organiser-mediated attendance, not independent verification.')}</span></div>}
+            {initiative.attendanceBasis === 'SELF_ATTESTED' && <div className="attendance-result state-success" role="status"><b>{t('You reported attending')}</b><span>{t('Self-attendance earns zero points and is not verified.')}</span></div>}
+            {initiative.canViewAttendanceCode && <div className="attendance-code-panel">
+              <div><b>{t('Organiser attendance code')}</b><span>{t('Share this six-digit code only with joined participants who attended.')}</span></div>
+              {activeAttendanceCodes[initiative.initiativeId]
+                ? <><output aria-label={t('Current organiser attendance code')} className="attendance-code">{activeAttendanceCodes[initiative.initiativeId].code}</output><small>{t('Rotates at')} {timestampLabel(activeAttendanceCodes[initiative.initiativeId].rotatesAt, language)} · {t('Code window closes')} {timestampLabel(activeAttendanceCodes[initiative.initiativeId].codeWindowEndsAt, language)}</small><button className="secondary" onClick={() => requestLinkedMutation(() => loadAttendanceCode(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message)))}>{t('Refresh code')}</button></>
+                : <button onClick={() => requestLinkedMutation(() => loadAttendanceCode(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message)))}>{t('Show attendance code')}</button>}
+            </div>}
+            {initiative.canUseOrganiserCode && !initiative.attendanceBasis && <div className="attendance-entry-panel">
+              <label htmlFor={`attendance-code-${initiative.initiativeId}`}>{t('Enter organiser attendance code')}
+                <input id={`attendance-code-${initiative.initiativeId}`} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]*" maxLength={6} value={attendanceCodeInputs[initiative.initiativeId] ?? ''} onChange={(event) => setAttendanceCodeInputs((values) => ({ ...values, [initiative.initiativeId]: event.target.value.replace(/\D/g, '').slice(0, 6) }))} />
+              </label>
+              <button disabled={!/^\d{6}$/.test(attendanceCodeInputs[initiative.initiativeId] ?? '')} onClick={() => requestLinkedMutation(() => submitAttendanceCode(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message)))}>{t('Record code attendance · 20 points')}</button>
+              <small>{t('The code rotates every 10 minutes. Five incorrect attempts are allowed per code period.')}</small>
+            </div>}
+            {initiative.canSelfAttend && !initiative.attendanceBasis && <div className="attendance-entry-panel">
+              <p>{t('The organiser-code window has closed. You can report your own attendance for seven days after completion.')}</p>
+              <button className="secondary" onClick={() => requestLinkedMutation(() => recordSelfAttendance(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message)))}>{t('I attended · 0 points')}</button>
+              <small>{t('This is a self-report. Seewik does not verify it.')}</small>
+            </div>}
+            {initiative.role === 'PARTICIPANT' && !initiative.attendanceBasis && !initiative.canUseOrganiserCode && !initiative.canSelfAttend && <small>{initiative.status === 'CANCELLED' ? t('Attendance is unavailable because this activity was cancelled.') : initiative.status === 'COMPLETED' ? t('No attendance option is currently available.') : t('Code attendance opens at the scheduled start time.')}</small>}
+            <small>{t('Creating or joining alone does not earn points.')}</small>
           </article>)}
         </div>
       </section>
@@ -1341,11 +1496,11 @@ function App() {
       </section>
       <section className="initiative-list" aria-live="polite">
         {initiatives.map((initiative) => <article className="card initiative-card" key={initiative.initiativeId}>
-          <div className="initiative-card-top"><span className="status-chip">{initiativeCategoryLabel(initiative.category)}</span><span className="live-count"><i aria-hidden="true" />{t('LIVE')} · {initiative.participantCount} {initiative.participantCount === 1 ? t('person') : t('people')}</span></div>
+          <div className="initiative-card-top"><span className="status-chip">{initiativeCategoryLabel(initiative.category)}</span><span className="live-count"><i aria-hidden="true" />{localizedStatus(language, initiative.status)} · {initiative.participantCount} {initiative.participantCount === 1 ? t('person') : t('people')}</span></div>
           <h2>{initiative.title}</h2><p>{initiative.description}</p>
           <dl><div><dt>{t('When')}</dt><dd>{timestampLabel(initiative.startAt, language)}</dd></div><div><dt>{t('Where')}</dt><dd>{initiative.placeName}</dd></div><div><dt>{t('Distance')}</dt><dd>{initiative.distanceKm.toFixed(2)} km</dd></div><div><dt>{t('What is needed')}</dt><dd>{initiative.needs || t('Just bring yourself')}</dd></div></dl>
           <button disabled={initiative.joined} onClick={() => requestLinkedMutation(() => joinInitiative(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message)))}>{initiative.joined ? t('Joined') : t('Join this activity')}</button>
-          <small>{t('Creating or joining is recorded in the contribution ledger but earns no points until participation can be verified.')}</small>
+          <small>{t('Creating or joining alone earns no points. Joined participants can record attendance during the organiser-code window.')}</small>
         </article>)}
         {!initiatives.length && initiativeCoordinates && !initiativeStatus.startsWith('Finding') && <div className="card empty-state"><b>{t('No nearby activity is listed yet.')}</b><p>{t('You can create the first one without inventing an impact claim.')}</p><button onClick={() => navigate('new-initiative')}>{t('Create an activity')}</button></div>}
       </section>
@@ -1597,7 +1752,7 @@ function App() {
 
     {screen === 'points' && <section className="card page-card points-page">
       <span className="eyebrow">{t('MY POINTS')}</span><h2>{pointsTotal} {t('derived points')}</h2><p>{t('Totals are calculated from immutable ledger entries rather than stored as an editable score.')}</p>
-      <div className="points-rules"><div><b>+5</b><span>{t('First accepted filing')}</span></div><div><b>+40</b><span>{t('First verified fix')}</span></div><div><b>0</b><span>{t('Duplicate override, reopening or re-verification')}</span></div></div>
+      <div className="points-rules"><div><b>+5</b><span>{t('First accepted filing')}</span></div><div><b>+20</b><span>{t('Organiser-code attendance')}</span></div><div><b>+40</b><span>{t('Completed organiser with two code attendees')}</span></div><div><b>+60</b><span>{t('First verified fix')}</span></div><div><b>0</b><span>{t('Self-attendance, duplicate override, reopening or re-verification')}</span></div></div>
       <button className="secondary" onClick={() => refreshDerivedPoints().catch(() => undefined)}>{t('Refresh my points')}</button>
     </section>}
 

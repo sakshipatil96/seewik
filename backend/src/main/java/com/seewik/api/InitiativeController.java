@@ -119,6 +119,58 @@ public class InitiativeController {
         }
     }
 
+    @GetMapping(value = "/{initiativeId}/attendance/code", produces = "application/json")
+    public ResponseEntity<?> attendanceCode(
+            @PathVariable String initiativeId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        try {
+            var citizen = CitizenIdentityVerifier.requireGoogleLinked(identityVerifier.verifyBearer(authorization));
+            return ResponseEntity.ok(initiativeService.attendanceCode(citizen.uid(), initiativeId));
+        } catch (CitizenIdentityVerifier.LinkedIdentityRequiredException exception) {
+            return googleLinkRequired(exception);
+        } catch (CitizenIdentityVerifier.AuthenticationException exception) {
+            return unauthorized(exception);
+        } catch (InitiativeService.InitiativeException exception) {
+            return failure(exception);
+        }
+    }
+
+    @PostMapping(value = "/{initiativeId}/attendance/self", produces = "application/json")
+    public ResponseEntity<?> selfAttendance(
+            @PathVariable String initiativeId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        try {
+            var citizen = CitizenIdentityVerifier.requireGoogleLinked(identityVerifier.verifyBearer(authorization));
+            return ResponseEntity.ok(initiativeService.selfAttend(citizen.uid(), initiativeId));
+        } catch (CitizenIdentityVerifier.LinkedIdentityRequiredException exception) {
+            return googleLinkRequired(exception);
+        } catch (CitizenIdentityVerifier.AuthenticationException exception) {
+            return unauthorized(exception);
+        } catch (InitiativeService.InitiativeException exception) {
+            return failure(exception);
+        }
+    }
+
+    @PostMapping(
+            value = "/{initiativeId}/attendance/code",
+            consumes = "application/json",
+            produces = "application/json")
+    public ResponseEntity<?> codeAttendance(
+            @PathVariable String initiativeId,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody(required = false) InitiativeService.AttendanceCodeRequest request) {
+        try {
+            var citizen = CitizenIdentityVerifier.requireGoogleLinked(identityVerifier.verifyBearer(authorization));
+            return ResponseEntity.ok(initiativeService.codeAttend(citizen.uid(), initiativeId, request));
+        } catch (CitizenIdentityVerifier.LinkedIdentityRequiredException exception) {
+            return googleLinkRequired(exception);
+        } catch (CitizenIdentityVerifier.AuthenticationException exception) {
+            return unauthorized(exception);
+        } catch (InitiativeService.InitiativeException exception) {
+            return failure(exception);
+        }
+    }
+
     private static ResponseEntity<Map<String, String>> unauthorized(
             CitizenIdentityVerifier.AuthenticationException exception) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -134,9 +186,14 @@ public class InitiativeController {
     private static ResponseEntity<Map<String, String>> failure(InitiativeService.InitiativeException exception) {
         HttpStatus status = switch (exception.code()) {
             case "INITIATIVE_NOT_FOUND" -> HttpStatus.NOT_FOUND;
-            case "INITIATIVE_NOT_JOINABLE", "INITIATIVE_INVALID_TRANSITION", "INITIATIVE_NOT_STARTED" -> HttpStatus.CONFLICT;
-            case "INITIATIVE_FORBIDDEN" -> HttpStatus.FORBIDDEN;
-            case "INITIATIVE_STORE_FAILED", "INITIATIVE_STORE_INTERRUPTED" -> HttpStatus.SERVICE_UNAVAILABLE;
+            case "INITIATIVE_NOT_JOINABLE", "INITIATIVE_INVALID_TRANSITION", "INITIATIVE_NOT_STARTED",
+                    "INITIATIVE_ATTENDANCE_EXISTS", "ATTENDANCE_ALREADY_RECORDED",
+                    "ATTENDANCE_REQUIRES_COMPLETION", "ATTENDANCE_CODE_WINDOW_CLOSED",
+                    "SELF_ATTENDANCE_WINDOW_CLOSED", "ATTENDANCE_UNAVAILABLE" -> HttpStatus.CONFLICT;
+            case "INITIATIVE_FORBIDDEN", "ATTENDANCE_NOT_PARTICIPANT" -> HttpStatus.FORBIDDEN;
+            case "ATTENDANCE_RATE_LIMITED" -> HttpStatus.TOO_MANY_REQUESTS;
+            case "INITIATIVE_STORE_FAILED", "INITIATIVE_STORE_INTERRUPTED",
+                    "ATTENDANCE_CONFIGURATION_UNAVAILABLE" -> HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.BAD_REQUEST;
         };
         return ResponseEntity.status(status).body(error(exception.code(), exception.getMessage()));

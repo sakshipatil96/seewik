@@ -37,7 +37,8 @@ class InitiativeServiceTest {
         assertEquals(0, gateway.ledger.get("awardedPoints"));
         assertEquals(0, gateway.ledger.get("pointsAwarded"));
         assertEquals("RECORDED_NOT_REWARDED", gateway.ledger.get("policyStatus"));
-        assertEquals("points-ledger-v0.2", gateway.ledger.get("schemaVersion"));
+        assertEquals("points-ledger-v0.3", gateway.ledger.get("schemaVersion"));
+        assertEquals("reward-policy-v0.2", gateway.ledger.get("rewardPolicyVersion"));
         assertTrue(result.canManage());
     }
 
@@ -53,6 +54,22 @@ class InitiativeServiceTest {
         assertEquals(2, result.count());
         assertEquals("near", result.initiatives().get(0).initiativeId());
         assertEquals("far", result.initiatives().get(1).initiativeId());
+    }
+
+    @Test
+    void discoveryKeepsStartedAndEarlyCompletedActivitiesJoinableForThreeHours() {
+        Map<String, Object> started = activity("started", 21.36, 74.24, "2026-08-27T07:00:00Z");
+        Map<String, Object> completed = activity("completed", 21.36, 74.24, "2026-08-27T06:00:00Z");
+        completed.put("status", "COMPLETED");
+        gateway.published.add(started);
+        gateway.published.add(completed);
+        gateway.published.add(activity("expired", 21.36, 74.24, "2026-08-27T04:59:59Z"));
+
+        var result = service.discover(new InitiativeService.DiscoveryRequest(21.36, 74.24, 5.0));
+
+        assertEquals(2, result.count());
+        assertTrue(result.initiatives().stream().anyMatch(item -> "started".equals(item.initiativeId())));
+        assertTrue(result.initiatives().stream().anyMatch(item -> "completed".equals(item.initiativeId())));
     }
 
     @Test

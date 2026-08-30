@@ -100,7 +100,7 @@ class ReportLifecycleServiceTest {
         service = service(gateway);
         var first = service.transition(
                 "owner-1", "report-1", transition("VERIFIED_FIXED", "verify-1", "CITIZEN_ATTESTATION", null));
-        assertEquals(40, first.pointsAwarded());
+        assertEquals(60, first.pointsAwarded());
 
         service.transition("owner-1", "report-1", transition("REOPENED", "recur", "CITIZEN_ATTESTATION", null));
         service.transition("owner-1", "report-1", transition("CLAIMED_FIXED", "claim-2", "CITIZEN_ATTESTATION", null));

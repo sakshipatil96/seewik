@@ -1,10 +1,13 @@
 package com.seewik.api;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,9 +66,59 @@ class InitiativeControllerTest {
                     Instant occurredAt) {
                 return new TransitionResult(Map.of("status", targetStatus), false);
             }
+
+            @Override
+            public AttendanceContext attendanceContext(String ownerUid, String initiativeId) {
+                return new AttendanceContext(
+                        Map.of(
+                                "initiativeId", initiativeId,
+                                "ownerUid", ownerUid,
+                                "startAt", "2026-08-30T12:00:00Z",
+                                "status", "COMPLETED"),
+                        Map.of("role", "ORGANISER"),
+                        2,
+                        0,
+                        2);
+            }
+
+            @Override
+            public AttendanceResult recordSelfAttendance(
+                    String ownerUid, String initiativeId, Instant occurredAt) {
+                return attendanceResult(initiativeId, "SELF_ATTESTED", 0);
+            }
+
+            @Override
+            public AttendanceResult recordCodeAttendance(
+                    String ownerUid,
+                    String initiativeId,
+                    Instant occurredAt,
+                    long attemptSlot,
+                    boolean codeAccepted) {
+                return attendanceResult(initiativeId, "ORGANISER_CODE_ATTESTED", 20);
+            }
+
+            private AttendanceResult attendanceResult(String initiativeId, String basis, int points) {
+                return new AttendanceResult(
+                        "ATTENDANCE_RECORDED",
+                        Map.of("initiativeId", initiativeId),
+                        Map.of(
+                                "attendanceStatus", "I_ATTENDED",
+                                "attendanceBasis", basis,
+                                "attendanceReportedAt", "2026-08-30T12:15:00Z"),
+                        2,
+                        "SELF_ATTESTED".equals(basis) ? 1 : 0,
+                        "ORGANISER_CODE_ATTESTED".equals(basis) ? 1 : 0,
+                        false,
+                        points,
+                        0,
+                        5);
+            }
         };
         mvc = MockMvcBuilders.standaloneSetup(
-                new InitiativeController(verifier, new InitiativeService(gateway))).build();
+                new InitiativeController(verifier, new InitiativeService(
+                        gateway,
+                        Clock.fixed(Instant.parse("2026-08-30T12:15:00Z"), ZoneOffset.UTC),
+                        new AttendanceCodeService("attendance-test-secret-with-at-least-32-bytes")))).build();
     }
 
     @Test
@@ -124,6 +177,18 @@ class InitiativeControllerTest {
                         .header("Authorization", "Bearer anonymous"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.errorCode").value("GOOGLE_LINK_REQUIRED"));
+
+        mvc.perform(post("/api/initiatives/init-1/attendance/self")
+                        .header("Authorization", "Bearer anonymous"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value("GOOGLE_LINK_REQUIRED"));
+
+        mvc.perform(post("/api/initiatives/init-1/attendance/code")
+                        .header("Authorization", "Bearer anonymous")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"123456\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value("GOOGLE_LINK_REQUIRED"));
     }
 
     @Test
@@ -141,5 +206,30 @@ class InitiativeControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.initiativeStatus").value("COMPLETED"))
                 .andExpect(jsonPath("$.pointsAwarded").value(0));
+    }
+
+    @Test
+    void linkedCitizenCanUseOwnerScopedAttendanceEndpoints() throws Exception {
+        mvc.perform(get("/api/initiatives/init-1/attendance/code")
+                        .header("Authorization", "Bearer valid"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ATTENDANCE_CODE_ACTIVE"))
+                .andExpect(jsonPath("$.code").isString());
+
+        mvc.perform(post("/api/initiatives/init-1/attendance/self")
+                        .header("Authorization", "Bearer valid"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attendanceBasis").value("SELF_ATTESTED"))
+                .andExpect(jsonPath("$.participantPointsAwarded").value(0));
+
+        String code = new AttendanceCodeService("attendance-test-secret-with-at-least-32-bytes")
+                .codeFor("init-1", Instant.parse("2026-08-30T12:15:00Z"));
+        mvc.perform(post("/api/initiatives/init-1/attendance/code")
+                        .header("Authorization", "Bearer valid")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"" + code + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attendanceBasis").value("ORGANISER_CODE_ATTESTED"))
+                .andExpect(jsonPath("$.participantPointsAwarded").value(20));
     }
 }

@@ -185,9 +185,9 @@ public class ReportLifecycleService {
             pointsReason = "REPORT_FILED";
         } else if (to == ReportLifecycleContract.ReportStatus.VERIFIED_FIXED
                 && !Boolean.TRUE.equals(report.get("verifiedPointsAwarded"))) {
-            basePoints = 40;
+            basePoints = 60;
             pointsWeight = 1.0;
-            awardedPoints = 40;
+            awardedPoints = 60;
             pointsReason = "FIX_VERIFIED";
         }
         Map<String, Object> reportUpdates = new LinkedHashMap<>();
@@ -524,17 +524,23 @@ public class ReportLifecycleService {
         Map<String, Object> entry = new LinkedHashMap<>();
         entry.put("ledgerEntryId", "pts_" + sha256(reportId + ":" + reason));
         entry.put("ownerUid", ownerUid);
+        entry.put("sourceType", "REPORT");
+        entry.put("sourceId", reportId);
         entry.put("reportId", reportId);
         entry.put("triggerEventId", eventId);
+        entry.put("triggeringEventId", eventId);
         entry.put("triggeringEvent", eventType.name());
         entry.put("reason", reason);
         entry.put("basePoints", basePoints);
         entry.put("weight", weight);
         entry.put("awardedPoints", awardedPoints);
+        entry.put("pointsAwarded", awardedPoints);
+        entry.put("policyStatus", awardedPoints > 0 ? "AWARDED" : "RECORDED_NOT_REWARDED");
         entry.put("occurredAt", occurredAt);
         entry.put("packVersion", packVersion);
         entry.put("lifecycleSchemaVersion", ReportLifecycleContract.SCHEMA_VERSION);
-        entry.put("schemaVersion", "points-ledger-v0.1");
+        entry.put("schemaVersion", InitiativeService.LEDGER_SCHEMA_VERSION);
+        entry.put("rewardPolicyVersion", InitiativeService.REWARD_POLICY_VERSION);
         entry.put("demoMode", Boolean.TRUE.equals(report.get("demoMode")));
         return entry;
     }

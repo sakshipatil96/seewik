@@ -35,8 +35,19 @@ try {
     participantCount: 999,
   }, 'Direct initiative write');
   await expectDenied(doc(db, 'initiatives', initiativeId, 'events', 'forged-event'), {
-    eventType: 'INITIATIVE_COMPLETED',
+    eventType: 'INITIATIVE_ATTENDANCE_ORGANISER_CODE_ATTESTED',
+    attendanceBasis: 'ORGANISER_CODE_ATTESTED',
   }, 'Direct Initiative event write');
+  await expectDenied(doc(db, 'initiativeParticipations', `forged-${randomUUID()}`), {
+    ownerUid: user.uid,
+    initiativeId,
+    role: 'PARTICIPANT',
+    attendanceStatus: 'I_ATTENDED',
+    attendanceBasis: 'ORGANISER_CODE_ATTESTED',
+  }, 'Direct participation attendance write');
+  await expectDenied(doc(db, 'initiativeAttendanceAttempts', `forged-${randomUUID()}`), {
+    failedAttempts: 0,
+  }, 'Direct attendance-attempt write');
   await expectDenied(doc(db, 'pointsLedger', `forged-${randomUUID()}`), {
     ownerUid: user.uid,
     pointsAwarded: 999,
@@ -45,6 +56,8 @@ try {
     status: 'PASS',
     initiativeWritesDenied: true,
     initiativeEventWritesDenied: true,
+    participationWritesDenied: true,
+    attendanceAttemptWritesDenied: true,
     pointsWritesDenied: true,
   }));
 } finally {

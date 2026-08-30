@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://seewik.web.app/schemas/initiative-attendance-v0.1.json",
+  "title": "Seewik Initiative attendance event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId",
+    "initiativeId",
+    "eventType",
+    "actorUidHash",
+    "attendanceStatus",
+    "attendanceBasis",
+    "pointsAwarded",
+    "occurredAt",
+    "schemaVersion"
+  ],
+  "properties": {
+    "eventId": {"type": "string", "minLength": 1},
+    "initiativeId": {"type": "string", "minLength": 1},
+    "eventType": {
+      "enum": [
+        "INITIATIVE_ATTENDANCE_SELF_ATTESTED",
+        "INITIATIVE_ATTENDANCE_ORGANISER_CODE_ATTESTED"
+      ]
+    },
+    "actorUidHash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "attendanceStatus": {"const": "I_ATTENDED"},
+    "attendanceBasis": {"enum": ["SELF_ATTESTED", "ORGANISER_CODE_ATTESTED"]},
+    "pointsAwarded": {"enum": [0, 20]},
+    "occurredAt": {"type": "string", "format": "date-time"},
+    "schemaVersion": {"const": "initiative-attendance-v0.1"}
+  }
+}

@@ -214,6 +214,18 @@ button.text-action { margin-top: var(--space-3); color: var(--color-teal-ink); t
 .initiative-manage label { margin: 0; }
 .initiative-manage .draft-actions { margin-top: 0; }
 .initiative-manage button { margin-top: 0; }
+.attendance-summary, .attendance-result, .attendance-code-panel, .attendance-entry-panel { display: grid; gap: var(--space-2); margin-top: var(--space-4); padding: var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-surface-2); font-size: .8rem; line-height: 1.45; }
+.attendance-summary p, .attendance-code-panel p, .attendance-entry-panel p { margin: 0; }
+.attendance-summary strong { color: var(--color-teal-ink); }
+.attendance-summary small, .attendance-code-panel small, .attendance-entry-panel small { color: var(--color-muted); }
+.attendance-result { background: var(--color-success-soft); color: var(--color-success-ink); }
+.attendance-result span { color: inherit; }
+.attendance-code-panel { border-color: color-mix(in srgb, var(--color-teal) 36%, var(--color-line)); }
+.attendance-code-panel > div { display: grid; gap: 3px; }
+.attendance-code { display: block; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-navy); color: #fff; font-family: var(--font-mono); font-size: clamp(1.65rem, 7vw, 2.3rem); font-weight: 800; letter-spacing: .18em; text-align: center; }
+.attendance-entry-panel label { margin: 0; }
+.attendance-entry-panel input { width: 100%; margin-top: var(--space-2); font-family: var(--font-mono); font-size: 1.35rem; letter-spacing: .16em; text-align: center; }
+.attendance-code-panel button, .attendance-entry-panel button { width: 100%; margin-top: 0; }
 .status-cancelled { color: #7a271a !important; background: #fee4e2 !important; }
 .status-completed { color: #175cd3 !important; background: #eff8ff !important; }
 .initiative-form input[type="datetime-local"] { width: 100%; min-height: 52px; margin-top: var(--space-2); padding: 13px 14px; border: 1.5px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text); }
