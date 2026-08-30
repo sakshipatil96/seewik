@@ -4,6 +4,7 @@ All notable changes to the versioned Civic Pack and its deterministic routing im
 
 ## Unreleased
 
+- Closed the non-Android Day 10 acceptance with production owner-isolation coverage for drafts, points and Initiative roles, multilingual narrow-layout and boundary verification, zero console findings and privacy-safe English/Marathi/Hindi screenshots.
 - Enforced Google-linked identity for every durable report, Initiative and technical-check write across backend, Firestore and Storage while preserving anonymous owner-scoped reads and transient civic assistance; added explicit `GOOGLE_LINK_REQUIRED` API responses, atomic rules deployment and a production direct-bypass acceptance script.
 - Replaced the signed-out My Reports false-empty state and raw `ACCOUNT_SIGNED_OUT` code with a localized recovery panel that explains saved work remains attached to Google; distinguished linked-empty and anonymous-empty states, reloads reports after sign-in, and removed misleading Refresh, Create Report and Start Over controls from signed-out report screens.
 - Froze the Day 9 language/boundary contract: English, Marathi and Hindi interface support; supported-device first-use language; persistent change-anytime selector; Marathi/English-only complaint drafts; and unchanged deterministic civic facts.

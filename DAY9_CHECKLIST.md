@@ -98,14 +98,14 @@ Day 9 absorbs the former Set 3 work and incorporates the approximate prabhag geo
 
 ## Set 7 — Final verification, documentation and deployment
 
-- [ ] Create `DAY9_BUILD_LOG.md`.
-- [ ] Update `CHANGELOG.md` and the parent project guide.
-- [ ] Run affected backend and frontend gates.
-- [ ] Run repository-content and whitespace checks.
-- [ ] Deploy only from green `main`.
-- [ ] Verify production routes, languages, boundary fallbacks and browser console.
-- [ ] Preserve representative production screenshots in all three languages.
-- [ ] Record app, local, remote, checked and deployed commit identifiers separately.
+- [x] Create `DAY9_BUILD_LOG.md`.
+- [x] Update `CHANGELOG.md` and the parent project guide.
+- [x] Run affected backend and frontend gates.
+- [x] Run repository-content and whitespace checks.
+- [x] Deploy only from green `main`.
+- [x] Verify production routes, languages, boundary fallbacks and browser console.
+- [x] Preserve representative production screenshots in all three languages.
+- [x] Record app, local, remote, checked and deployed commit identifiers separately.
 
 Survey scoring remains deferred while responses are still being collected. It is not a Day 9 blocker.
 
@@ -117,3 +117,5 @@ Survey scoring remains deferred while responses are still being collected. It is
 - Set 7 final verification moves behind the architectural login change as Day 10 Set 7.
 - Day 10 introduces recoverable Google-linked profiles while preserving the existing Firebase UID whenever account linking succeeds.
 - Day 11 adds self-attested attendance before the carried performance work.
+
+Day 9 is closed. Sets 1–3 remain deployed, Set 5 evidence remains frozen, and Set 7 production verification was completed during the Day 10 closeout. Set 4 and the attendance-related part of Set 6 remain intentionally carried to Day 11/later work rather than silently marked complete.

@@ -159,3 +159,31 @@ Release status: local only. Not committed, pushed or deployed. Set 3 anonymous-w
 - Production bypass result: anonymous owner-scoped report, points and Initiative reads remained available; Initiative API mutations, report lifecycle mutations, direct report writes, technical Firestore writes and technical Storage writes were denied.
 - The acceptance script created one temporary anonymous account, made no successful civic write and removed the account during cleanup.
 - Commit identifiers at acceptance close: app/deployed/checked `47b2a74d7d47d31ce7020b7bd77d0c7ab792feba`; local and remote documentation head are recorded by the following closeout commit.
+
+## 2026-08-30 — No-Android production closeout
+
+### Owner isolation
+
+- Added a repeatable privacy-safe production ownership probe using two temporary anonymous identities and explicitly labelled fixtures.
+- The owner read its DRAFT and points record; the other identity was denied direct access to both.
+- `My activities` returned `ORGANISER` for the owner's two activities and `PARTICIPANT` for the joined citizen's shared activity.
+- The participant did not receive the owner's unrelated activity.
+- Every temporary report, points record, Initiative, participation and authentication user was removed during cleanup.
+
+### Production visual and route acceptance
+
+- `/`, `/report/new`, `/reports`, `/points`, `/initiatives` and `/initiatives/new`: HTTP 200.
+- Backend `/health`: `status: ok`.
+- English, Marathi and Hindi home/account states fit at 390 × 844 with `scrollWidth == clientWidth`.
+- The production report flow loaded all 20 approximate boundary outlines; manual Prabhag 7 selection synchronized with one pressed outline and the route action stayed gated pending category confirmation.
+- Browser console warnings/errors: zero.
+- Screenshots contain only public interface text and an empty temporary device-only account state:
+  - `evidence/day10-production-en.jpg` — SHA-256 `feffb85b7f3f654d810b16adcbcabfbe8b540f420af08e4f8cc813577fe4e3d3`;
+  - `evidence/day10-production-mr.jpg` — SHA-256 `07b345d5b4be1e80de7bd4dc998e9b39bd3054946e383e3964421b73e747b876`;
+  - `evidence/day10-production-hi.jpg` — SHA-256 `aeb2e070186d50d96a8393de29253831a007284c62c363e76c459a180a9ca148`.
+
+### Disposition
+
+- All Day 10 work that does not require a physical Android device is complete.
+- Physical Android Chrome Google popup-versus-redirect behavior remains the only device-dependent acceptance item.
+- Attendance and the carried performance work begin under `DAY11_CHECKLIST.md`.

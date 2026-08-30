@@ -178,3 +178,18 @@ The diagnostic instrumentation was committed at `34f6f8d03820a19513be947d4ea337e
 - sanitized diagnostic rows and the summary are committed, while the raw response envelopes remain only in the private evaluation archive.
 
 The follow-up therefore diagnoses one concrete instance of the broader image-path instability—`IMAGE_PATH_MAX_TOKENS_MALFORMED_JSON` for `TB-IMG-008`—without retroactively assigning that cause to the four historical schema failures. It also exposes a narrower remaining observability gap: schema rejections are now diagnosable, while generic upstream model-call failures such as the diagnostic `TB-IMG-006` response still lack a privacy-safe provider error subcode.
+
+## Final production verification and closure
+
+Day 9 Set 7 was completed after the Day 10 identity boundary was deployed:
+
+- production routes `/`, `/report/new`, `/reports`, `/points`, `/initiatives` and `/initiatives/new` returned HTTP 200;
+- the production backend `/health` endpoint returned `status: ok`;
+- English, Marathi and Hindi rendered at 390 × 844 with no horizontal overflow;
+- the production report flow loaded all 20 approximate boundary outlines and retained the visible `official-map-digitized-v0.1` / `REVIEW_PENDING_GEOREFERENCE` warnings;
+- manual Prabhag 7 selection synchronized the list and selected outline without changing the automatic resolver contract;
+- the deterministic route action remained disabled until the category confirmation was also complete;
+- the production browser console contained zero warnings or errors during the multilingual and boundary checks;
+- privacy-safe production screenshots were preserved under `evidence/day10-production-{en,mr,hi}.jpg`.
+
+Set 4 performance work remains carried to Day 11 after attendance UI work. Set 6 remains split between Day 11 self-attendance and the later hardened QR/geolocation design; neither is represented as completed Day 9 functionality.

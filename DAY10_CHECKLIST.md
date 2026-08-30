@@ -103,7 +103,7 @@ Production recovery acceptance complete. The signed-out/report-state correction 
 
 This carries forward the former Day 9 Set 7 after the identity change is complete.
 
-- [ ] Update `DAY10_BUILD_LOG.md`, `CHANGELOG.md`, the Day 9 closure note and the parent project guide.
+- [x] Update `DAY10_BUILD_LOG.md`, `CHANGELOG.md`, the Day 9 closure note and the parent project guide.
 - [x] Run affected backend and frontend gates.
 - [x] Run repository-content, dataset-integrity and whitespace checks.
 - [x] Deploy only from green `main` and preserve the previous healthy revision for rollback.
@@ -112,9 +112,9 @@ This carries forward the former Day 9 Set 7 after the identity change is complet
 - [x] Verify the collision flow does not crash, merge data or expose the losing UID's records.
 - [x] Verify same-account recovery on a separate clean browser session.
 - [x] Verify an unlinked anonymous session shows the device-only access warning before Google is connected.
-- [ ] Verify reports, drafts, points and Initiative organiser/participant ownership in production.
-- [ ] Verify production routes, all three languages, boundary fallbacks, narrow layouts and browser console.
-- [ ] Preserve representative privacy-safe production screenshots in English, Marathi and Hindi.
+- [x] Verify reports, drafts, points and Initiative organiser/participant ownership in production.
+- [x] Verify production routes, all three languages, boundary fallbacks, narrow layouts and browser console.
+- [x] Preserve representative privacy-safe production screenshots in English, Marathi and Hindi.
 - [x] Record app, local, remote, checked and deployed commit identifiers separately.
 
 ## Explicitly deferred
@@ -123,3 +123,5 @@ This carries forward the former Day 9 Set 7 after the identity change is complet
 - QR plus geolocation attendance verification is a later hardened phase, not part of the Day 10 login release.
 - Automatic cross-account data merging is not planned for this build.
 - Non-zero Initiative rewards remain disabled.
+
+Day 10 is closed except for the explicitly device-dependent physical Android Chrome popup-versus-redirect check. That check does not block or weaken the deployed backend, Firestore or Storage write boundary.
