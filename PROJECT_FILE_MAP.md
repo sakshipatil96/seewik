@@ -8,16 +8,17 @@ This map is for handoffs and repository study. Generated directories such as `fr
 2. Current state: `DAY10_CHECKLIST.md` and `DAY10_BUILD_LOG.md`
 3. New work: `DAY11_CHECKLIST.md`
 4. Day 11 outcome: `DAY11_BUILD_LOG.md`
-5. Planned rewards: `DAY13_CHECKLIST.md`
-6. Product follow-ups: `PROJECT_TODOS.md`
-7. Version history: `CHANGELOG.md`
-8. Attendance/reward contract: `data/contracts/day11-attendance-reward-contract-v0.1.md`
-9. Identity contract: `data/contracts/day10-identity-migration-contract-v0.1.md`
-10. Language/boundary contract: `data/contracts/day9-language-boundary-contract-v0.1.md`
-11. Main frontend: `frontend/src/main.tsx`
-12. Initiative backend: `backend/src/main/java/com/seewik/api/InitiativeController.java`, `InitiativeService.java`, `InitiativeGateway.java`, `FirestoreInitiativeGateway.java` and `AttendanceCodeService.java`
-13. Security rules: `firestore.rules` and `storage.rules`
-14. Required gates: `.github/workflows/quality.yml` and `.github/workflows/deploy.yml`
+5. New work: `DAY12_CHECKLIST.md`
+6. Planned rewards: `DAY13_CHECKLIST.md`
+7. Product follow-ups: `PROJECT_TODOS.md`
+8. Version history: `CHANGELOG.md`
+9. Attendance/reward contract: `data/contracts/day11-attendance-reward-contract-v0.1.md`
+10. Identity contract: `data/contracts/day10-identity-migration-contract-v0.1.md`
+11. Language/boundary contract: `data/contracts/day9-language-boundary-contract-v0.1.md`
+12. Main frontend: `frontend/src/main.tsx`
+13. Initiative backend: `backend/src/main/java/com/seewik/api/InitiativeController.java`, `InitiativeService.java`, `InitiativeGateway.java`, `FirestoreInitiativeGateway.java` and `AttendanceCodeService.java`
+14. Security rules: `firestore.rules` and `storage.rules`
+15. Required gates: `.github/workflows/quality.yml` and `.github/workflows/deploy.yml`
 
 ## Project roots and handling rules
 
@@ -48,8 +49,9 @@ This map is for handoffs and repository study. Generated directories such as `fr
 - `DAY10_CHECKLIST.md` / `DAY10_BUILD_LOG.md` — recoverable Google profiles, write enforcement and production closeout.
 - `DAY11_CHECKLIST.md` — completed attendance implementation checklist and remaining device QA boundary.
 - `DAY11_BUILD_LOG.md` — attendance/reward implementation and release evidence.
+- `DAY12_CHECKLIST.md` — planned privacy-safe recognition, sharing and sourced-awareness work.
 - `DAY13_CHECKLIST.md` — planned contribution/reward/coupon contract.
-- `PROJECT_TODOS.md` — later routing-simplicity review.
+- `PROJECT_TODOS.md` — routing simplification, Initiative meeting-point redesign and UI-polish follow-ups.
 - `DESIGN_REFERENCE.md` — visual direction.
 - `CHANGELOG.md` — versioned implementation history.
 
