@@ -46,7 +46,7 @@ This map is for handoffs and repository study. Generated directories such as `fr
 - `DAY8_SET2_BUILD_LOG.md` — Initiative completion/cancellation and green-main deployment.
 - `DAY9_CHECKLIST.md` / `DAY9_BUILD_LOG.md` — languages, approximate map, Track B image evaluation and closure.
 - `DAY10_CHECKLIST.md` / `DAY10_BUILD_LOG.md` — recoverable Google profiles, write enforcement and production closeout.
-- `DAY11_CHECKLIST.md` — current attendance implementation plan.
+- `DAY11_CHECKLIST.md` — completed attendance implementation checklist and remaining device QA boundary.
 - `DAY11_BUILD_LOG.md` — attendance/reward implementation and release evidence.
 - `DAY13_CHECKLIST.md` — planned contribution/reward/coupon contract.
 - `PROJECT_TODOS.md` — later routing-simplicity review.

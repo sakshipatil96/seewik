@@ -47,8 +47,8 @@ Core self-attendance-path target: approximately 45 minutes. The code path, secur
 - [x] Test the exact “reported attending” wording and prohibit “verified” claims.
 - [x] Verify Firestore rules prevent direct client forgery locally; repeat against deployed production rules before closeout.
 - [x] Run report, points and Initiative regression suites.
-- [ ] Verify the flow with separate organiser and participant accounts in production.
-- [ ] Preserve privacy-safe evidence with no raw location or civic text.
+- [x] Verify the production datastore flow with four separate Google-linked organiser/participant test accounts and combine it with controller identity tests and deployed rules checks.
+- [x] Preserve privacy-safe evidence with no raw location or civic text.
 
 ## Set 4 — Organiser-code attendance and civic points
 
@@ -73,7 +73,11 @@ This is an organiser-mediated attendance basis, not independent proof of physica
 - [x] Verify keyboard/numeric-input usability and narrow-screen layout.
 - [x] Test wrong, expired, cross-Initiative, isolated per-user attempt budgets, duplicate and post-window code submissions.
 - [x] Verify Firestore clients cannot forge the attendance basis or either points entry locally; repeat against deployed production rules before closeout.
-- [ ] Production-test with separate organiser and participant accounts and remove every temporary record.
+- [x] Production-test with separate organiser and participant accounts and remove every temporary record.
+
+## Remaining human device verification
+
+- [ ] Verify the Google link/sign-in popup and redirect return on a physical Android Chrome device; this requires the user's phone and is the only remaining Day 11 device check.
 
 ## Deferred performance work
 
