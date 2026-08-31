@@ -9,14 +9,14 @@ import {
   type AuthCredential,
   type User,
 } from 'firebase/auth';
-import { addDoc, collection, doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
+import { API_URL } from './apiConfig';
 import {
   SIGNED_OUT_STORAGE_KEY,
   accountIdentityState,
   collisionAuditData,
   isGoogleLinked,
-  minimalProfileData,
   type AccountIdentityState,
 } from './accountIdentity';
 
@@ -96,7 +96,7 @@ export async function linkCurrentSession(provider: AccountProvider) {
   const user = auth.currentUser ?? await ensureAnonymousSession();
   if (provider === 'GOOGLE' && isGoogleLinked(user.providerData.map((item) => item.providerId))) {
     await user.getIdToken(true);
-    await createMinimalProfile(user);
+    await syncPrivateProfile(user);
     return user;
   }
   if (!user.isAnonymous) throw new Error('GOOGLE_LINK_REQUIRED');
@@ -104,7 +104,7 @@ export async function linkCurrentSession(provider: AccountProvider) {
   const credential = await linkWithPopup(user, providers[provider]);
   if (credential.user.uid !== beforeUid) throw new Error('LINK_CHANGED_UID');
   await credential.user.getIdToken(true);
-  await createMinimalProfile(credential.user);
+  await syncPrivateProfile(credential.user);
   return credential.user;
 }
 
@@ -112,7 +112,7 @@ export async function signIntoAccount(provider: AccountProvider) {
   const credential = await signInWithPopup(auth, providers[provider]);
   window.localStorage.removeItem(SIGNED_OUT_STORAGE_KEY);
   await credential.user.getIdToken(true);
-  await createMinimalProfile(credential.user);
+  await syncPrivateProfile(credential.user);
   return credential.user;
 }
 
@@ -124,21 +124,36 @@ export async function continueWithExistingAccount(credential: AuthCredential) {
 }
 
 export async function finalizeExistingAccountCollision(user: User) {
-  await createMinimalProfile(user);
+  await syncPrivateProfile(user);
   await addDoc(collection(db, 'accountAuditEvents'), {
     ...collisionAuditData(user.uid),
     occurredAt: serverTimestamp(),
   });
 }
 
-export async function createMinimalProfile(user: User) {
+export type PrivateProfile = {
+  status: string;
+  privateGoogleName: string;
+  privateGoogleEmail: string;
+  schemaVersion: string;
+};
+
+export async function syncPrivateProfile(user: User): Promise<PrivateProfile> {
   if (!isGoogleLinked(user.providerData.map((provider) => provider.providerId))) {
     throw new Error('GOOGLE_LINK_REQUIRED');
   }
-  await setDoc(doc(db, 'profiles', user.uid), {
-    ...minimalProfileData(user.uid),
-    updatedAt: serverTimestamp(),
-  }, { merge: true });
+  const idToken = await user.getIdToken(true);
+  const response = await fetch(`${API_URL}/api/profile/sync`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  const result = await response.json() as PrivateProfile & { errorCode?: string; message?: string };
+  if (!response.ok) {
+    const error = new Error(result.message ?? `Profile sync failed (${response.status})`) as Error & { code?: string };
+    error.code = response.status >= 500 ? 'unavailable' : result.errorCode ?? 'unknown';
+    throw error;
+  }
+  return result;
 }
 
 export async function signOutWithoutStartingAnonymousWork() {

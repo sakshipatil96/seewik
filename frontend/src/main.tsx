@@ -15,13 +15,29 @@ import {
   sessionToken,
   signIntoAccount,
   signOutWithoutStartingAnonymousWork,
+  syncPrivateProfile,
 } from './accountService';
 import { accountErrorMessage, isCredentialCollisionCode, reportsViewState, safeAccountErrorCode, type AccountIdentityState } from './accountIdentity';
-import { LANGUAGE_OPTIONS, LANGUAGE_STORAGE_KEY, classificationConfirmedMessage, classificationSuggestionMessage, formatDateTime, initialLanguage, localizedRuntimeMessage, localizedStatus, prabhagConfirmedMessage, translate, type InterfaceLanguage } from './i18n';
+import { API_URL } from './apiConfig';
+import { LANGUAGE_OPTIONS, LANGUAGE_STORAGE_KEY, classificationConfirmedMessage, classificationSuggestionMessage, formatDateTime, initialLanguage, localizedMonthLabel, localizedRuntimeMessage, localizedStatus, prabhagConfirmedMessage, translate, type InterfaceLanguage } from './i18n';
+import { RecognitionPanel } from './RecognitionPanel';
+import { RecognitionSettings } from './RecognitionSettings';
+import { ContributionPoster } from './ContributionPoster';
+import { CivicAwarenessPage } from './CivicAwarenessPage';
+import { EmergencyInformationPage } from './EmergencyInformationPage';
+import {
+  fetchCurrentRecognition,
+  fetchPrivatePoints,
+  fetchRecognitionSettings,
+  reportRecognitionName,
+  saveRecognitionSettings,
+  type PrivatePointsSummary,
+  type PublicRecognitionPanel,
+  type RecognitionSettings as RecognitionSettingsState,
+} from './recognitionClient';
 import { canEditReport, canResumeReport, draftRouteIsCurrent, pathForScreen, reportIdFromPath, reportIdFromReviewSearch, screenFromPath, type AppScreen } from './reportNavigation';
 import './styles.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://seewik-api-528138216934.asia-south1.run.app';
 const PRABHAGS = Array.from({ length: 20 }, (_, index) => `PRABHAG-${String(index + 1).padStart(2, '0')}`);
 const LazyPrabhagBoundaryMap = lazy(() => import('./PrabhagBoundaryMap'));
 const ISSUE_TYPES = [
@@ -361,13 +377,23 @@ function App() {
   const [initiativePlaceName, setInitiativePlaceName] = useState('');
   const [initiativeNeeds, setInitiativeNeeds] = useState('');
   const [accountState, setAccountState] = useState<AccountIdentityState>('ANONYMOUS_SESSION');
+  const [accountName, setAccountName] = useState<string | null>(null);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [accountDialog, setAccountDialog] = useState<AccountDialog>('CLOSED');
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountError, setAccountError] = useState('');
   const [accountErrorCode, setAccountErrorCode] = useState('');
   const [collisionCredential, setCollisionCredential] = useState<AuthCredential | null>(null);
+  const [publicRecognition, setPublicRecognition] = useState<PublicRecognitionPanel | null>(null);
+  const [publicRecognitionLoading, setPublicRecognitionLoading] = useState(true);
+  const [publicRecognitionStatus, setPublicRecognitionStatus] = useState('');
+  const [recognitionSettings, setRecognitionSettings] = useState<RecognitionSettingsState | null>(null);
+  const [recognitionSettingsStatus, setRecognitionSettingsStatus] = useState('');
+  const [recognitionSettingsBusy, setRecognitionSettingsBusy] = useState(false);
+  const [privatePoints, setPrivatePoints] = useState<PrivatePointsSummary | null>(null);
+  const [privatePointsStatus, setPrivatePointsStatus] = useState('');
   const pendingMutation = useRef<(() => Promise<void>) | null>(null);
+  const syncedProfileUid = useRef<string | null>(null);
   const t = (source: string) => translate(language, source);
   const runtimeMessage = (message: string) => localizedRuntimeMessage(language, message);
   const classificationSourceLabel = (source: string) => source === 'CITIZEN_CONFIRMED_GEMINI' || source === 'GEMINI_SUGGESTED' ? t('Automatic suggestion confirmed') : t('Selected manually');
@@ -390,6 +416,12 @@ function App() {
     COMMUNITY_FITNESS: t('Community fitness'),
     OTHER_CIVIC_ACTIVITY: t('Other civic activity'),
   }[category] ?? category);
+  const contributionTypeLabel = (reason: string) => ({
+    REPORT_FILED: t('Accepted report filing'),
+    INITIATIVE_ATTENDANCE_ORGANISER_CODE_ATTESTED: t('Organiser-code attendance'),
+    INITIATIVE_ORGANISER_COMPLETED_REWARDED: t('Eligible completed organiser activity'),
+    FIX_VERIFIED: t('Verified civic fix'),
+  }[reason] ?? reason);
   const add = (line: string) => setDetails((old) => [...old, line]);
 
   useEffect(() => {
@@ -400,7 +432,17 @@ function App() {
 
   useEffect(() => observeAccount(({ state, user }) => {
     setAccountState(state);
+    setAccountName(user?.displayName ?? null);
     setAccountEmail(user?.email ?? null);
+    if (state === 'GOOGLE_LINKED' && user && syncedProfileUid.current !== user.uid) {
+      syncedProfileUid.current = user.uid;
+      void syncPrivateProfile(user).then((profile) => {
+        setAccountName(profile.privateGoogleName || user.displayName);
+        setAccountEmail(profile.privateGoogleEmail || user.email);
+      }).catch(() => {
+        syncedProfileUid.current = null;
+      });
+    }
   }), []);
 
   function navigate(nextScreen: AppScreen, replace = false, reportId?: string) {
@@ -468,6 +510,10 @@ function App() {
     setSelectedReport(null);
     setReportsStatus('');
     setPointsTotal(0);
+    setPrivatePoints(null);
+    setPrivatePointsStatus('');
+    setRecognitionSettings(null);
+    setRecognitionSettingsStatus('');
     setInitiatives([]);
     setMyInitiatives([]);
     setInitiativeStatus('');
@@ -533,6 +579,7 @@ function App() {
         ? await signIntoAccount('GOOGLE')
         : await linkCurrentSession('GOOGLE');
       setAccountState('GOOGLE_LINKED');
+      setAccountName(user.displayName);
       setAccountEmail(user.email);
       await resumePendingMutation();
     } catch (error) {
@@ -563,6 +610,7 @@ function App() {
       clearAccountBoundState();
       pendingMutation.current = null;
       setAccountState('GOOGLE_LINKED');
+      setAccountName(user.displayName);
       setAccountEmail(user.email);
       setCollisionCredential(null);
       navigate('home');
@@ -591,6 +639,7 @@ function App() {
       await signOutWithoutStartingAnonymousWork();
       clearAccountBoundState();
       setAccountState('SIGNED_OUT');
+      setAccountName(null);
       setAccountEmail(null);
       setAccountDialog('CLOSED');
       navigate('home');
@@ -602,11 +651,76 @@ function App() {
     }
   }
 
+  async function loadPublicRecognition() {
+    setPublicRecognitionLoading(true);
+    setPublicRecognitionStatus('');
+    try {
+      setPublicRecognition(await fetchCurrentRecognition());
+    } catch (error) {
+      setPublicRecognition(null);
+      setPublicRecognitionStatus(error instanceof Error ? error.message : 'Monthly recognition could not be loaded.');
+    } finally {
+      setPublicRecognitionLoading(false);
+    }
+  }
+
+  async function loadRecognitionSettings() {
+    if (accountState !== 'GOOGLE_LINKED') {
+      setRecognitionSettings(null);
+      return;
+    }
+    setRecognitionSettingsStatus('Loading your recognition choice…');
+    try {
+      const token = await sessionToken(true);
+      setRecognitionSettings(await fetchRecognitionSettings(token));
+      setRecognitionSettingsStatus('');
+    } catch (error) {
+      setRecognitionSettingsStatus(error instanceof Error ? error.message : 'Recognition settings could not be loaded.');
+    }
+  }
+
+  async function updateRecognitionSettings(publicDisplayName: string, recognitionActive: boolean) {
+    setRecognitionSettingsBusy(true);
+    setRecognitionSettingsStatus(recognitionActive ? 'Saving your public recognition choice…' : 'Withdrawing public recognition…');
+    try {
+      const token = await sessionToken(true);
+      const saved = await saveRecognitionSettings(token, publicDisplayName, recognitionActive);
+      setRecognitionSettings(saved);
+      setRecognitionSettingsStatus(recognitionActive
+        ? 'Your recognition choice was saved.'
+        : 'Your public recognition was withdrawn. Your points were not changed.');
+      await loadPublicRecognition();
+    } catch (error) {
+      setRecognitionSettingsStatus(error instanceof Error ? error.message : 'Recognition settings could not be saved.');
+    } finally {
+      setRecognitionSettingsBusy(false);
+    }
+  }
+
+  async function sendRecognitionReport(position: number, targetDisplayName: string, reason: string, reportDetails: string) {
+    const send = async () => {
+      setPublicRecognitionStatus('Sending your concern…');
+      try {
+        const token = await sessionToken(true);
+        const result = await reportRecognitionName(token, position, targetDisplayName, reason, reportDetails);
+        setPublicRecognitionStatus(result.message);
+      } catch (error) {
+        setPublicRecognitionStatus(error instanceof Error ? error.message : 'The concern could not be sent.');
+      }
+    };
+    if (accountState === 'GOOGLE_LINKED') await send();
+    else requestLinkedMutation(send);
+  }
+
   useEffect(() => {
     fetch(`${API_URL}/health`).then((response) => response.json()).then((data) => {
       setStatus(data.status === 'ok' ? 'Seewik systems online' : 'Backend returned an unexpected response');
       add(`Cloud API: ${data.status}`);
     }).catch((error) => setStatus(`API check failed: ${error.message}`));
+  }, []);
+
+  useEffect(() => {
+    void loadPublicRecognition();
   }, []);
 
   useEffect(() => {
@@ -622,12 +736,23 @@ function App() {
     if (screen === 'reports') {
       if (accountState === 'SIGNED_OUT') {
         setSavedReports([]);
+        setMyInitiatives([]);
         setReportsStatus('');
       } else {
         loadMyReports().catch((error) => setReportsStatus(`Reports could not be loaded: ${error.message}`));
+        loadMyInitiatives().catch((error) => setInitiativeStatus(`Your initiatives could not be loaded: ${error.message}`));
       }
     }
-    if (screen === 'points') refreshDerivedPoints().catch(() => undefined);
+    if (screen === 'points') {
+      if (accountState === 'SIGNED_OUT') {
+        setPrivatePoints(null);
+        setPrivatePointsStatus('');
+      } else {
+        refreshDerivedPoints().catch(() => undefined);
+      }
+      if (accountState === 'GOOGLE_LINKED') loadRecognitionSettings().catch(() => undefined);
+      else setRecognitionSettings(null);
+    }
     if (screen === 'report-detail' && accountState !== 'SIGNED_OUT') {
       const reportId = reportIdFromPath(window.location.pathname);
       if (reportId && selectedReport?.id !== reportId) {
@@ -641,7 +766,6 @@ function App() {
       }
     }
     if (screen === 'initiatives') {
-      loadMyInitiatives().catch((error) => setInitiativeStatus(`Your activities could not be loaded: ${error.message}`));
       if (initiativeCoordinates) {
         discoverInitiatives(false).catch((error) => setInitiativeStatus(`Activities could not be loaded: ${error.message}`));
       }
@@ -658,7 +782,7 @@ function App() {
   }, [screen, initiativeCoordinates, initiativeRadiusKm]);
 
   useEffect(() => {
-    if (screen !== 'initiatives') return;
+    if (screen !== 'reports') return;
     const entries = Object.entries(activeAttendanceCodes);
     if (!entries.length) return;
     const nextRotation = Math.min(...entries.map(([, value]) => Date.parse(value.rotatesAt)));
@@ -701,6 +825,7 @@ function App() {
   }
 
   async function loadMyInitiatives(background = false) {
+    if (!background) setInitiativeStatus('');
     const idToken = await authenticatedToken();
     const response = await fetch(`${API_URL}/api/initiatives/mine`, {
       headers: { Authorization: `Bearer ${idToken}` },
@@ -1160,7 +1285,7 @@ function App() {
       return false;
     }
     if (!selectedReport || selectedReport.id !== draftDocumentId) {
-      setDraftStatus('The selected report no longer matches this editor. Reopen it from My reports.');
+      setDraftStatus('The selected report no longer matches this editor. Reopen it from My Actions.');
       return false;
     }
     await updateDoc(doc(db, 'reports', draftDocumentId), {
@@ -1309,12 +1434,17 @@ function App() {
   }
 
   async function refreshDerivedPoints() {
-    const user = await ensureAnonymousSession();
-    const snapshot = await getDocs(query(
-      collection(db, 'pointsLedger'),
-      where('ownerUid', '==', user.uid),
-    ));
-    setPointsTotal(snapshot.docs.reduce((total, item) => total + Number(item.data().awardedPoints ?? 0), 0));
+    setPrivatePointsStatus('Loading your contribution record…');
+    try {
+      const token = await sessionToken();
+      const summary = await fetchPrivatePoints(token);
+      setPrivatePoints(summary);
+      setPointsTotal(summary.lifetimePoints);
+      setPrivatePointsStatus('');
+    } catch (error) {
+      setPrivatePointsStatus(error instanceof Error ? error.message : 'Your points could not be loaded.');
+      throw error;
+    }
   }
 
   async function transitionReport(toStatus: string, dedupeOverride = false) {
@@ -1379,6 +1509,62 @@ function App() {
     if (result.toStatus === 'FILED') navigate('report-detail', false, draftDocumentId);
   }
 
+  const myInitiativesSection = <section className="actions-subsection initiative-memberships">
+    <div className="actions-section-heading">
+      <div><h2>{t('My Initiatives')}</h2><p>{t('Initiatives you organise or join stay here, including their final status.')}</p></div>
+      <button className="secondary" onClick={() => loadMyInitiatives().catch((error) => setInitiativeStatus(`Your initiatives could not be loaded: ${error.message}`))}>{t('Refresh')}</button>
+    </div>
+    {initiativeStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{runtimeMessage(initiativeStatus)}</div>}
+    {!myInitiatives.length && <div className="empty-state"><b>{t('No joined initiatives yet.')}</b><p>{t('Create an initiative or join one nearby.')}</p><button onClick={() => navigate('initiatives')}>{t('Explore initiatives')}</button></div>}
+    <div className="initiative-list compact-list" aria-live="polite">
+      {myInitiatives.map((initiative) => <article className={`card initiative-card my-action-initiative-card ${initiative.status === 'COMPLETED' ? 'is-completed' : initiative.status === 'CANCELLED' ? 'is-cancelled' : ''}`} key={`mine-${initiative.initiativeId}`}>
+        <div className="initiative-card-top">
+          <span className={`initiative-role-chip ${initiative.status === 'COMPLETED' ? 'role-completed' : initiative.status === 'CANCELLED' ? 'role-cancelled' : initiative.role === 'ORGANISER' ? 'role-organising' : 'role-joined'}`}>{initiative.role === 'ORGANISER' ? t('Organising') : t('Joined')}</span>
+          <span className="initiative-card-status">{localizedStatus(language, initiative.status)} · {initiative.joinerCount} {t('joined')}</span>
+        </div>
+        <h3>{initiative.title}</h3>
+        <p>{timestampLabel(initiative.startAt, language)} · {initiative.placeName}</p>
+        {initiative.status === 'CANCELLED' && initiative.cancellationReason && <p><b>{t('Cancellation reason')}:</b> {initiative.cancellationReason}</p>}
+        {initiative.canManage && initiative.status === 'PUBLISHED' && <div className="initiative-manage">
+          <label htmlFor={`cancel-reason-${initiative.initiativeId}`}>{t('Cancellation reason')}
+            <input id={`cancel-reason-${initiative.initiativeId}`} maxLength={300} value={cancellationReasons[initiative.initiativeId] ?? ''} onChange={(event) => setCancellationReasons((values) => ({ ...values, [initiative.initiativeId]: event.target.value }))} placeholder={t('Required only when cancelling')} />
+          </label>
+          <div className="draft-actions">
+            <button className="secondary" disabled={!cancellationReasons[initiative.initiativeId]?.trim() || initiative.codeAttendanceCount > 0} title={initiative.codeAttendanceCount > 0 ? t('Cancellation is unavailable after code attendance is recorded') : undefined} onClick={() => requestLinkedMutation(() => changeInitiativeStatus(initiative.initiativeId, 'CANCELLED').catch((error) => setInitiativeStatus(error.message)))}>{t('Cancel activity')}</button>
+            <button disabled={Date.now() < Date.parse(initiative.startAt)} title={Date.now() < Date.parse(initiative.startAt) ? t('Available after the scheduled activity time') : undefined} onClick={() => requestLinkedMutation(() => changeInitiativeStatus(initiative.initiativeId, 'COMPLETED').catch((error) => setInitiativeStatus(error.message)))}>{t('Mark completed')}</button>
+          </div>
+        </div>}
+        <div className="attendance-summary" aria-label={t('Attendance summary')}>
+          <p><strong>{initiative.codeAttendanceCount} {t('of')} {initiative.joinerCount}</strong> {t('joiners recorded attendance using the organiser’s code.')}</p>
+          <p><strong>{initiative.selfAttendanceCount} {t('of')} {initiative.joinerCount}</strong> {t('joiners reported attending.')}</p>
+          <small>{t('The organiser is not included in the joiner count. Neither attendance method is independently verified.')}</small>
+        </div>
+        {initiative.attendanceBasis === 'ORGANISER_CODE_ATTESTED' && <div className="attendance-result state-success" role="status"><b>{t('Attendance recorded using the organiser’s code')}</b><span>{t('You earned 20 points. This is organiser-mediated attendance, not independent verification.')}</span></div>}
+        {initiative.attendanceBasis === 'SELF_ATTESTED' && <div className="attendance-result state-success" role="status"><b>{t('You reported attending')}</b><span>{t('Self-attendance earns zero points and is not verified.')}</span></div>}
+        {initiative.canViewAttendanceCode && <div className="attendance-code-panel">
+          <div><b>{t('Organiser attendance code')}</b><span>{t('Share this six-digit code only with joined participants who attended.')}</span></div>
+          {activeAttendanceCodes[initiative.initiativeId]
+            ? <><output aria-label={t('Current organiser attendance code')} className="attendance-code">{activeAttendanceCodes[initiative.initiativeId].code}</output><small>{t('Rotates at')} {timestampLabel(activeAttendanceCodes[initiative.initiativeId].rotatesAt, language)} · {t('Code window closes')} {timestampLabel(activeAttendanceCodes[initiative.initiativeId].codeWindowEndsAt, language)}</small><button className="secondary" onClick={() => requestLinkedMutation(() => loadAttendanceCode(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message)))}>{t('Refresh code')}</button></>
+            : <button onClick={() => requestLinkedMutation(() => loadAttendanceCode(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message)))}>{t('Show attendance code')}</button>}
+        </div>}
+        {initiative.canUseOrganiserCode && !initiative.attendanceBasis && <div className="attendance-entry-panel">
+          <label htmlFor={`attendance-code-${initiative.initiativeId}`}>{t('Enter organiser attendance code')}
+            <input id={`attendance-code-${initiative.initiativeId}`} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]*" maxLength={6} value={attendanceCodeInputs[initiative.initiativeId] ?? ''} onChange={(event) => setAttendanceCodeInputs((values) => ({ ...values, [initiative.initiativeId]: event.target.value.replace(/\D/g, '').slice(0, 6) }))} />
+          </label>
+          <button disabled={!/^\d{6}$/.test(attendanceCodeInputs[initiative.initiativeId] ?? '')} onClick={() => requestLinkedMutation(() => submitAttendanceCode(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message)))}>{t('Record code attendance · 20 points')}</button>
+          <small>{t('The code rotates every 10 minutes. Five incorrect attempts are allowed per code period.')}</small>
+        </div>}
+        {initiative.canSelfAttend && !initiative.attendanceBasis && <div className="attendance-entry-panel">
+          <p>{t('The organiser-code window has closed. You can report your own attendance for seven days after completion.')}</p>
+          <button className="secondary" onClick={() => requestLinkedMutation(() => recordSelfAttendance(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message)))}>{t('I attended · 0 points')}</button>
+          <small>{t('This is a self-report. Seewik does not verify it.')}</small>
+        </div>}
+        {initiative.role === 'PARTICIPANT' && !initiative.attendanceBasis && !initiative.canUseOrganiserCode && !initiative.canSelfAttend && <small>{initiative.status === 'CANCELLED' ? t('Attendance is unavailable because this activity was cancelled.') : initiative.status === 'COMPLETED' ? t('No attendance option is currently available.') : t('Code attendance opens at the scheduled start time.')}</small>}
+        <small>{t('Creating or joining alone does not earn points.')}</small>
+      </article>)}
+    </div>
+  </section>;
+
   const demoStates = [
     ['DRAFT', t('Draft saved; nothing submitted')],
     ['FILED', t('Citizen confirms manual filing · +5 demo points')],
@@ -1399,14 +1585,15 @@ function App() {
         <nav className="desktop-nav" aria-label={t('Primary navigation')}>
           <button aria-current={navCurrent(screen === 'home')} className={screen === 'home' ? 'active' : ''} onClick={() => navigate('home')}>{t('Home')}</button>
           <button aria-current={navCurrent(screen === 'new-report' || screen === 'review')} className={screen === 'new-report' || screen === 'review' ? 'active' : ''} onClick={() => navigate('new-report')}>{t('Report an issue')}</button>
-          <button aria-current={navCurrent(screen === 'reports' || screen === 'report-detail')} className={screen === 'reports' || screen === 'report-detail' ? 'active' : ''} onClick={() => navigate('reports')}>{t('My reports')}</button>
+          <button aria-current={navCurrent(screen === 'reports' || screen === 'report-detail')} className={screen === 'reports' || screen === 'report-detail' ? 'active' : ''} onClick={() => navigate('reports')}>{t('My Actions')}</button>
           <button aria-current={navCurrent(screen === 'initiatives' || screen === 'new-initiative')} className={screen === 'initiatives' || screen === 'new-initiative' ? 'active' : ''} onClick={() => navigate('initiatives')}>{t('Initiate')}</button>
-          <button aria-current={navCurrent(screen === 'points')} className={screen === 'points' ? 'active' : ''} onClick={() => navigate('points')}>{t('My points')}</button>
+          <button aria-current={navCurrent(screen === 'points')} className={screen === 'points' ? 'active' : ''} onClick={() => navigate('points')}>{t('My Civic Card')}</button>
         </nav>
         <label className="language-switcher"><span>{t('Language')}</span><select aria-label={t('Language')} value={language} onChange={(event) => setLanguage(event.target.value as InterfaceLanguage)}>{LANGUAGE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         <AccountControl
           state={accountState}
           dialog={accountDialog}
+          name={accountName}
           email={accountEmail}
           busy={accountBusy}
           error={accountError}
@@ -1429,67 +1616,46 @@ function App() {
     {screen === 'home' && <>
       <section className="hero"><span className="eyebrow">{t('LOCAL CIVIC ACTION')}</span><h1>{t('A Civic Intelligence Platform')}</h1><p>{t('Identify a civic issue, find the confirmed route, prepare a complaint and track the outcome.')}</p></section>
       <section className="home-actions" aria-label={t('Start using Seewik')}>
-        <article><span>01</span><h2>{t('Report an issue')}</h2><p>{t('Describe the problem, confirm its category and find the deterministic civic route.')}</p><button onClick={() => navigate('new-report')}>{t('Start a report')}</button></article>
-        <article><span>02</span><h2>{t('Initiate something good')}</h2><p>{t('Create a useful local activity, discover what is nearby and join neighbours taking action.')}</p><button onClick={() => navigate('initiatives')}>{t('Explore activities')}</button></article>
-        <article><span>03</span><h2>{t('My reports')}</h2><p>{t('Resume drafts and inspect filed reports without rewriting their frozen facts.')}</p><button className="secondary" onClick={() => navigate('reports')}>{t('Open my reports')}</button></article>
-        <article><span>04</span><h2>{t('My points')}</h2><p>{t('See rewards derived from filing and verified outcomes, never complaint volume alone.')}</p><button className="secondary" onClick={() => navigate('points')}>{t('View my points')}</button></article>
+        <article className="home-primary-action improve-action">
+          <h2>{t('Improve')}</h2>
+          <p className="home-action-subtext">{t('Something needs fixing')}</p>
+          <p className="home-action-examples">{t('Garbage · Roads · Drainage · Water · Streetlights')}</p>
+          <button onClick={() => navigate('new-report')}>{t('Report a civic problem')}</button>
+        </article>
+        <article className="home-primary-action initiate-action">
+          <h2>{t('Initiate')}</h2>
+          <p className="home-action-subtext">{t('Start something good')}</p>
+          <p className="home-action-examples">{t('Donation · Plantation · Cleanup · Fitness')}</p>
+          <button onClick={() => navigate('initiatives')}>{t('Start a community activity')}</button>
+        </article>
+        <article><span>03</span><h2>{t('My Actions')}</h2><p>{t('Resume drafts and inspect filed reports without rewriting their frozen facts.')}</p><button className="secondary" onClick={() => navigate('reports')}>{t('Open My Actions')}</button></article>
+        <article><span>04</span><h2>{t('My Civic Card')}</h2><p>{t('See your civic contribution record and how your points were earned.')}</p><button className="secondary" onClick={() => navigate('points')}>{t('Open my Civic Card')}</button></article>
       </section>
+      <section className="home-utility-links" aria-label={t('Learn and get help')}>
+        <button onClick={() => navigate('awareness')}><span aria-hidden="true">?</span><span><strong>{t('Civic Awareness')}</strong><small>{t('Did you know? Duties, municipal work and official programmes')}</small></span></button>
+        <button className="emergency-link" onClick={() => navigate('emergency')}><span aria-hidden="true">＋</span><span><strong>{t('Emergency Information')}</strong><small>{t('112 and verified Nandurbar helplines')}</small></span></button>
+      </section>
+      <RecognitionPanel panel={publicRecognition ? { ...publicRecognition, monthLabel: localizedMonthLabel(language, publicRecognition.monthLabel) } : null} loading={publicRecognitionLoading} status={publicRecognitionStatus} t={t} onReport={sendRecognitionReport} />
     </>}
 
     {screen === 'initiatives' && <>
-      <section className="hero page-hero initiative-hero"><span className="eyebrow">{t('INITIATE WHAT IS GOOD')}</span><h1>{t('Take action with neighbours')}</h1><p>{t('Discover upcoming civic activities near you, join once, and see the participant count update.')}</p></section>
-      <section className="card initiative-memberships">
-        <h2>{t('My activities')}</h2>
-        <p>{t('Activities you organise or join stay here after cancellation or completion, so their final status remains clear.')}</p>
-        {!myInitiatives.length && <div className="empty-state"><b>{t('No joined activities yet.')}</b><p>{t('Create an activity or join one nearby.')}</p></div>}
-        <div className="initiative-list compact-list" aria-live="polite">
-          {myInitiatives.map((initiative) => <article className="card initiative-card" key={`mine-${initiative.initiativeId}`}>
-            <div className="initiative-card-top"><span className={`status-chip status-${initiative.status.toLowerCase()}`}>{localizedStatus(language, initiative.status)}</span><span>{initiative.role === 'ORGANISER' ? t('Organiser') : t('Joined')}</span></div>
-            <h3>{initiative.title}</h3>
-            <p>{timestampLabel(initiative.startAt, language)} · {initiative.placeName}</p>
-            {initiative.status === 'CANCELLED' && initiative.cancellationReason && <p><b>{t('Cancellation reason')}:</b> {initiative.cancellationReason}</p>}
-            {initiative.canManage && initiative.status === 'PUBLISHED' && <div className="initiative-manage">
-              <label htmlFor={`cancel-reason-${initiative.initiativeId}`}>{t('Cancellation reason')}
-                <input id={`cancel-reason-${initiative.initiativeId}`} maxLength={300} value={cancellationReasons[initiative.initiativeId] ?? ''} onChange={(event) => setCancellationReasons((values) => ({ ...values, [initiative.initiativeId]: event.target.value }))} placeholder={t('Required only when cancelling')} />
-              </label>
-              <div className="draft-actions">
-                <button className="secondary" disabled={!cancellationReasons[initiative.initiativeId]?.trim() || initiative.codeAttendanceCount > 0} title={initiative.codeAttendanceCount > 0 ? t('Cancellation is unavailable after code attendance is recorded') : undefined} onClick={() => requestLinkedMutation(() => changeInitiativeStatus(initiative.initiativeId, 'CANCELLED').catch((error) => setInitiativeStatus(error.message)))}>{t('Cancel activity')}</button>
-                <button disabled={Date.now() < Date.parse(initiative.startAt)} title={Date.now() < Date.parse(initiative.startAt) ? t('Available after the scheduled activity time') : undefined} onClick={() => requestLinkedMutation(() => changeInitiativeStatus(initiative.initiativeId, 'COMPLETED').catch((error) => setInitiativeStatus(error.message)))}>{t('Mark completed')}</button>
-              </div>
-            </div>}
-            <div className="attendance-summary" aria-label={t('Attendance summary')}>
-              <p><strong>{initiative.codeAttendanceCount} {t('of')} {initiative.joinerCount}</strong> {t('joiners recorded attendance using the organiser’s code.')}</p>
-              <p><strong>{initiative.selfAttendanceCount} {t('of')} {initiative.joinerCount}</strong> {t('joiners reported attending.')}</p>
-              <small>{t('The organiser is not included in the joiner count. Neither attendance method is independently verified.')}</small>
-            </div>
-            {initiative.attendanceBasis === 'ORGANISER_CODE_ATTESTED' && <div className="attendance-result state-success" role="status"><b>{t('Attendance recorded using the organiser’s code')}</b><span>{t('You earned 20 points. This is organiser-mediated attendance, not independent verification.')}</span></div>}
-            {initiative.attendanceBasis === 'SELF_ATTESTED' && <div className="attendance-result state-success" role="status"><b>{t('You reported attending')}</b><span>{t('Self-attendance earns zero points and is not verified.')}</span></div>}
-            {initiative.canViewAttendanceCode && <div className="attendance-code-panel">
-              <div><b>{t('Organiser attendance code')}</b><span>{t('Share this six-digit code only with joined participants who attended.')}</span></div>
-              {activeAttendanceCodes[initiative.initiativeId]
-                ? <><output aria-label={t('Current organiser attendance code')} className="attendance-code">{activeAttendanceCodes[initiative.initiativeId].code}</output><small>{t('Rotates at')} {timestampLabel(activeAttendanceCodes[initiative.initiativeId].rotatesAt, language)} · {t('Code window closes')} {timestampLabel(activeAttendanceCodes[initiative.initiativeId].codeWindowEndsAt, language)}</small><button className="secondary" onClick={() => requestLinkedMutation(() => loadAttendanceCode(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message)))}>{t('Refresh code')}</button></>
-                : <button onClick={() => requestLinkedMutation(() => loadAttendanceCode(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message)))}>{t('Show attendance code')}</button>}
-            </div>}
-            {initiative.canUseOrganiserCode && !initiative.attendanceBasis && <div className="attendance-entry-panel">
-              <label htmlFor={`attendance-code-${initiative.initiativeId}`}>{t('Enter organiser attendance code')}
-                <input id={`attendance-code-${initiative.initiativeId}`} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]*" maxLength={6} value={attendanceCodeInputs[initiative.initiativeId] ?? ''} onChange={(event) => setAttendanceCodeInputs((values) => ({ ...values, [initiative.initiativeId]: event.target.value.replace(/\D/g, '').slice(0, 6) }))} />
-              </label>
-              <button disabled={!/^\d{6}$/.test(attendanceCodeInputs[initiative.initiativeId] ?? '')} onClick={() => requestLinkedMutation(() => submitAttendanceCode(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message)))}>{t('Record code attendance · 20 points')}</button>
-              <small>{t('The code rotates every 10 minutes. Five incorrect attempts are allowed per code period.')}</small>
-            </div>}
-            {initiative.canSelfAttend && !initiative.attendanceBasis && <div className="attendance-entry-panel">
-              <p>{t('The organiser-code window has closed. You can report your own attendance for seven days after completion.')}</p>
-              <button className="secondary" onClick={() => requestLinkedMutation(() => recordSelfAttendance(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message)))}>{t('I attended · 0 points')}</button>
-              <small>{t('This is a self-report. Seewik does not verify it.')}</small>
-            </div>}
-            {initiative.role === 'PARTICIPANT' && !initiative.attendanceBasis && !initiative.canUseOrganiserCode && !initiative.canSelfAttend && <small>{initiative.status === 'CANCELLED' ? t('Attendance is unavailable because this activity was cancelled.') : initiative.status === 'COMPLETED' ? t('No attendance option is currently available.') : t('Code attendance opens at the scheduled start time.')}</small>}
-            <small>{t('Creating or joining alone does not earn points.')}</small>
-          </article>)}
-        </div>
+      <section className="hero page-hero initiative-hero"><span className="eyebrow">{t('LOCAL INITIATIVES')}</span><h1>{t('Create or join an initiative')}</h1><p>{t('Choose whether you want to start a useful local initiative or join one nearby.')}</p></section>
+      <section className="initiative-choice-grid" aria-label={t('Initiative options')}>
+        <article className="card initiative-choice">
+          <span className="eyebrow">{t('CREATE AN INITIATIVE')}</span>
+          <h2>{t('Create an Initiative')}</h2>
+          <p>{t('Start a useful community initiative with a real date and public meeting place.')}</p>
+          <button onClick={() => navigate('new-initiative')}>{t('Create an Initiative')}</button>
+        </article>
+        <article className="card initiative-choice join-choice">
+          <span className="eyebrow">{t('JOIN AN INITIATIVE')}</span>
+          <h2>{t('Join an Initiative')}</h2>
+          <p>{t('Find upcoming initiatives near you and join the ones that suit you.')}</p>
+          <button className="secondary" onClick={() => initiativeCoordinates ? discoverInitiatives(false).catch((error) => setInitiativeStatus(error.message)) : locateForInitiatives('DISCOVER')}>{initiativeCoordinates ? t('Refresh nearby') : t('Find nearby initiatives')}</button>
+        </article>
       </section>
       <section className="initiative-toolbar card">
         <div><h2>{t('Nearby activities')}</h2><p>{t('Distance is calculated from the location you choose to share. Your coordinates are used for this request and are not shown to other citizens.')}</p></div>
-        <button onClick={() => navigate('new-initiative')}>{t('Create an activity')}</button>
         <label>{t('Search radius')}<select value={initiativeRadiusKm} onChange={(event) => setInitiativeRadiusKm(Number(event.target.value))}><option value={2}>2 km</option><option value={5}>5 km</option><option value={10}>10 km</option><option value={25}>25 km</option></select></label>
         <button className="secondary" onClick={() => initiativeCoordinates ? discoverInitiatives(false).catch((error) => setInitiativeStatus(error.message)) : locateForInitiatives('DISCOVER')}>{initiativeCoordinates ? t('Refresh nearby') : t('Use my location')}</button>
         {initiativeStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{runtimeMessage(initiativeStatus)}</div>}
@@ -1507,7 +1673,7 @@ function App() {
     </>}
 
     {screen === 'new-initiative' && <section className="card page-card initiative-form">
-      <span className="eyebrow">{t('CREATE AN ACTIVITY')}</span><h2>{t('Start something useful nearby')}</h2><p>{t('Publish the real date, public meeting place and what neighbours should bring. Seewik does not claim participation or impact until it happens.')}</p>
+      <span className="eyebrow">{t('CREATE AN INITIATIVE')}</span><h2>{t('Start something useful nearby')}</h2><p>{t('Publish the real date, public meeting place and what neighbours should bring. Seewik does not claim participation or impact until it happens.')}</p>
       <label>{t('Activity type')}<select value={initiativeCategory} onChange={(event) => setInitiativeCategory(event.target.value)}><option value="CLEANUP">{t('Neighbourhood clean-up')}</option><option value="PLANTATION">{t('Plantation')}</option><option value="DONATION">{t('Donation activity')}</option><option value="COMMUNITY_FITNESS">{t('Community fitness')}</option><option value="OTHER_CIVIC_ACTIVITY">{t('Other civic activity')}</option></select></label>
       <label>{t('Title')}<input maxLength={100} value={initiativeTitle} onChange={(event) => setInitiativeTitle(event.target.value)} /></label>
       <label>{t('Description')}<textarea maxLength={1200} value={initiativeDescription} onChange={(event) => setInitiativeDescription(event.target.value)} /></label>
@@ -1718,24 +1884,28 @@ function App() {
       </>}
     </section>}
 
-    {screen === 'reports' && <section className="card page-card">
-      <span className="eyebrow">{t('MY REPORTS')}</span><h2>{t('Your saved civic work')}</h2><p>{t('Drafts can be resumed. Filed reports open as immutable records.')}</p>
+    {screen === 'reports' && <section className="card page-card my-actions-page">
+      <span className="eyebrow">{t('MY ACTIONS')}</span><h1>{t('My Actions')}</h1>
       {reportsView === 'SIGNED_OUT' ? <div className="empty-state account-recovery-state">
         <b>{t('Sign in to view your saved civic work.')}</b>
         <p>{t("Signing out doesn't delete anything.")}</p>
         <p>{t('Your saved work stays attached to your Google account — sign in to see it.')}</p>
         <button onClick={openAccount}>{t('Continue with Google')}</button>
       </div> : <>
-        <div className="reports-toolbar"><span role="status" aria-live="polite">{runtimeMessage(reportsStatus)}</span><button className="secondary" onClick={() => loadMyReports().catch((error) => setReportsStatus(`Reports could not be loaded: ${error.message}`))}>{t('Refresh')}</button></div>
-        {reportsView === 'LINKED_EMPTY' && <div className="empty-state"><b>{t('Signed in. No saved reports yet.')}</b><p>{t('Create a report to save an owner-protected draft.')}</p><button onClick={() => navigate('new-report')}>{t('Create a report')}</button></div>}
-        {reportsView === 'ANONYMOUS_EMPTY' && <div className="empty-state"><b>{t('No reports are saved for this anonymous account.')}</b><p>{t('Create a report to save an owner-protected draft.')}</p><button onClick={() => navigate('new-report')}>{t('Create a report')}</button></div>}
-        {reportsView === 'HAS_REPORTS' && <div className="report-list">{savedReports.map((report) => <article className="report-list-item" key={report.id}><div><span className={`status-chip status-${report.status.toLowerCase()}`}>{localizedStatus(language, report.status)}</span><h3>{issueLabel(report.confirmedIssueType, language)}</h3><p>{report.prabhagId} · {t('Updated')} {timestampLabel(report.updatedAt, language)}</p><small>{report.id.slice(0, 12)}… · {report.packVersion}</small></div>{canResumeReport(report.status) ? <button onClick={() => resumeSavedReport(report).catch((error) => setReportsStatus(`Draft could not be resumed: ${error.message}`))}>{t('Resume draft')}</button> : <button onClick={() => openSavedReport(report).catch((error) => setReportsStatus(`Report could not be opened: ${error.message}`))}>{t('View report')}</button>}</article>)}</div>}
+        <section className="actions-subsection reports-subsection">
+          <div className="actions-section-heading"><div><h2>{t('My Reports')}</h2><p>{t('Drafts can be resumed. Filed reports open as immutable records.')}</p></div><button className="secondary" onClick={() => loadMyReports().catch((error) => setReportsStatus(`Reports could not be loaded: ${error.message}`))}>{t('Refresh')}</button></div>
+          <div className="reports-toolbar"><span role="status" aria-live="polite">{runtimeMessage(reportsStatus)}</span></div>
+          {reportsView === 'LINKED_EMPTY' && <div className="empty-state"><b>{t('Signed in. No saved reports yet.')}</b><p>{t('Create a report to save an owner-protected draft.')}</p><button onClick={() => navigate('new-report')}>{t('Create a report')}</button></div>}
+          {reportsView === 'ANONYMOUS_EMPTY' && <div className="empty-state"><b>{t('No reports are saved for this anonymous account.')}</b><p>{t('Create a report to save an owner-protected draft.')}</p><button onClick={() => navigate('new-report')}>{t('Create a report')}</button></div>}
+          {reportsView === 'HAS_REPORTS' && <div className="report-list">{savedReports.map((report) => <article className="report-list-item" key={report.id}><div><span className={`status-chip status-${report.status.toLowerCase()}`}>{localizedStatus(language, report.status)}</span><h3>{issueLabel(report.confirmedIssueType, language)}</h3><p>{report.prabhagId} · {t('Updated')} {timestampLabel(report.updatedAt, language)}</p><small>{report.id.slice(0, 12)}… · {report.packVersion}</small></div>{canResumeReport(report.status) ? <button onClick={() => resumeSavedReport(report).catch((error) => setReportsStatus(`Draft could not be resumed: ${error.message}`))}>{t('Resume draft')}</button> : <button onClick={() => openSavedReport(report).catch((error) => setReportsStatus(`Report could not be opened: ${error.message}`))}>{t('View report')}</button>}</article>)}</div>}
+        </section>
+        {myInitiativesSection}
       </>}
     </section>}
 
     {screen === 'report-detail' && <section className="card page-card">
       <span className="eyebrow">{t('REPORT DETAILS')}</span><h2>{selectedReport ? issueLabel(selectedReport.confirmedIssueType, language) : t('Loading report')}</h2>
-      {accountState === 'SIGNED_OUT' ? <div className="empty-state account-recovery-state"><b>{t('Sign in to view your saved civic work.')}</b><p>{t('Your saved work stays attached to your Google account — sign in to see it.')}</p><button onClick={openAccount}>{t('Continue with Google')}</button></div> : !selectedReport ? <div className="empty-state"><p>{runtimeMessage(reportsStatus) || t('Choose a report from My reports.')}</p><button onClick={() => navigate('reports')}>{t('Open my reports')}</button></div> : <>
+      {accountState === 'SIGNED_OUT' ? <div className="empty-state account-recovery-state"><b>{t('Sign in to view your saved civic work.')}</b><p>{t('Your saved work stays attached to your Google account — sign in to see it.')}</p><button onClick={openAccount}>{t('Continue with Google')}</button></div> : !selectedReport ? <div className="empty-state"><p>{runtimeMessage(reportsStatus) || t('Choose a report from My Actions.')}</p><button onClick={() => navigate('reports')}>{t('Open My Actions')}</button></div> : <>
         <div className="report-status-banner immutable"><b>{localizedStatus(language, reportStatus)}</b><span>{reportStatus === 'DRAFT' ? t('Open the review screen to edit this draft.') : t('Filed record — complaint and route facts are immutable')}</span></div>
         <dl className="report-facts"><div><dt>{t('Prabhag')}</dt><dd>{selectedReport.prabhagId}</dd></div><div><dt>{t('Route')}</dt><dd>{selectedReport.routeSnapshot?.routeId || selectedReport.routeId}</dd></div><div><dt>{t('Pack')}</dt><dd>{selectedReport.routeSnapshot?.packVersion || selectedReport.packVersion}</dd></div><div><dt>{t('Authority')}</dt><dd>{selectedReport.routeSnapshot?.authority || selectedReport.authority}</dd></div><div><dt>{t('Acknowledgement')}</dt><dd>{selectedReport.acknowledgementId || t('Not provided')}</dd></div><div><dt>{t('Updated')}</dt><dd>{timestampLabel(selectedReport.updatedAt, language)}</dd></div></dl>
         {selectedReport.routeSnapshot?.department && <div className="locked-recipient"><small>{t('Frozen route department')}</small><strong>{selectedReport.routeSnapshot.department.displayName}</strong><span>{selectedReport.routeSnapshot.department.status} · {selectedReport.routeSnapshot.sourceStatus} · {selectedReport.routeSnapshot.reviewStatus}</span></div>}
@@ -1750,11 +1920,38 @@ function App() {
       </>}
     </section>}
 
-    {screen === 'points' && <section className="card page-card points-page">
-      <span className="eyebrow">{t('MY POINTS')}</span><h2>{pointsTotal} {t('derived points')}</h2><p>{t('Totals are calculated from immutable ledger entries rather than stored as an editable score.')}</p>
-      <div className="points-rules"><div><b>+5</b><span>{t('First accepted filing')}</span></div><div><b>+20</b><span>{t('Organiser-code attendance')}</span></div><div><b>+40</b><span>{t('Completed organiser with two code attendees')}</span></div><div><b>+60</b><span>{t('First verified fix')}</span></div><div><b>0</b><span>{t('Self-attendance, duplicate override, reopening or re-verification')}</span></div></div>
-      <button className="secondary" onClick={() => refreshDerivedPoints().catch(() => undefined)}>{t('Refresh my points')}</button>
-    </section>}
+    {screen === 'points' && <>
+      <section className="card page-card points-page">
+        <div className="civic-card-heading"><h1>{t('My Civic Card')}</h1><p>{t('A record of what you have actually done.')}</p></div>
+        {accountState === 'SIGNED_OUT' ? <div className="empty-state account-recovery-state"><b>{t('Sign in to view your contribution record.')}</b><p>{t('Your points remain attached to your account and are never shown in the public recognition panel.')}</p><button onClick={openAccount}>{t('Continue with Google')}</button></div> : <>
+          <h2>{privatePoints?.lifetimePoints ?? pointsTotal} {t('lifetime points')}</h2>
+          <p>{t('Totals are calculated from backend-owned ledger entries rather than stored as an editable score. Only you can see this detail.')}</p>
+          {privatePoints && <div className="private-month-points"><span>{localizedMonthLabel(language, privatePoints.monthLabel)}</span><strong>{privatePoints.currentMonthPoints} {t('points')}</strong></div>}
+          {privatePoints?.breakdown.length ? <div className="points-breakdown">{privatePoints.breakdown.map((item) => <div key={item.contributionType}><span><b>{contributionTypeLabel(item.contributionType)}</b><small>{item.lifetimeAwards} {t('recorded awards')}</small></span><strong>{item.lifetimePoints}</strong></div>)}</div> : null}
+          <div className="points-rules"><div><b>+5</b><span>{t('First accepted filing')}</span></div><div><b>+20</b><span>{t('Organiser-code attendance')}</span></div><div><b>+40</b><span>{t('Completed organiser with two code attendees')}</span></div><div><b>+60</b><span>{t('First verified fix')}</span></div><div><b>0</b><span>{t('Self-attendance, duplicate override, reopening or re-verification')}</span></div></div>
+          <button className="secondary" onClick={() => refreshDerivedPoints().catch(() => undefined)}>{t('Refresh my points')}</button>
+          {privatePointsStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{t(privatePointsStatus)}</div>}
+        </>}
+      </section>
+      {accountState !== 'SIGNED_OUT' && <ContributionPoster
+        defaultDisplayName={recognitionSettings?.publicDisplayName || accountName || ''}
+        lifetimePoints={privatePoints?.lifetimePoints ?? pointsTotal}
+        currentMonthPoints={privatePoints?.currentMonthPoints ?? 0}
+        monthLabel={privatePoints ? localizedMonthLabel(language, privatePoints.monthLabel) : t('This month')}
+        contributionLabels={privatePoints?.breakdown.map((item) => contributionTypeLabel(item.contributionType)) ?? []}
+        t={t}
+      />}
+      <RecognitionSettings connected={accountState === 'GOOGLE_LINKED'} settings={recognitionSettings} busy={recognitionSettingsBusy} status={recognitionSettingsStatus} t={t} onConnect={openAccount} onSave={updateRecognitionSettings} />
+      <RecognitionPanel panel={publicRecognition ? { ...publicRecognition, monthLabel: localizedMonthLabel(language, publicRecognition.monthLabel) } : null} loading={publicRecognitionLoading} status={publicRecognitionStatus} t={t} onReport={sendRecognitionReport} />
+    </>}
+
+    {screen === 'awareness' && <CivicAwarenessPage
+      t={t}
+      onReportIssue={(selectedIssueType) => { chooseIssueType(selectedIssueType); navigate('new-report'); }}
+      onStartInitiative={() => navigate('initiatives')}
+    />}
+
+    {screen === 'emergency' && <EmergencyInformationPage t={t} />}
 
     {screen === 'home' && <>
     <section className="card demo-card">
@@ -1772,13 +1969,17 @@ function App() {
     </section>
     <section className="card systems"><h2>{runtimeMessage(status)}</h2><p>{t('The secure service path remains available for technical validation.')}</p><button onClick={() => requestLinkedMutation(() => verifyFirebase().catch((error) => add(`Service check failed: ${error.message}`)))}>{t('Verify cloud services')}</button>{details.length > 0 && <ul>{details.map((detail, index) => <li key={`${index}-${detail}`}>{detail}</li>)}</ul>}</section>
     </>}
+    <nav className="utility-nav" aria-label={t('Civic information')}>
+      <button className={screen === 'awareness' ? 'active' : ''} onClick={() => navigate('awareness')}>{t('Civic Awareness')}</button>
+      <button className={screen === 'emergency' ? 'active emergency-utility' : 'emergency-utility'} onClick={() => navigate('emergency')}>{t('Emergency Information')}</button>
+    </nav>
     <footer>{t('Built for local civic action')}</footer>
     <nav className="mobile-nav" aria-label={t('Mobile navigation')}>
       <button aria-current={navCurrent(screen === 'home')} className={screen === 'home' ? 'active' : ''} onClick={() => navigate('home')}><span aria-hidden="true">⌂</span>{t('Home')}</button>
       <button aria-current={navCurrent(screen === 'new-report' || screen === 'review')} className={screen === 'new-report' || screen === 'review' ? 'active' : ''} onClick={() => navigate('new-report')}><span aria-hidden="true">＋</span>{t('Report')}</button>
       <button aria-current={navCurrent(screen === 'initiatives' || screen === 'new-initiative')} className={screen === 'initiatives' || screen === 'new-initiative' ? 'active' : ''} onClick={() => navigate('initiatives')}><span aria-hidden="true">◎</span>{t('Initiate')}</button>
-      <button aria-current={navCurrent(screen === 'reports' || screen === 'report-detail')} className={screen === 'reports' || screen === 'report-detail' ? 'active' : ''} onClick={() => navigate('reports')}><span aria-hidden="true">≡</span>{t('Reports')}</button>
-      <button aria-current={navCurrent(screen === 'points')} className={screen === 'points' ? 'active' : ''} onClick={() => navigate('points')}><span aria-hidden="true">◆</span>{t('Points')}</button>
+      <button aria-current={navCurrent(screen === 'reports' || screen === 'report-detail')} className={screen === 'reports' || screen === 'report-detail' ? 'active' : ''} onClick={() => navigate('reports')}><span aria-hidden="true">≡</span>{t('Actions')}</button>
+      <button aria-current={navCurrent(screen === 'points')} className={screen === 'points' ? 'active' : ''} onClick={() => navigate('points')}><span aria-hidden="true">◆</span>{t('Civic Card')}</button>
     </nav>
   </main>
   </>;

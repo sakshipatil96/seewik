@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "sourced-content-v0.1",
+  "contentVersion": "emergency-information-en-v0.1",
+  "defaultLanguage": "en",
+  "reviewedDate": "2026-08-31",
+  "jurisdiction": "India / Nandurbar district",
+  "topics": [
+    {
+      "id": "emergency-contacts",
+      "topic": "emergency-contacts",
+      "language": "en",
+      "jurisdiction": "India / Nandurbar district",
+      "status": "REVIEWED",
+      "heading": "Emergency Information",
+      "summary": "Call the number that best fits the emergency. Seewik does not receive the call or dispatch help.",
+      "sections": [
+        { "id": "national-112", "group": "National emergency response", "label": "Emergency Response 112", "description": "Police, fire and rescue, health and other emergencies", "displayNumber": "112", "telephoneNumber": "112", "sourceId": "erss-112" },
+        { "id": "nandurbar-police", "group": "Nandurbar local contacts", "label": "Police Station", "description": "District helpline listing", "displayNumber": "02564 222200", "telephoneNumber": "+912564222200", "sourceId": "nandurbar-helpline" },
+        { "id": "nandurbar-ambulance", "group": "Nandurbar local contacts", "label": "Ambulance", "description": "District helpline listing", "displayNumber": "108", "telephoneNumber": "108", "sourceId": "nandurbar-helpline" },
+        { "id": "nandurbar-fire", "group": "Nandurbar local contacts", "label": "Fire Brigade", "description": "District helpline listing", "displayNumber": "02564 222201", "telephoneNumber": "+912564222201", "sourceId": "nandurbar-helpline" },
+        { "id": "nandurbar-control-room", "group": "Nandurbar local contacts", "label": "Control Room", "description": "District helpline listing", "displayNumber": "02564 201100", "telephoneNumber": "+912564201100", "sourceId": "nandurbar-helpline" },
+        { "id": "nandurbar-disaster", "group": "Nandurbar local contacts", "label": "Disaster Management", "description": "District helpline listing", "displayNumber": "02564 210006", "telephoneNumber": "+912564210006", "sourceId": "nandurbar-helpline" },
+        { "id": "district-disaster-1077", "group": "Other district-listed helplines", "label": "Disaster Management Helpline", "description": "District homepage listing", "displayNumber": "1077", "telephoneNumber": "1077", "sourceId": "nandurbar-home" },
+        { "id": "women-1091", "group": "Other district-listed helplines", "label": "Women Helpline", "description": "District homepage listing", "displayNumber": "1091", "telephoneNumber": "1091", "sourceId": "nandurbar-home" },
+        { "id": "child-1098", "group": "Other district-listed helplines", "label": "Child Helpline", "description": "District homepage listing", "displayNumber": "1098", "telephoneNumber": "1098", "sourceId": "nandurbar-home" }
+      ],
+      "limitations": ["Seewik is not an emergency response service and does not dispatch help.", "Numbers are stored with the app for signed-out and offline viewing. A call still requires available telephone service.", "Expired sources remain visible only as an unverified reference and their call buttons are disabled until rechecked."],
+      "sources": [
+        { "id": "erss-112", "title": "Emergency Response Support System — 112", "url": "https://112.gov.in/", "authority": "Ministry of Home Affairs, Government of India", "sourceDate": null, "lastReviewed": "2026-08-31", "reviewExpiresOn": "2026-11-30" },
+        { "id": "nandurbar-helpline", "title": "Helpline — District Nandurbar", "url": "https://nandurbar.gov.in/en/helpline/", "authority": "District Administration Nandurbar / NIC", "sourceDate": "2026-08-18", "lastReviewed": "2026-08-31", "reviewExpiresOn": "2026-09-30" },
+        { "id": "nandurbar-home", "title": "District Nandurbar — Helpline Numbers", "url": "https://nandurbar.gov.in/en/", "authority": "District Administration Nandurbar / NIC", "sourceDate": "2026-08-21", "lastReviewed": "2026-08-31", "reviewExpiresOn": "2026-09-30" }
+      ]
+    }
+  ]
+}

@@ -73,20 +73,28 @@ service cloud.firestore {
 
     match /profiles/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
-      allow create, update: if googleLinked()
-        && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly([
-          'ownerUid', 'authProvider', 'recoverable', 'schemaVersion', 'updatedAt'
-        ])
-        && request.resource.data.keys().hasAll([
-          'ownerUid', 'authProvider', 'recoverable', 'schemaVersion', 'updatedAt'
-        ])
-        && request.resource.data.ownerUid == request.auth.uid
-        && request.resource.data.authProvider == 'GOOGLE'
-        && request.resource.data.recoverable == true
-        && request.resource.data.schemaVersion == 'citizen-profile-v0.1'
-        && request.resource.data.updatedAt == request.time;
-      allow delete: if false;
+      allow create, update, delete: if false;
+    }
+
+    match /recognitionConsents/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update, delete: if false;
+    }
+
+    match /recognitionConsentEvents/{eventId} {
+      allow read, create, update, delete: if false;
+    }
+
+    match /recognitionNameCollisions/{eventId} {
+      allow read, create, update, delete: if false;
+    }
+
+    match /recognitionMonths/{monthKey} {
+      allow read, create, update, delete: if false;
+    }
+
+    match /recognitionAbuseReports/{reportId} {
+      allow read, create, update, delete: if false;
     }
 
     match /accountAuditEvents/{eventId} {

@@ -29,6 +29,18 @@ test('attendance UI remains usable on narrow screens and by keyboard', () => {
   assert.match(source, /role="status"/);
 });
 
+test('Initiate is for creating or joining while personal initiatives live in My Actions', () => {
+  assert.match(source, /Create or join an initiative/);
+  assert.match(source, /CREATE AN INITIATIVE/);
+  assert.match(source, /JOIN AN INITIATIVE/);
+  assert.match(source, /My Reports/);
+  assert.match(source, /My Initiatives/);
+  assert.match(source, /initiative-role-chip/);
+  assert.match(styles, /\.initiative-role-chip\.role-completed/);
+  assert.doesNotMatch(source, /initiative-duty-link/);
+  assert.doesNotMatch(source, /<h2>\{t\('My activities'\)\}<\/h2>/);
+});
+
 test('attendance and reward language is available in Marathi and Hindi', () => {
   for (const key of [
     'Organiser attendance code',

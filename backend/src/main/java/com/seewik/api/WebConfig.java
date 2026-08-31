@@ -10,7 +10,7 @@ public class WebConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
                 .allowedOrigins("https://seewik.web.app", "https://seewik.firebaseapp.com", "http://localhost:5173")
-                .allowedMethods("GET", "POST", "OPTIONS")
+                .allowedMethods("GET", "POST", "PUT", "OPTIONS")
                 .allowedHeaders("Content-Type", "Authorization");
     }
 }

@@ -4,6 +4,15 @@ All notable changes to the versioned Civic Pack and its deterministic routing im
 
 ## Unreleased
 
+- Froze `day12-recognition-privacy-content-contract-v0.1` and added in-place `citizen-profile-v0.2` migration: the backend privately stores the Google-provided name and email under the existing Firebase UID, never stores the Google photograph, and keeps public recognition consent separate.
+- Added deterministic IST-month top-three recognition from exact active `points-ledger-v0.3` / `reward-policy-v0.2` awards, with duplicate suppression, production-test exclusions, opt-in-only selection, alphabetical tie handling, idempotent private snapshots and a public names-only response.
+- Added the public **Thanks to Our Top Three Citizens of the Month** panel, private lifetime/current-month point details, editable public-name preview, explicit opt-in and withdrawal, collision monitoring and a privacy-safe displayed-name abuse-report path; direct client writes to profiles and all recognition collections are denied.
+- Added deliberate, device-local Civic Card image generation with a citizen-chosen display name, safe high-level contribution data, platform file sharing, download fallback, no upload and no public poster URL.
+- Added versioned, official-source Civic Awareness content for all Article 51A duties, municipal complaint follow-up, civic recognition programmes, Nandurbar Who’s Who and Nagar Parishad responsibilities, including action links for the highlighted duties and visible source-review expiry.
+- Added a separate signed-out Emergency Information route with national ERSS 112, current Nandurbar district contacts, verified `tel:` actions, a non-dispatch disclaimer, stale-source disabling and runtime offline caching.
+- Completed Marathi and Hindi Day 12 interfaces for recognition, consent, private points, Civic Card sharing, sourced Civic Awareness and Emergency Information; safety-critical emergency wording received owner approval on 2026-08-31.
+- Refocused Initiate on creating or joining an Initiative and moved personal Initiative history, organising/joined roles, completion state and attendance controls into the two-part My Actions page beside reports.
+- Renamed the saved civic-work destination from **My Reports** to **My Actions**, preserved filed-report immutability copy and completed the responsive intermediate-width header behavior.
 - Added Google-linked, participant-owned Initiative attendance with a zero-point self-attested fallback after the organiser-code window and honest derived joiner counts that exclude the organiser.
 - Added server-generated six-digit organiser attendance codes that rotate every ten minutes, accept a two-minute boundary grace period only inside the three-hour event window, rate-limit incorrect entries per participant and slot, and never store plaintext codes.
 - Added append-only, idempotent Initiative attendance rewards: 20 points once per code-attending participant and 40 points once for a completed organiser after two distinct code attendees, regardless of whether completion or the attendance threshold occurs first.

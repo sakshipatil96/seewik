@@ -1,5 +1,5 @@
 export const GOOGLE_PROVIDER_ID = 'google.com';
-export const PROFILE_SCHEMA_VERSION = 'citizen-profile-v0.1';
+export const PROFILE_SCHEMA_VERSION = 'citizen-profile-v0.2';
 export const ACCOUNT_AUDIT_SCHEMA_VERSION = 'account-audit-v0.1';
 export const SIGNED_OUT_STORAGE_KEY = 'seewik.account.signed-out.v1';
 
@@ -73,15 +73,6 @@ export function safeAccountErrorCode(code: string | undefined) {
   if (code && /^auth\/[a-z0-9-]+$/.test(code)) return code;
   if (code && ['permission-denied', 'failed-precondition', 'internal', 'unavailable', 'unknown'].includes(code)) return code;
   return 'auth/unknown';
-}
-
-export function minimalProfileData(uid: string) {
-  return {
-    ownerUid: uid,
-    authProvider: 'GOOGLE',
-    recoverable: true,
-    schemaVersion: PROFILE_SCHEMA_VERSION,
-  } as const;
 }
 
 export function collisionAuditData(ownerUid: string) {

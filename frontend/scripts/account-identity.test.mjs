@@ -8,7 +8,6 @@ import {
   accountIdentityState,
   collisionAuditData,
   isCredentialCollisionCode,
-  minimalProfileData,
   reportsViewState,
   safeAccountErrorCode,
 } from '../src/accountIdentity.ts';
@@ -54,17 +53,16 @@ test('production deploy includes the profile security rules required after linki
   assert.match(workflow, /--only hosting,firestore:rules,storage/);
 });
 
-test('profile contract is versioned, UID-preserving, and contains no copied Google PII', () => {
-  const profile = minimalProfileData('uid-before-link');
-  assert.deepEqual(profile, {
-    ownerUid: 'uid-before-link',
-    authProvider: 'GOOGLE',
-    recoverable: true,
-    schemaVersion: PROFILE_SCHEMA_VERSION,
-  });
-  assert.equal('email' in profile, false);
-  assert.equal('displayName' in profile, false);
-  assert.equal('photoURL' in profile, false);
+test('private profile migration is versioned and performed through the authenticated backend', async () => {
+  const service = await readFile(new URL('../src/accountService.ts', import.meta.url), 'utf8');
+  const backend = await readFile(new URL('../../backend/src/main/java/com/seewik/api/CitizenProfileService.java', import.meta.url), 'utf8');
+  assert.equal(PROFILE_SCHEMA_VERSION, 'citizen-profile-v0.2');
+  assert.match(service, /\/api\/profile\/sync/);
+  assert.match(service, /Authorization: `Bearer \$\{idToken\}`/);
+  assert.doesNotMatch(service, /setDoc\(doc\(db, 'profiles'/);
+  assert.match(backend, /privateGoogleName/);
+  assert.match(backend, /privateGoogleEmail/);
+  assert.doesNotMatch(backend, /photoURL/);
 });
 
 test('collision audit records only the winning UID and fixed privacy-safe codes', () => {
@@ -103,8 +101,9 @@ test('Firestore profile and audit writes require a linked Google token', async (
   assert.match(rules, /firebase\.identities\["google\.com"\] != null/);
   assert.doesNotMatch(rules, /sign_in_provider == 'google\.com'/);
   assert.match(rules, /match \/profiles\/\{uid\}/);
+  assert.match(rules, /match \/profiles\/\{uid\}[\s\S]*?allow create, update, delete: if false;/);
   assert.match(rules, /match \/accountAuditEvents\/\{eventId\}/);
-  assert.match(rules, /allow delete: if false;/);
+  assert.match(rules, /allow create, update, delete: if false;/);
 });
 
 test('anonymous callers cannot bypass report or technical write gates', async () => {

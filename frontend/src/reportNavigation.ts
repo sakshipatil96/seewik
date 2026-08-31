@@ -1,4 +1,4 @@
-export type AppScreen = 'home' | 'new-report' | 'review' | 'reports' | 'report-detail' | 'points' | 'initiatives' | 'new-initiative';
+export type AppScreen = 'home' | 'new-report' | 'review' | 'reports' | 'report-detail' | 'points' | 'initiatives' | 'new-initiative' | 'awareness' | 'emergency';
 
 const SCREEN_PATHS: Record<AppScreen, string> = {
   home: '/',
@@ -9,6 +9,8 @@ const SCREEN_PATHS: Record<AppScreen, string> = {
   points: '/points',
   initiatives: '/initiatives',
   'new-initiative': '/initiatives/new',
+  awareness: '/awareness',
+  emergency: '/emergency',
 };
 
 export function pathForScreen(screen: AppScreen, reportId?: string) {

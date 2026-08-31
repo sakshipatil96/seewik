@@ -1,0 +1,110 @@
+{
+  "schemaVersion": "sourced-content-v0.1",
+  "contentVersion": "civic-awareness-en-v0.1",
+  "defaultLanguage": "en",
+  "reviewedDate": "2026-08-31",
+  "jurisdiction": "India / Maharashtra / Nandurbar",
+  "topics": [
+    {
+      "id": "article-51a",
+      "topic": "fundamental-duties",
+      "language": "en",
+      "jurisdiction": "India",
+      "status": "REVIEWED",
+      "heading": "Article 51A — Fundamental Duties",
+      "summary": "The Constitution lists eleven Fundamental Duties for every citizen. Four connect especially closely to Seewik’s civic-action routes.",
+      "sections": [
+        { "label": "51A(a)", "text": "Abide by the Constitution and respect its ideals and institutions, the National Flag and the National Anthem." },
+        { "label": "51A(b)", "text": "Cherish and follow the noble ideals that inspired the national struggle for freedom." },
+        { "label": "51A(c)", "text": "Uphold and protect the sovereignty, unity and integrity of India." },
+        { "label": "51A(d)", "text": "Defend the country and render national service when called upon to do so." },
+        { "label": "51A(e)", "text": "Promote harmony and common brotherhood across religious, linguistic, regional and sectional differences, and renounce practices derogatory to the dignity of women." },
+        { "label": "51A(f)", "text": "Value and preserve the rich heritage of India’s composite culture." },
+        { "label": "51A(g)", "text": "Protect and improve the natural environment, including forests, lakes, rivers and wildlife, and have compassion for living creatures.", "highlight": true, "links": ["Report waste or drainage", "Start a clean-up or plantation"] },
+        { "label": "51A(h)", "text": "Develop scientific temper, humanism and the spirit of inquiry and reform.", "highlight": true },
+        { "label": "51A(i)", "text": "Safeguard public property and abjure violence.", "highlight": true, "links": ["Report a road, streetlight or public-toilet issue"] },
+        { "label": "51A(j)", "text": "Strive towards excellence in individual and collective activity so the nation rises to higher levels of endeavour and achievement.", "highlight": true, "links": ["Explore community activities"] },
+        { "label": "51A(k)", "text": "As a parent or guardian, provide opportunities for education to a child or ward between six and fourteen years of age." }
+      ],
+      "limitations": ["This page reproduces or plainly summarizes the constitutional duties; it does not give legal advice or decide whether a duty has been fulfilled."],
+      "sources": [
+        { "id": "india-code-constitution", "title": "The Constitution of India, Part IVA, Article 51A", "url": "https://www.indiacode.nic.in/bitstream/123456789/19632/1/the_constitution_of_india.pdf", "authority": "Legislative Department / India Code", "sourceDate": null, "lastReviewed": "2026-08-31", "reviewExpiresOn": "2026-11-30" }
+      ]
+    },
+    {
+      "id": "municipal-complaint-follow-up",
+      "topic": "complaint-process",
+      "language": "en",
+      "jurisdiction": "Maharashtra / Nandurbar",
+      "status": "REVIEWED",
+      "heading": "How municipal complaint follow-up works",
+      "summary": "A practical follow-up path is: the responsible municipal department, then the Chief Officer’s office, then a district or state public-grievance channel when municipal follow-up has failed.",
+      "sections": [
+        { "label": "1. Responsible department", "text": "File through the confirmed municipal channel and keep the acknowledgement, date, photographs and any reply together." },
+        { "label": "2. Chief Officer’s office", "text": "If the department does not respond, follow up with the municipal Chief Officer’s office. The Act places executive administration and supervision of municipal officers under the Chief Officer and provides for a Citizen’s Charter." },
+        { "label": "3. District or state grievance channel", "text": "If the municipal route still fails, use the official public-grievance route for district or state administrative follow-up and attach the earlier record." }
+      ],
+      "limitations": ["This is a plain-language follow-up sequence, not a statement that every complaint has a statutory appeal in this order.", "Seewik does not file or escalate a complaint automatically."],
+      "sources": [
+        { "id": "maharashtra-municipal-act", "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965 — sections 49, 74, 77, 78A and 78B", "url": "https://mahadma.maharashtra.gov.in/wp-content/uploads/2026/04/maharashtra_municipa.pdf", "authority": "Directorate of Municipal Administration, Government of Maharashtra", "sourceDate": "2025-04-04", "lastReviewed": "2026-08-31", "reviewExpiresOn": "2026-10-31" },
+        { "id": "nandurbar-public-grievance", "title": "District Nandurbar — Public Grievance link and district administration", "url": "https://nandurbar.gov.in/en/", "authority": "District Administration Nandurbar / NIC", "sourceDate": "2026-08-21", "lastReviewed": "2026-08-31", "reviewExpiresOn": "2026-09-30" }
+      ]
+    },
+    {
+      "id": "civic-recognition-programmes",
+      "topic": "recognition-programmes",
+      "language": "en",
+      "jurisdiction": "India",
+      "status": "REVIEWED",
+      "heading": "Official civic recognition programmes",
+      "summary": "Some official programmes recognize cities, Good Samaritans or eligible volunteers. Their purpose and eligibility are different, so always check the programme page before acting on a reward claim.",
+      "sections": [
+        { "label": "Swachh Survekshan 2025–26", "text": "MoHUA’s urban cleanliness survey assesses urban local bodies and includes citizen feedback. Its main awards recognize cities and local bodies; participation does not create an automatic individual reward." },
+        { "label": "Rah-Veer Good Samaritan scheme", "text": "MoRTH’s revised guidelines, effective 21 April 2025, describe a ₹25,000 award for an eligible Good Samaritan who saves the life of a victim of a fatal motor-vehicle accident through immediate assistance during the golden hour. Official eligibility and district appraisal rules control the award." },
+        { "label": "MY Bharat", "text": "The Government of India platform lists volunteering and experiential-learning opportunities and offers digital recognition. Eligibility, selection and certificates depend on the individual programme." }
+      ],
+      "limitations": ["Seewik does not determine eligibility, promise a reward, nominate a citizen or verify completion for any external programme."],
+      "sources": [
+        { "id": "swachh-survekshan-2025-26", "title": "MoHUA launches 10th Swachh Survekshan", "url": "https://www.pib.gov.in/PressReleasePage.aspx?PRID=2207000&lang=1&reg=1", "authority": "Ministry of Housing and Urban Affairs / Press Information Bureau", "sourceDate": "2025-12-20", "lastReviewed": "2026-08-31", "reviewExpiresOn": "2026-10-31" },
+        { "id": "rah-veer-guidelines", "title": "Scheme Guidelines on Rah-Veer (Good Samaritan)", "url": "https://morth.gov.in/sites/default/files/Scheme-Guidelines-on-RahVeer.pdf", "authority": "Ministry of Road Transport and Highways", "sourceDate": "2025-04-21", "lastReviewed": "2026-08-31", "reviewExpiresOn": "2026-10-31" },
+        { "id": "my-bharat", "title": "Mera Yuva Bharat — volunteering and experiential learning", "url": "https://mybharat.gov.in/", "authority": "Department of Youth Affairs, Government of India", "sourceDate": null, "lastReviewed": "2026-08-31", "reviewExpiresOn": "2026-10-31" }
+      ]
+    },
+    {
+      "id": "nandurbar-whos-who",
+      "topic": "whos-who",
+      "language": "en",
+      "jurisdiction": "Nandurbar district",
+      "status": "REVIEWED",
+      "heading": "Who’s Who of Nandurbar",
+      "summary": "The official live directory lists district officers and contact details. As reviewed on 31 August 2026, Dr. Mittali Sethi (IAS) is listed as District Collector.",
+      "sections": [
+        { "label": "District Collector", "text": "Dr. Mittali Sethi (IAS) · Collector Office, Nandurbar · 02564-221001" },
+        { "label": "Use the live directory", "text": "Officer names and assignments can change. Open the official Who’s Who page for the current full list before contacting a named officer." }
+      ],
+      "limitations": ["A current, complete Nandurbar Nagar Parishad officeholder directory was not available in the reviewed official sources, so Seewik does not guess those names."],
+      "sources": [
+        { "id": "nandurbar-whos-who-live", "title": "Who’s Who — District Nandurbar", "url": "https://nandurbar.gov.in/en/about-district/whos-who/", "authority": "District Administration Nandurbar / NIC", "sourceDate": "2026-08-21", "lastReviewed": "2026-08-31", "reviewExpiresOn": "2026-09-30" }
+      ]
+    },
+    {
+      "id": "nagar-parishad-work",
+      "topic": "municipal-responsibilities",
+      "language": "en",
+      "jurisdiction": "Maharashtra municipal councils / Nandurbar",
+      "status": "REVIEWED",
+      "heading": "What the Nagar Parishad works on",
+      "summary": "Nagar Parishad, Municipal Council and municipality refer to the urban local body. The Maharashtra Act assigns councils obligatory municipal duties within their municipal area.",
+      "sections": [
+        { "label": "Public streets and lighting", "text": "Lighting public streets, maintaining and cleaning public streets, and handling defined street obstructions and municipal road work." },
+        { "label": "Waste, sanitation and drainage", "text": "Cleaning streets and sewers, removing filth, maintaining drains and sewers, and providing public conveniences." },
+        { "label": "Water and public health", "text": "Municipal water-supply duties, sanitation measures and certain public-health functions within the council’s legal scope." },
+        { "label": "Public spaces and environment", "text": "Maintaining municipal public places and carrying out environmental-protection functions assigned to the council." }
+      ],
+      "limitations": ["Not every issue inside Nandurbar district belongs to the Nagar Parishad; highways, rural areas and district/state assets may have a different authority.", "Future Nagar Parishad campaign tracking is not included in this first version."],
+      "sources": [
+        { "id": "maharashtra-municipal-act-duties", "title": "Maharashtra Municipal Councils, Nagar Panchayats and Industrial Townships Act, 1965 — section 49 and related chapters", "url": "https://mahadma.maharashtra.gov.in/wp-content/uploads/2026/04/maharashtra_municipa.pdf", "authority": "Directorate of Municipal Administration, Government of Maharashtra", "sourceDate": "2025-04-04", "lastReviewed": "2026-08-31", "reviewExpiresOn": "2026-10-31" }
+      ]
+    }
+  ]
+}

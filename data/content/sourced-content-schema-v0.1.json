@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://seewik.in/schemas/sourced-content-v0.1.json",
+  "title": "Seewik sourced civic content",
+  "type": "object",
+  "required": ["schemaVersion", "contentVersion", "defaultLanguage", "reviewedDate", "jurisdiction", "topics"],
+  "properties": {
+    "schemaVersion": { "const": "sourced-content-v0.1" },
+    "contentVersion": { "type": "string", "minLength": 1 },
+    "defaultLanguage": { "enum": ["en", "mr", "hi"] },
+    "reviewedDate": { "type": "string", "format": "date" },
+    "jurisdiction": { "type": "string", "minLength": 1 },
+    "topics": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "topic", "language", "jurisdiction", "status", "heading", "summary", "sections", "limitations", "sources"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+          "topic": { "type": "string", "minLength": 1 },
+          "language": { "enum": ["en", "mr", "hi"] },
+          "jurisdiction": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["REVIEWED", "REVIEW_REQUIRED", "ARCHIVED"] },
+          "heading": { "type": "string", "minLength": 1 },
+          "summary": { "type": "string", "minLength": 1 },
+          "sections": { "type": "array", "minItems": 1 },
+          "limitations": { "type": "array", "items": { "type": "string" } },
+          "sources": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["id", "title", "url", "authority", "sourceDate", "lastReviewed", "reviewExpiresOn"],
+              "properties": {
+                "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+                "title": { "type": "string", "minLength": 1 },
+                "url": { "type": "string", "format": "uri", "pattern": "^https://" },
+                "authority": { "type": "string", "minLength": 1 },
+                "sourceDate": { "type": ["string", "null"], "format": "date" },
+                "lastReviewed": { "type": "string", "format": "date" },
+                "reviewExpiresOn": { "type": "string", "format": "date" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

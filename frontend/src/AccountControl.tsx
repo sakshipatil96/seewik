@@ -7,6 +7,7 @@ export type AccountDialog = 'CLOSED' | 'LINK' | 'PROFILE' | 'COLLISION';
 type AccountControlProps = {
   state: AccountIdentityState;
   dialog: AccountDialog;
+  name: string | null;
   email: string | null;
   busy: boolean;
   error: string;
@@ -22,6 +23,7 @@ type AccountControlProps = {
 export function AccountControl({
   state,
   dialog,
+  name,
   email,
   busy,
   error,
@@ -115,7 +117,7 @@ export function AccountControl({
           </ul>
           <button autoFocus disabled={busy} onClick={onGoogle}>{busy ? t('Connecting…') : t('Continue with Google')}</button>
           <button className="secondary" disabled={busy} onClick={onClose}>{t('Not now')}</button>
-          <small>{t('Seewik stores only a provider marker and your existing account ID in its profile record. It does not copy your Google email, name or photo into that record.')}</small>
+          <small>{t('Seewik privately stores the Google-provided name and email for account and recovery use. Public recognition is a separate choice. Google photos are not stored.')}</small>
         </>}
 
         {dialog === 'COLLISION' && <>
@@ -137,9 +139,9 @@ export function AccountControl({
         {dialog === 'PROFILE' && <>
           <span className="eyebrow">{t('RECOVERABLE PROFILE')}</span>
           <h2 id="account-dialog-title">{t('Google account connected')}</h2>
-          <div className="account-status"><span aria-hidden="true">✓</span><div><strong>{t('Your Seewik work is recoverable')}</strong>{email && <small>{email}</small>}</div></div>
+          <div className="account-status"><span aria-hidden="true">✓</span><div><strong>{t('Your Seewik work is recoverable')}</strong>{name && <small>{name}</small>}{email && <small>{email}</small>}</div></div>
           <p>{t('Use this same Google account on another browser or device to open records owned by this profile.')}</p>
-          <p className="account-privacy">{t('Your Google email is shown here from Firebase Authentication. Seewik does not copy it into the civic profile record.')}</p>
+          <p className="account-privacy">{t('Your Google name and email are stored as private account details. They are never placed in public recognition unless you separately choose a public display name and opt in.')}</p>
           <button className="secondary" disabled={busy} onClick={onSignOut}>{busy ? t('Signing out…') : t('Sign out')}</button>
           <small>{t('Signing out does not delete reports, drafts, points or Initiative activity. Seewik will not silently create a new temporary working account after sign-out.')}</small>
         </>}

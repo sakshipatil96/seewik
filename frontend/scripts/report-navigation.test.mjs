@@ -3,7 +3,7 @@ import test from 'node:test';
 import { canEditReport, canResumeReport, draftRouteIsCurrent, pathForScreen, reportIdFromPath, reportIdFromReviewSearch, screenFromPath } from '../src/reportNavigation.ts';
 
 test('all app screens have refresh-safe paths', () => {
-  for (const screen of ['home', 'new-report', 'review', 'reports', 'report-detail', 'points', 'initiatives', 'new-initiative']) {
+  for (const screen of ['home', 'new-report', 'review', 'reports', 'report-detail', 'points', 'initiatives', 'new-initiative', 'awareness', 'emergency']) {
     assert.equal(screenFromPath(pathForScreen(screen)), screen);
   }
   assert.equal(screenFromPath('/unknown'), 'home');
