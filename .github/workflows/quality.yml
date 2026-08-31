@@ -24,6 +24,9 @@ jobs:
       - name: Repository content policy
         run: bash scripts/check_repository_content.sh
 
+      - name: Secret-safe diagnostics policy
+        run: bash scripts/check_secret_safe_diagnostics.sh
+
       - name: Whitespace
         run: git show --check --format= HEAD
 

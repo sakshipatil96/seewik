@@ -107,10 +107,10 @@ Day 12 adds an opt-in monthly recognition panel, a private contribution summary,
 - [x] Verify signed-out, anonymous, Google-linked, opted-in, opted-out and consent-withdrawn states through regression coverage and local browser states.
 - [x] Extend rules/security tests to block forged profiles, consent, recognition results and content writes.
 - [x] Run report, lifecycle, points, Initiative, attendance, identity and navigation regressions.
-- [ ] Run public-response privacy checks and production owner-isolation checks with exact temporary fixtures and complete cleanup.
+- [x] Run public-response privacy checks and production owner-isolation checks with exact temporary fixtures and complete cleanup.
 - [x] Run backend tests, frontend tests, production build, dependency audit and repository checks.
-- [ ] Commit and push only after green checks and explicit approval.
-- [ ] Deploy from green `main`, verify health/routes/rules and record the exact Git SHA and Cloud Run revision.
+- [x] Commit and push only after green checks and explicit approval.
+- [x] Deploy from green `main`, verify health/routes/rules and record the exact Git SHA and Cloud Run revision.
 - [x] Write `DAY12_BUILD_LOG.md` with sources, limitations, test counts and privacy-safe verification evidence; add deployment evidence only after an approved production release.
 
 ## Inputs needed from the owner

@@ -82,7 +82,7 @@ jobs:
 
       - name: Verify backend candidate
         run: |
-          candidate_url="$(gcloud run services describe seewik-api --project seewik --region asia-south1 --format=json | jq --raw-output '.status.traffic[] | select(.tag == "candidate-${{ github.run_number }}") | .url')"
+          candidate_url="$(gcloud run services describe seewik-api --project seewik --region asia-south1 --format='json(status.traffic)' | jq --raw-output '.status.traffic[] | select(.tag == "candidate-${{ github.run_number }}") | .url')"
           test -n "$candidate_url"
           curl --fail --silent --show-error "$candidate_url/health"
 

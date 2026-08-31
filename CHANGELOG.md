@@ -4,6 +4,7 @@ All notable changes to the versioned Civic Pack and its deterministic routing im
 
 ## Unreleased
 
+- Rotated the attendance-code runtime secret after a raw Cloud Run revision diagnostic exposed environment values in private task output; added the named finding `attendance_code_secret_exposed_in_diagnostic_output_rotated`, confirmed the value was absent from the repository, Git/shell history and Day 12 CI logs, restricted deployment diagnostics to traffic-only projections and added a required secret-safe diagnostics gate.
 - Froze `day12-recognition-privacy-content-contract-v0.1` and added in-place `citizen-profile-v0.2` migration: the backend privately stores the Google-provided name and email under the existing Firebase UID, never stores the Google photograph, and keeps public recognition consent separate.
 - Added deterministic IST-month top-three recognition from exact active `points-ledger-v0.3` / `reward-policy-v0.2` awards, with duplicate suppression, production-test exclusions, opt-in-only selection, alphabetical tie handling, idempotent private snapshots and a public names-only response.
 - Added the public **Thanks to Our Top Three Citizens of the Month** panel, private lifetime/current-month point details, editable public-name preview, explicit opt-in and withdrawal, collision monitoring and a privacy-safe displayed-name abuse-report path; direct client writes to profiles and all recognition collections are denied.

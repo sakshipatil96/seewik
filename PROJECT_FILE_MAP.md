@@ -18,6 +18,7 @@ This map is for handoffs and repository study. Generated directories such as `fr
 12. Initiative backend: `backend/src/main/java/com/seewik/api/InitiativeController.java`, `InitiativeService.java`, `InitiativeGateway.java`, `FirestoreInitiativeGateway.java` and `AttendanceCodeService.java`
 13. Security rules: `firestore.rules` and `storage.rules`
 14. Required gates: `.github/workflows/quality.yml` and `.github/workflows/deploy.yml`
+15. Credential-handling record: `SECURITY_FINDINGS.md`
 
 ## Project roots and handling rules
 
@@ -51,6 +52,7 @@ This map is for handoffs and repository study. Generated directories such as `fr
 - `SEEWIK_PROJECT_HANDOFF_START_DAY12.md` — self-contained Day 12 kickoff with current production state and frozen recognition decisions.
 - `DAY12_CHECKLIST.md` — planned opt-in top-three recognition, private points, client-side sharing and sourced-awareness work.
 - `DAY12_BUILD_LOG.md` — Sets 1-6 profile, recognition, sharing, sourced-awareness, emergency and local verification evidence.
+- `SECURITY_FINDINGS.md` — named credential-diagnostic findings, persistence scope, remediation and prevention rules; never contains credential values.
 - `DAY13_CHECKLIST.md` — planned contribution/reward/coupon contract.
 - `PROJECT_TODOS.md` — routing simplification, Initiative meeting-point redesign and UI-polish follow-ups.
 - `DESIGN_REFERENCE.md` — visual direction.
@@ -231,8 +233,10 @@ Day 11 adds versioned attendance and Initiative points contracts without rewriti
 - `.github/workflows/deploy.yml`
 - `.github/dependabot.yml`
 - `scripts/check_repository_content.sh`
+- `scripts/check_secret_safe_diagnostics.sh`
+- `scripts/describe_production_release.sh`
 
-Quality runs repository policy, whitespace, boundary checksum, Java tests, frontend tests/build/audit and a high/critical vulnerability scan. Deployment starts only from a successful `main` Quality run, creates a no-traffic backend candidate, verifies health, moves traffic, deploys Hosting/Firestore/Storage rules, verifies routes and retains rollback behavior.
+Quality runs repository policy, secret-safe diagnostic policy, whitespace, boundary checksum, Java tests, frontend tests/build/audit and a high/critical vulnerability scan. Deployment starts only from a successful `main` Quality run, creates a no-traffic backend candidate, verifies health, moves traffic, deploys Hosting/Firestore/Storage rules, verifies routes and retains rollback behavior. Production release evidence must use `scripts/describe_production_release.sh`, which exposes only allow-listed non-secret metadata.
 
 ## Contracts
 

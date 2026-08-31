@@ -1,6 +1,6 @@
 # Day 12 Build Log
 
-Status: Day 12 is feature-complete and locally release-verified on 2026-08-31. Physical Android Google/WhatsApp acceptance and the separately approved production push/deployment remain pending.
+Status: Day 12 is implemented, pushed and deployed on 2026-08-31. Physical Android Google/WhatsApp acceptance remains pending because a device is not yet available.
 
 ## Completed scope
 
@@ -40,10 +40,28 @@ Status: Day 12 is feature-complete and locally release-verified on 2026-08-31. P
 - Repository content policy, boundary checksum and `git diff --check` passed.
 - Local browser checks passed for English, Marathi and Hindi Emergency Information; Hindi and Marathi Civic Awareness; Hindi home recognition; Hindi private Civic Card/points; Initiate; and My Actions.
 - The owner human-approved the final Marathi and Hindi emergency wording on 2026-08-31.
-- No production data was created or changed. No commit, push or deployment was performed.
+- The public recognition response exposed only status, month, names, message and schema fields; it contained no points, UIDs, emails or activity identifiers.
+- Production owner-isolation passed with exact temporary fixtures: owner draft/points reads succeeded, cross-owner reads were denied, organiser and participant roles remained isolated, and unrelated Initiatives were excluded. Temporary records and users were deleted in mandatory cleanup.
+- Deployed Firestore draft protection, Initiative protection and Google-write enforcement probes passed. Expected permission-denied results confirmed that direct technical writes remain blocked.
+
+## Production release evidence
+
+- Application commit: `efb78250d134527f22c8e91d42dca6ac99cce656`.
+- Quality run `33444731488`: passed in 1 minute 18 seconds, including repository policy, whitespace, boundary integrity, 207 backend tests, 54 frontend tests, production build, dependency audit and high/critical scan.
+- Deployment run `33444841237`: passed in 5 minutes 3 seconds. The candidate passed health before traffic, the verified frontend and Firestore/Storage rules were published, production routes passed and the temporary candidate tag was removed.
+- Day 12 application revision `seewik-api-00068-til` was healthy and served the verified commit. After the attendance-secret rotation described below, healthy revision `seewik-api-00037-czd` serves 100% of traffic with the same commit and image.
+- Backend `/health` passed. Hosting routes `/`, `/report/new`, `/reports`, `/points`, `/initiatives`, `/initiatives/new`, `/awareness` and `/emergency` returned HTTP 200.
+- The live web app is `https://seewik.web.app` and the backend is `https://seewik-api-528138216934.asia-south1.run.app`.
+
+## Security finding and remediation
+
+- Named finding: `attendance_code_secret_exposed_in_diagnostic_output_rotated`.
+- Source: a raw Cloud Run revision JSON diagnostic printed runtime environment values into the private task-tool output. It did not originate from the deployment workflow.
+- The owner approved immediate rotation. The replacement revision is healthy and active at 100%; there were no live Initiative codes to invalidate.
+- The previous value was not found in the working tree, Git history, local shell history, Quality logs or deployment logs. Its remaining copies are the private task transcript and access-controlled retired Cloud Run revision configuration; it is inactive.
+- The deployment workflow now requests traffic metadata only, a safe release-evidence script exposes allow-listed non-secret fields only, and the required Quality gate rejects raw Cloud Run JSON/YAML dumps and Secret Manager payload access in workflows/scripts.
+- The finding is recorded beside the earlier OAuth diagnostic finding in `SECURITY_FINDINGS.md` so the repeated pattern remains visible.
 
 ## Current stop point
 
-The Day 12 implementation and local verification are complete. WhatsApp poster sharing and Google sign-in still need a physical Android Chrome check when a device is available; that deferred hardware check does not weaken the tested browser fallback or privacy contract.
-
-Production owner-isolation acceptance, commit/push, deployment, health/rules verification, Git SHA and Cloud Run revision evidence remain intentionally unrecorded until the owner explicitly approves production release actions.
+Day 12 implementation, release and non-device production verification are complete. WhatsApp poster sharing and Google sign-in still need a physical Android Chrome check when a device is available; that deferred hardware check does not weaken the tested browser fallback or privacy contract.
