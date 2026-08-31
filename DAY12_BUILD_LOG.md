@@ -49,7 +49,10 @@ Status: Day 12 is implemented, pushed and deployed on 2026-08-31. Physical Andro
 - Application commit: `efb78250d134527f22c8e91d42dca6ac99cce656`.
 - Quality run `33444731488`: passed in 1 minute 18 seconds, including repository policy, whitespace, boundary integrity, 207 backend tests, 54 frontend tests, production build, dependency audit and high/critical scan.
 - Deployment run `33444841237`: passed in 5 minutes 3 seconds. The candidate passed health before traffic, the verified frontend and Firestore/Storage rules were published, production routes passed and the temporary candidate tag was removed.
-- Day 12 application revision `seewik-api-00068-til` was healthy and served the verified commit. After the attendance-secret rotation described below, healthy revision `seewik-api-00037-czd` serves 100% of traffic with the same commit and image.
+- Day 12 application revision `seewik-api-00068-til` was healthy and served the verified application commit. Attendance-secret rotation created healthy intermediate revision `seewik-api-00037-czd` and moved 100% of traffic to the rotated configuration.
+- Security-remediation quality run `33448168389` passed in 1 minute 15 seconds, including the new secret-safe diagnostics gate and the complete existing quality suite.
+- Security-remediation deployment run `33448272448` passed in 5 minutes 27 seconds. Its corrected traffic-only candidate lookup passed in the real deployment path, followed by candidate health, traffic, hosting/rules, route and tag-cleanup gates.
+- Final live revision `seewik-api-00073-fav` serves 100% of traffic, is Ready, carries remediation commit `4e2d1441cb2b34e1a1b651da1b73b07414da398c` and image digest `sha256:37532de37d973f5840cc0cf294e1c1c86f86053813ae6a08b100faecebd88bb2`. An in-memory comparison confirmed it retained the rotated secret and differs from the retired exposed value; neither value was printed.
 - Backend `/health` passed. Hosting routes `/`, `/report/new`, `/reports`, `/points`, `/initiatives`, `/initiatives/new`, `/awareness` and `/emergency` returned HTTP 200.
 - The live web app is `https://seewik.web.app` and the backend is `https://seewik-api-528138216934.asia-south1.run.app`.
 
