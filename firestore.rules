@@ -97,6 +97,14 @@ service cloud.firestore {
       allow read, create, update, delete: if false;
     }
 
+    match /recognitionRewardClaims/{claimId} {
+      allow read, create, update, delete: if false;
+    }
+
+    match /recognitionRewardEvents/{eventId} {
+      allow read, create, update, delete: if false;
+    }
+
     match /accountAuditEvents/{eventId} {
       allow create: if googleLinked()
         && request.resource.data.keys().hasOnly([

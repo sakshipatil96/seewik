@@ -3,6 +3,7 @@ package com.seewik.api;
 public interface PaidEndpointRateLimiter {
     String CLASSIFICATION = "classification";
     String DRAFTING = "drafting";
+    String REWARD_CLAIMS = "rewardClaims";
 
     void check(String uid, String endpoint);
 

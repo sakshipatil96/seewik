@@ -138,6 +138,81 @@ public class FirestoreRecognitionGateway implements RecognitionGateway {
     }
 
     @Override
+    public List<RewardClaim> ownerRewardClaims(String ownerUid) {
+        return paged(
+                firebase.firestore().collection("recognitionRewardClaims")
+                        .whereEqualTo("ownerUid", ownerUid),
+                "Reward claim records could not be loaded").stream()
+                .map(FirestoreRecognitionGateway::rewardClaim)
+                .toList();
+    }
+
+    @Override
+    public RewardClaim findRewardClaim(String claimId) {
+        try {
+            DocumentSnapshot snapshot = firebase.firestore()
+                    .collection("recognitionRewardClaims").document(claimId).get().get();
+            return snapshot.exists() ? rewardClaim(snapshot) : null;
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw failure("Reward claims could not be loaded", exception);
+        } catch (ExecutionException exception) {
+            throw failure("Reward claims could not be loaded", exception.getCause());
+        }
+    }
+
+    @Override
+    public RewardClaim createRewardClaim(RewardClaim claim, RewardClaimEvent event) {
+        Firestore store = firebase.firestore();
+        var claimRef = store.collection("recognitionRewardClaims").document(claim.claimId());
+        var eventRef = store.collection("recognitionRewardEvents").document(event.eventId());
+        try {
+            return store.runTransaction(transaction -> {
+                DocumentSnapshot existing = transaction.get(claimRef).get();
+                if (existing.exists()) return rewardClaim(existing);
+                transaction.create(claimRef, rewardClaimToDocument(claim));
+                transaction.create(eventRef, rewardEventToDocument(event));
+                return claim;
+            }).get();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw failure("Reward claim could not be saved", exception);
+        } catch (ExecutionException exception) {
+            throw failure("Reward claim could not be saved", exception.getCause());
+        }
+    }
+
+    @Override
+    public RewardClaim transitionRewardClaim(
+            String claimId,
+            String ownerUid,
+            String expectedStatus,
+            RewardClaim updated,
+            RewardClaimEvent event) {
+        Firestore store = firebase.firestore();
+        var claimRef = store.collection("recognitionRewardClaims").document(claimId);
+        var eventRef = store.collection("recognitionRewardEvents").document(event.eventId());
+        try {
+            return store.runTransaction(transaction -> {
+                DocumentSnapshot snapshot = transaction.get(claimRef).get();
+                if (!snapshot.exists()) return null;
+                RewardClaim existing = rewardClaim(snapshot);
+                if (!ownerUid.equals(existing.ownerUid()) || !expectedStatus.equals(existing.claimStatus())) {
+                    return existing;
+                }
+                transaction.set(claimRef, rewardClaimToDocument(updated), SetOptions.merge());
+                transaction.create(eventRef, rewardEventToDocument(event));
+                return updated;
+            }).get();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw failure("Reward claim could not be updated", exception);
+        } catch (ExecutionException exception) {
+            throw failure("Reward claim could not be updated", exception.getCause());
+        }
+    }
+
+    @Override
     public MonthSnapshot findMonthSnapshot(String monthKey) {
         try {
             DocumentSnapshot document = firebase.firestore()
@@ -274,6 +349,52 @@ public class FirestoreRecognitionGateway implements RecognitionGateway {
         Map<String, Object> result = new LinkedHashMap<>(document.getData());
         result.putIfAbsent("ledgerEntryId", document.getId());
         return result;
+    }
+
+    private static Map<String, Object> rewardClaimToDocument(RewardClaim claim) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("claimId", claim.claimId());
+        result.put("ownerUid", claim.ownerUid());
+        result.put("couponId", claim.couponId());
+        result.put("businessId", claim.businessId());
+        result.put("tierRequired", claim.tierRequired());
+        result.put("code", claim.code());
+        result.put("claimedAt", Date.from(claim.claimedAt()));
+        result.put("expiresAt", Date.from(claim.expiresAt()));
+        result.put("usedAt", claim.usedAt() == null ? null : Date.from(claim.usedAt()));
+        result.put("claimStatus", claim.claimStatus());
+        result.put("schemaVersion", claim.schemaVersion());
+        result.put("contractVersion", claim.contractVersion());
+        result.put("updatedAt", FieldValue.serverTimestamp());
+        return result;
+    }
+
+    private static Map<String, Object> rewardEventToDocument(RewardClaimEvent event) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("eventId", event.eventId());
+        data.put("claimId", event.claimId());
+        data.put("ownerUid", event.ownerUid());
+        data.put("eventType", event.eventType());
+        data.put("couponId", event.couponId());
+        data.put("occurredAt", Date.from(event.occurredAt()));
+        data.put("schemaVersion", event.schemaVersion());
+        return data;
+    }
+
+    private static RewardClaim rewardClaim(DocumentSnapshot document) {
+        return new RewardClaim(
+                string(document.get("claimId")),
+                string(document.get("ownerUid")),
+                string(document.get("couponId")),
+                string(document.get("businessId")),
+                integer(document.get("tierRequired")),
+                string(document.get("code")),
+                instant(document.get("claimedAt")),
+                instant(document.get("expiresAt")),
+                instant(document.get("usedAt")),
+                string(document.get("claimStatus")),
+                string(document.get("schemaVersion")),
+                string(document.get("contractVersion")));
     }
 
     private static Date date(Instant value) {

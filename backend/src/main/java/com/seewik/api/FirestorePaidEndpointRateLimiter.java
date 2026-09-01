@@ -21,7 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 @Component
 public class FirestorePaidEndpointRateLimiter implements PaidEndpointRateLimiter {
     private static final String COLLECTION = "operationalRateLimitsV1";
-    private static final Set<String> ENDPOINTS = Set.of(CLASSIFICATION, DRAFTING);
+    private static final Set<String> ENDPOINTS = Set.of(CLASSIFICATION, DRAFTING, REWARD_CLAIMS);
     private final FirebaseAdminProvider firebase;
     private final Clock clock;
 
@@ -44,7 +44,7 @@ public class FirestorePaidEndpointRateLimiter implements PaidEndpointRateLimiter
         Firestore store = firebase.firestore();
         DocumentReference userRef = store.collection(COLLECTION)
                 .document("user-" + endpoint + "-" + hashUid(uid));
-        DocumentReference globalRef = store.collection(COLLECTION).document("project-paid-endpoints");
+        DocumentReference globalRef = store.collection(COLLECTION).document(globalDocumentId(endpoint));
         try {
             store.runTransaction(transaction -> {
                 DocumentSnapshot user = transaction.get(userRef).get();
@@ -107,5 +107,9 @@ public class FirestorePaidEndpointRateLimiter implements PaidEndpointRateLimiter
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
+    }
+
+    static String globalDocumentId(String endpoint) {
+        return REWARD_CLAIMS.equals(endpoint) ? "project-rewardClaims" : "project-paid-endpoints";
     }
 }

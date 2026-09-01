@@ -19,6 +19,19 @@ public interface RecognitionGateway {
 
     List<Map<String, Object>> ownerLedgerEntries(String ownerUid);
 
+    List<RewardClaim> ownerRewardClaims(String ownerUid);
+
+    RewardClaim findRewardClaim(String claimId);
+
+    RewardClaim createRewardClaim(RewardClaim claim, RewardClaimEvent event);
+
+    RewardClaim transitionRewardClaim(
+            String claimId,
+            String ownerUid,
+            String expectedStatus,
+            RewardClaim updated,
+            RewardClaimEvent event);
+
     MonthSnapshot findMonthSnapshot(String monthKey);
 
     boolean saveMonthSnapshotIfChanged(MonthSnapshot snapshot);
@@ -76,6 +89,47 @@ public interface RecognitionGateway {
             int targetPosition,
             String reason,
             String details,
+            Instant occurredAt,
+            String schemaVersion) {}
+
+    record RewardBusiness(
+            String businessId,
+            String displayName,
+            String category,
+            String prabhag,
+            boolean isExample,
+            String statusLabel,
+            String schemaVersion) {}
+
+    record RewardCoupon(
+            String couponId,
+            String businessId,
+            String publicDescription,
+            int tierRequired,
+            String status,
+            boolean isExample,
+            String schemaVersion) {}
+
+    record RewardClaim(
+            String claimId,
+            String ownerUid,
+            String couponId,
+            String businessId,
+            int tierRequired,
+            String code,
+            Instant claimedAt,
+            Instant expiresAt,
+            Instant usedAt,
+            String claimStatus,
+            String schemaVersion,
+            String contractVersion) {}
+
+    record RewardClaimEvent(
+            String eventId,
+            String claimId,
+            String ownerUid,
+            String eventType,
+            String couponId,
             Instant occurredAt,
             String schemaVersion) {}
 }

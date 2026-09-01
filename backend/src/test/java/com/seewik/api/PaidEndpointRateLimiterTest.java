@@ -104,6 +104,16 @@ class PaidEndpointRateLimiterTest {
         assertEquals(hash, FirestorePaidEndpointRateLimiter.hashUid(uid));
     }
 
+    @Test
+    void rewardGlobalLimitIsIsolatedWithoutChangingTheExistingPaidEndpointCeiling() {
+        assertEquals("project-paid-endpoints", FirestorePaidEndpointRateLimiter.globalDocumentId(
+                PaidEndpointRateLimiter.CLASSIFICATION));
+        assertEquals("project-paid-endpoints", FirestorePaidEndpointRateLimiter.globalDocumentId(
+                PaidEndpointRateLimiter.DRAFTING));
+        assertEquals("project-rewardClaims", FirestorePaidEndpointRateLimiter.globalDocumentId(
+                PaidEndpointRateLimiter.REWARD_CLAIMS));
+    }
+
     private static final class Harness implements PaidEndpointRateLimiter {
         private final Map<String, List<Long>> users = new HashMap<>();
         private List<Long> global = List.of();

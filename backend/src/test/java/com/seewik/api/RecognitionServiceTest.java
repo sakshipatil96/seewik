@@ -15,6 +15,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -174,6 +176,138 @@ class RecognitionServiceTest {
                         0, "A different name", "IMPERSONATION", "Please review"))).code());
     }
 
+    @Test
+    void rewardTierBoundariesArePermanentLifetimeThresholds() {
+        assertEquals(new RecognitionService.TierProgress(0, 100, 1), RecognitionService.tierProgress(99));
+        assertEquals(new RecognitionService.TierProgress(100, 150, 50), RecognitionService.tierProgress(100));
+        assertEquals(new RecognitionService.TierProgress(100, 150, 1), RecognitionService.tierProgress(149));
+        assertEquals(new RecognitionService.TierProgress(150, 250, 100), RecognitionService.tierProgress(150));
+        assertEquals(new RecognitionService.TierProgress(150, 250, 1), RecognitionService.tierProgress(249));
+        assertEquals(new RecognitionService.TierProgress(250, 0, 0), RecognitionService.tierProgress(250));
+    }
+
+    @Test
+    void rewardEligibilityUsesOnlyCurrentBackendOwnedAwardsAndExampleFixturesAreMarked() {
+        addEligiblePoints("owner", 100);
+        gateway.ledger.add(award("duplicate", "owner", "source-1", "FIX_VERIFIED", 60, NOW));
+        Map<String, Object> demo = award("demo-reward", "owner", "demo-source", "FIX_VERIFIED", 60, NOW);
+        demo.put("demoMode", true);
+        gateway.ledger.add(demo);
+        gateway.ledger.add(award("bad-value", "owner", "bad-source", "REPORT_FILED", 60, NOW));
+        addEligiblePoints("test-owner", 100);
+
+        var overview = service.rewardOverview("owner");
+
+        assertEquals(100, overview.lifetimePoints());
+        assertEquals(100, overview.currentTier());
+        assertEquals(3, overview.businesses().size());
+        assertTrue(overview.businesses().stream().allMatch(item -> item.isExample()
+                && "DEMO_ONLY".equals(item.statusLabel())
+                && RecognitionService.REWARD_BUSINESS_SCHEMA_VERSION.equals(item.schemaVersion())));
+        assertEquals(0, service.rewardOverview("test-owner").lifetimePoints());
+    }
+
+    @Test
+    void claimAndSimulatedUseAreIdempotentAndNeverDecreasePoints() {
+        addEligiblePoints("owner", 100);
+        consent("owner", "Civic Citizen", "OPTED_IN");
+        int before = service.privatePoints("owner").lifetimePoints();
+        List<String> recognitionBefore = service.publicPanel().names();
+
+        var first = service.claimReward("owner", new RecognitionService.RewardClaimRequest("coupon-juthalal-100"));
+        var retry = service.claimReward("owner", new RecognitionService.RewardClaimRequest("coupon-juthalal-100"));
+
+        assertEquals(first.claimId(), retry.claimId());
+        assertEquals(first.code(), retry.code());
+        assertTrue(first.code().matches("SEE-[0-9A-F]{4}-[0-9A-F]{4}"));
+        assertEquals(NOW.plusSeconds(30L * 24 * 60 * 60), first.expiresAt());
+        assertEquals(1, gateway.claims.size());
+        assertEquals(1, gateway.rewardEvents.size());
+        assertEquals("COUPON_CLAIMED", gateway.rewardEvents.getFirst().eventType());
+        assertEquals(before, service.privatePoints("owner").lifetimePoints());
+
+        var used = service.useRewardClaim("owner", first.claimId());
+        var usedRetry = service.useRewardClaim("owner", first.claimId());
+
+        assertEquals("USED", used.claimStatus());
+        assertEquals(used.usedAt(), usedRetry.usedAt());
+        assertEquals(2, gateway.rewardEvents.size());
+        assertEquals("COUPON_USE_SIMULATED", gateway.rewardEvents.getLast().eventType());
+        assertEquals(before, service.privatePoints("owner").lifetimePoints());
+        assertEquals(before, service.rewardOverview("owner").lifetimePoints());
+        assertEquals(recognitionBefore, service.publicPanel().names());
+    }
+
+    @Test
+    void concurrentClaimRetriesCreateOneClaimCodeAndOneEvent() throws Exception {
+        addEligiblePoints("owner", 100);
+        var executor = Executors.newFixedThreadPool(8);
+        try {
+            var futures = new ArrayList<java.util.concurrent.Future<RecognitionService.RewardClaimResponse>>();
+            for (int index = 0; index < 16; index++) {
+                futures.add(executor.submit(() -> service.claimReward(
+                        "owner", new RecognitionService.RewardClaimRequest("coupon-juthalal-100"))));
+            }
+            Set<String> codes = new java.util.HashSet<>();
+            for (var future : futures) codes.add(future.get(5, TimeUnit.SECONDS).code());
+            assertEquals(1, codes.size());
+            assertEquals(1, gateway.claims.size());
+            assertEquals(1, gateway.rewardEvents.size());
+        } finally {
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void belowTierCrossCitizenAndExpiredClaimsAreRejected() {
+        addEligiblePoints("below", 95);
+        assertEquals("REWARD_TIER_INCOMPLETE", assertThrows(
+                RecognitionService.RecognitionException.class,
+                () -> service.claimReward("below", new RecognitionService.RewardClaimRequest("coupon-juthalal-100"))).code());
+
+        addEligiblePoints("owner", 100);
+        var claim = service.claimReward("owner", new RecognitionService.RewardClaimRequest("coupon-juthalal-100"));
+        assertEquals("REWARD_CLAIM_FORBIDDEN", assertThrows(
+                RecognitionService.RecognitionException.class,
+                () -> service.useRewardClaim("other", claim.claimId())).code());
+
+        RecognitionService later = serviceAt(NOW.plusSeconds(31L * 24 * 60 * 60));
+        assertEquals("REWARD_CLAIM_EXPIRED", assertThrows(
+                RecognitionService.RecognitionException.class,
+                () -> later.useRewardClaim("owner", claim.claimId())).code());
+        assertEquals("EXPIRED", gateway.claims.get(claim.claimId()).claimStatus());
+        assertEquals("COUPON_CLAIM_EXPIRED", gateway.rewardEvents.getLast().eventType());
+        var retry = later.claimReward("owner", new RecognitionService.RewardClaimRequest("coupon-juthalal-100"));
+        assertEquals("EXPIRED", retry.claimStatus());
+        assertEquals(1, gateway.claims.size());
+    }
+
+    private RecognitionService serviceAt(Instant instant) {
+        CitizenProfileService profiles = new CitizenProfileService(
+                uid -> new CitizenAccountDirectory.GoogleIdentity("Google " + uid, uid + "@example.com"),
+                new MemoryProfiles(),
+                Clock.fixed(instant, ZoneOffset.UTC));
+        return new RecognitionService(gateway, profiles, Clock.fixed(instant, ZoneOffset.UTC), Set.of("test-owner"));
+    }
+
+    private void addEligiblePoints(String uid, int total) {
+        int remaining = total;
+        int sequence = 0;
+        for (Map.Entry<String, Integer> reward : List.of(
+                Map.entry("FIX_VERIFIED", 60),
+                Map.entry("INITIATIVE_ORGANISER_COMPLETED_REWARDED", 40),
+                Map.entry("INITIATIVE_ATTENDANCE_ORGANISER_CODE_ATTESTED", 20),
+                Map.entry("REPORT_FILED", 5))) {
+            while (remaining >= reward.getValue()) {
+                String id = uid + "-reward-" + sequence++;
+                gateway.ledger.add(award(id, uid, "source-" + sequence, reward.getKey(), reward.getValue(), NOW));
+                remaining -= reward.getValue();
+            }
+        }
+        assertEquals(0, remaining, "Test points must be expressible with the active reward values");
+    }
+
     private void consent(String uid, String name, String status) {
         gateway.consents.put(uid, new RecognitionGateway.Consent(
                 uid, name, RecognitionService.normalizedName(name), status,
@@ -222,6 +356,8 @@ class RecognitionServiceTest {
         private final List<Map<String, Object>> ledger = new ArrayList<>();
         private final Map<String, Consent> consents = new LinkedHashMap<>();
         private final List<NameCollisionEvent> collisions = new ArrayList<>();
+        private final Map<String, RewardClaim> claims = new LinkedHashMap<>();
+        private final List<RewardClaimEvent> rewardEvents = new ArrayList<>();
         private MonthSnapshot snapshot;
         private int snapshotWrites;
         private AbuseReport abuseReport;
@@ -238,6 +374,27 @@ class RecognitionServiceTest {
         @Override public List<Map<String, Object>> awardedLedgerEntries() { return List.copyOf(ledger); }
         @Override public List<Map<String, Object>> ownerLedgerEntries(String ownerUid) {
             return ledger.stream().filter(item -> ownerUid.equals(item.get("ownerUid"))).toList();
+        }
+        @Override public synchronized List<RewardClaim> ownerRewardClaims(String ownerUid) {
+            return claims.values().stream().filter(item -> ownerUid.equals(item.ownerUid())).toList();
+        }
+        @Override public synchronized RewardClaim findRewardClaim(String claimId) { return claims.get(claimId); }
+        @Override public synchronized RewardClaim createRewardClaim(RewardClaim claim, RewardClaimEvent event) {
+            RewardClaim existing = claims.get(claim.claimId());
+            if (existing != null) return existing;
+            claims.put(claim.claimId(), claim);
+            rewardEvents.add(event);
+            return claim;
+        }
+        @Override public synchronized RewardClaim transitionRewardClaim(
+                String claimId, String ownerUid, String expectedStatus, RewardClaim updated, RewardClaimEvent event) {
+            RewardClaim existing = claims.get(claimId);
+            if (existing == null || !ownerUid.equals(existing.ownerUid()) || !expectedStatus.equals(existing.claimStatus())) {
+                return existing;
+            }
+            claims.put(claimId, updated);
+            rewardEvents.add(event);
+            return updated;
         }
         @Override public MonthSnapshot findMonthSnapshot(String monthKey) { return snapshot; }
         @Override public boolean saveMonthSnapshotIfChanged(MonthSnapshot candidate) {

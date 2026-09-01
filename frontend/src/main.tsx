@@ -25,14 +25,19 @@ import { RecognitionSettings } from './RecognitionSettings';
 import { ContributionPoster } from './ContributionPoster';
 import { CivicAwarenessPage } from './CivicAwarenessPage';
 import { EmergencyInformationPage } from './EmergencyInformationPage';
+import { RewardCatalogue } from './RewardCatalogue';
 import {
+  claimReward,
   fetchCurrentRecognition,
   fetchPrivatePoints,
+  fetchRewards,
   fetchRecognitionSettings,
   reportRecognitionName,
   saveRecognitionSettings,
+  simulateRewardUse,
   type PrivatePointsSummary,
   type PublicRecognitionPanel,
+  type RewardOverview,
   type RecognitionSettings as RecognitionSettingsState,
 } from './recognitionClient';
 import { canEditReport, canResumeReport, draftRouteIsCurrent, pathForScreen, reportIdFromPath, reportIdFromReviewSearch, screenFromPath, type AppScreen } from './reportNavigation';
@@ -392,6 +397,10 @@ function App() {
   const [recognitionSettingsBusy, setRecognitionSettingsBusy] = useState(false);
   const [privatePoints, setPrivatePoints] = useState<PrivatePointsSummary | null>(null);
   const [privatePointsStatus, setPrivatePointsStatus] = useState('');
+  const [rewardOverview, setRewardOverview] = useState<RewardOverview | null>(null);
+  const [rewardStatus, setRewardStatus] = useState('');
+  const [rewardBusyId, setRewardBusyId] = useState('');
+  const [rewardUseConfirmation, setRewardUseConfirmation] = useState('');
   const pendingMutation = useRef<(() => Promise<void>) | null>(null);
   const syncedProfileUid = useRef<string | null>(null);
   const t = (source: string) => translate(language, source);
@@ -512,6 +521,10 @@ function App() {
     setPointsTotal(0);
     setPrivatePoints(null);
     setPrivatePointsStatus('');
+    setRewardOverview(null);
+    setRewardStatus('');
+    setRewardBusyId('');
+    setRewardUseConfirmation('');
     setRecognitionSettings(null);
     setRecognitionSettingsStatus('');
     setInitiatives([]);
@@ -747,8 +760,10 @@ function App() {
       if (accountState === 'SIGNED_OUT') {
         setPrivatePoints(null);
         setPrivatePointsStatus('');
+        setRewardOverview(null);
+        setRewardStatus('');
       } else {
-        refreshDerivedPoints().catch(() => undefined);
+        Promise.allSettled([refreshDerivedPoints(), refreshRewards()]).catch(() => undefined);
       }
       if (accountState === 'GOOGLE_LINKED') loadRecognitionSettings().catch(() => undefined);
       else setRecognitionSettings(null);
@@ -1447,6 +1462,49 @@ function App() {
     }
   }
 
+  async function refreshRewards() {
+    setRewardStatus('Loading example rewards…');
+    try {
+      const token = await sessionToken();
+      setRewardOverview(await fetchRewards(token));
+      setRewardStatus('');
+    } catch (error) {
+      setRewardStatus(error instanceof Error ? error.message : 'Example rewards could not be loaded.');
+      throw error;
+    }
+  }
+
+  async function createRewardClaim(couponId: string) {
+    setRewardBusyId(couponId);
+    setRewardStatus('Creating your example code…');
+    try {
+      const token = await sessionToken(true);
+      await claimReward(token, couponId);
+      await Promise.all([refreshRewards(), refreshDerivedPoints()]);
+      setRewardStatus('Example reward claimed. Your points did not decrease.');
+    } catch (error) {
+      setRewardStatus(error instanceof Error ? error.message : 'The example reward could not be claimed.');
+    } finally {
+      setRewardBusyId('');
+    }
+  }
+
+  async function confirmRewardUse(claimId: string) {
+    setRewardBusyId(claimId);
+    setRewardStatus('Marking the example code as used…');
+    try {
+      const token = await sessionToken(true);
+      await simulateRewardUse(token, claimId);
+      setRewardUseConfirmation('');
+      await Promise.all([refreshRewards(), refreshDerivedPoints()]);
+      setRewardStatus('Used in simulation. No shop verified or accepted this code, and your points did not decrease.');
+    } catch (error) {
+      setRewardStatus(error instanceof Error ? error.message : 'The simulated use could not be recorded.');
+    } finally {
+      setRewardBusyId('');
+    }
+  }
+
   async function transitionReport(toStatus: string, dedupeOverride = false) {
     if (!draftDocumentId) {
       setLifecycleStatus('Save a draft before changing its lifecycle.');
@@ -1929,7 +1987,21 @@ function App() {
           {privatePoints && <div className="private-month-points"><span>{localizedMonthLabel(language, privatePoints.monthLabel)}</span><strong>{privatePoints.currentMonthPoints} {t('points')}</strong></div>}
           {privatePoints?.breakdown.length ? <div className="points-breakdown">{privatePoints.breakdown.map((item) => <div key={item.contributionType}><span><b>{contributionTypeLabel(item.contributionType)}</b><small>{item.lifetimeAwards} {t('recorded awards')}</small></span><strong>{item.lifetimePoints}</strong></div>)}</div> : null}
           <div className="points-rules"><div><b>+5</b><span>{t('First accepted filing')}</span></div><div><b>+20</b><span>{t('Organiser-code attendance')}</span></div><div><b>+40</b><span>{t('Completed organiser with two code attendees')}</span></div><div><b>+60</b><span>{t('First verified fix')}</span></div><div><b>0</b><span>{t('Self-attendance, duplicate override, reopening or re-verification')}</span></div></div>
-          <button className="secondary" onClick={() => refreshDerivedPoints().catch(() => undefined)}>{t('Refresh my points')}</button>
+          <RewardCatalogue
+            language={language}
+            overview={rewardOverview}
+            loading={rewardStatus === 'Loading example rewards…'}
+            busyId={rewardBusyId}
+            confirmUseId={rewardUseConfirmation}
+            status={rewardStatus}
+            t={t}
+            onClaim={(couponId) => requestLinkedMutation(() => createRewardClaim(couponId))}
+            onBeginUse={setRewardUseConfirmation}
+            onCancelUse={() => setRewardUseConfirmation('')}
+            onConfirmUse={(claimId) => requestLinkedMutation(() => confirmRewardUse(claimId))}
+            onRefresh={() => refreshRewards().catch(() => undefined)}
+          />
+          <button className="secondary" onClick={() => Promise.allSettled([refreshDerivedPoints(), refreshRewards()])}>{t('Refresh my Civic Card')}</button>
           {privatePointsStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{t(privatePointsStatus)}</div>}
         </>}
       </section>

@@ -52,6 +52,16 @@ try {
     ownerUid: user.uid,
     pointsAwarded: 999,
   }, 'Direct points write');
+  await expectDenied(doc(db, 'recognitionRewardClaims', `forged-${randomUUID()}`), {
+    ownerUid: user.uid,
+    couponId: 'coupon-juthalal-100',
+    code: 'FORGED-CODE',
+    claimStatus: 'CLAIMED',
+  }, 'Direct reward claim write');
+  await expectDenied(doc(db, 'recognitionRewardEvents', `forged-${randomUUID()}`), {
+    ownerUid: user.uid,
+    eventType: 'COUPON_USE_SIMULATED',
+  }, 'Direct reward event write');
   console.log(JSON.stringify({
     status: 'PASS',
     initiativeWritesDenied: true,
@@ -59,6 +69,8 @@ try {
     participationWritesDenied: true,
     attendanceAttemptWritesDenied: true,
     pointsWritesDenied: true,
+    rewardClaimWritesDenied: true,
+    rewardEventWritesDenied: true,
   }));
 } finally {
   if (user) await deleteUser(user).catch(() => undefined);

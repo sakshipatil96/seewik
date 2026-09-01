@@ -9,16 +9,17 @@ This map is for handoffs and repository study. Generated directories such as `fr
 3. Day 12 progress: `DAY12_BUILD_LOG.md`
 4. Day 12 contract: `data/contracts/day12-recognition-privacy-content-contract-v0.1.md`
 5. Product follow-ups: `PROJECT_TODOS.md`
-6. Planned rewards: `DAY13_CHECKLIST.md`
-7. Parent project guide: `../Seewik_what_we_built till now.md`
-8. Version history: `CHANGELOG.md`
-9. Identity contract: `data/contracts/day10-identity-migration-contract-v0.1.md`
-10. Language/boundary contract: `data/contracts/day9-language-boundary-contract-v0.1.md`
-11. Main frontend: `frontend/src/main.tsx`
-12. Initiative backend: `backend/src/main/java/com/seewik/api/InitiativeController.java`, `InitiativeService.java`, `InitiativeGateway.java`, `FirestoreInitiativeGateway.java` and `AttendanceCodeService.java`
-13. Security rules: `firestore.rules` and `storage.rules`
-14. Required gates: `.github/workflows/quality.yml` and `.github/workflows/deploy.yml`
-15. Credential-handling record: `SECURITY_FINDINGS.md`
+6. Day 13 rewards: `DAY13_CHECKLIST.md`
+7. Touchpoint 3 business case: `TOUCHPOINT3_BUSINESS_CASE.md`
+8. Parent project guide: `../Seewik_what_we_built till now.md`
+9. Version history: `CHANGELOG.md`
+10. Identity contract: `data/contracts/day10-identity-migration-contract-v0.1.md`
+11. Language/boundary contract: `data/contracts/day9-language-boundary-contract-v0.1.md`
+12. Main frontend: `frontend/src/main.tsx`
+13. Initiative backend: `backend/src/main/java/com/seewik/api/InitiativeController.java`, `InitiativeService.java`, `InitiativeGateway.java`, `FirestoreInitiativeGateway.java` and `AttendanceCodeService.java`
+14. Security rules: `firestore.rules` and `storage.rules`
+15. Required gates: `.github/workflows/quality.yml` and `.github/workflows/deploy.yml`
+16. Credential-handling record: `SECURITY_FINDINGS.md`
 
 ## Project roots and handling rules
 
@@ -53,7 +54,8 @@ This map is for handoffs and repository study. Generated directories such as `fr
 - `DAY12_CHECKLIST.md` — planned opt-in top-three recognition, private points, client-side sharing and sourced-awareness work.
 - `DAY12_BUILD_LOG.md` — Sets 1-6 profile, recognition, sharing, sourced-awareness, emergency and local verification evidence.
 - `SECURITY_FINDINGS.md` — named credential-diagnostic findings, persistence scope, remediation and prevention rules; never contains credential values.
-- `DAY13_CHECKLIST.md` — planned contribution/reward/coupon contract.
+- `DAY13_CHECKLIST.md` — contribution/reward/coupon contract, completed local checks and remaining release gates.
+- `TOUCHPOINT3_BUSINESS_CASE.md` — survey-grounded demand case, proposed revenue loop, illustrative unit economics, pilot requirements and explicit demonstration boundaries.
 - `PROJECT_TODOS.md` — routing simplification, Initiative meeting-point redesign and UI-polish follow-ups.
 - `DESIGN_REFERENCE.md` — visual direction.
 - `CHANGELOG.md` — versioned implementation history.
@@ -80,6 +82,7 @@ Application code:
 - `frontend/src/accountService.ts` — anonymous session, Google link, collision and recovery behavior.
 - `frontend/src/apiConfig.ts` — shared backend API origin.
 - `frontend/src/recognitionClient.ts` — public recognition and owner-private recognition/points API contracts.
+- `frontend/src/RewardCatalogue.tsx` — Day 13 example reward tiers, claim-code states and simulated-use interface.
 - `frontend/src/RecognitionPanel.tsx` — public names-only monthly thank-you and displayed-name report UI.
 - `frontend/src/RecognitionSettings.tsx` — explicit public-name preview, opt-in, edit and withdrawal UI.
 - `frontend/src/ContributionPoster.tsx` / `civicCardImage.ts` — explicit local Civic Card image generation, platform share and download fallback.
@@ -103,6 +106,7 @@ Frontend tests and production probes:
 - `frontend/scripts/image-evaluation-integrity.test.mjs`
 - `frontend/scripts/report-navigation.test.mjs`
 - `frontend/scripts/recognition.test.mjs`
+- `frontend/scripts/rewards.test.mjs`
 - `frontend/scripts/sourced-content.test.mjs`
 - `frontend/scripts/test-firestore-draft-ownership.mjs`
 - `frontend/scripts/test-firestore-initiative-protection.mjs`
@@ -194,6 +198,8 @@ Backend tests live under `backend/src/test/java/com/seewik/api`. The most releva
 - `InitiativeAttendanceServiceTest.java`
 - `AttendanceCodeServiceTest.java`
 - `ProductionDay11AttendanceIT.java`
+- `ProductionDay13RewardsIT.java`
+- `ProductionDay13RewardsHttpIT.java`
 - `ProductionDay7ReleaseIT.java`
 - `ProductionDay8Set2ReleaseIT.java`
 - `FirebaseCitizenIdentityVerifierTest.java`
@@ -203,7 +209,7 @@ Backend tests live under `backend/src/test/java/com/seewik/api`. The most releva
 - `CivicPackIntegrityTest.java`
 - `EvaluationCaseSetTest.java`
 
-The complete backend suite currently contains 210 passing tests. The frontend suite contains 52 passing tests.
+The complete backend suite currently contains 215 passing tests. The frontend suite contains 58 passing tests.
 
 ## Runtime schemas and packaged civic data
 

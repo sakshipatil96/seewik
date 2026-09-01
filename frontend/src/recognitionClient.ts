@@ -34,6 +34,52 @@ export type PrivatePointsSummary = {
   rewardPolicyVersion: string;
 };
 
+export type RewardCoupon = {
+  couponId: string;
+  businessId: string;
+  businessName: string;
+  category: string;
+  description: string;
+  tierRequired: number;
+  claimStatus: 'LOCKED' | 'UNLOCKED' | 'CLAIMED' | 'USED' | 'EXPIRED';
+  claimId: string | null;
+  code: string | null;
+  claimedAt: string | null;
+  expiresAt: string | null;
+  usedAt: string | null;
+  canClaim: boolean;
+  contractVersion: string;
+  schemaVersion: string;
+};
+
+export type RewardOverview = {
+  status: string;
+  lifetimePoints: number;
+  currentTier: number;
+  nextTier: number;
+  pointsToNextTier: number;
+  tiers: number[];
+  coupons: RewardCoupon[];
+  tierSchemaVersion: string;
+  businessSchemaVersion: string;
+  claimSchemaVersion: string;
+  eventSchemaVersion: string;
+};
+
+export type RewardClaim = {
+  status: string;
+  claimId: string;
+  couponId: string;
+  businessId: string;
+  code: string;
+  claimedAt: string;
+  expiresAt: string;
+  usedAt: string | null;
+  claimStatus: 'CLAIMED' | 'USED' | 'EXPIRED';
+  schemaVersion: string;
+  contractVersion: string;
+};
+
 type ApiError = { errorCode?: string; message?: string };
 
 async function json<T>(response: Response): Promise<T> {
@@ -50,6 +96,27 @@ export async function fetchCurrentRecognition() {
 
 export async function fetchPrivatePoints(token: string) {
   return json<PrivatePointsSummary>(await fetch(`${API_URL}/api/recognition/me/points`, {
+    headers: authorization(token),
+  }));
+}
+
+export async function fetchRewards(token: string) {
+  return json<RewardOverview>(await fetch(`${API_URL}/api/recognition/me/rewards`, {
+    headers: authorization(token),
+  }));
+}
+
+export async function claimReward(token: string, couponId: string) {
+  return json<RewardClaim>(await fetch(`${API_URL}/api/recognition/me/rewards/claims`, {
+    method: 'POST',
+    headers: { ...authorization(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ couponId }),
+  }));
+}
+
+export async function simulateRewardUse(token: string, claimId: string) {
+  return json<RewardClaim>(await fetch(`${API_URL}/api/recognition/me/rewards/claims/${encodeURIComponent(claimId)}/simulate-use`, {
+    method: 'POST',
     headers: authorization(token),
   }));
 }

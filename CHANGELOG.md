@@ -4,6 +4,9 @@ All notable changes to the versioned Civic Pack and its deterministic routing im
 
 ## Unreleased
 
+- Added the Day 13 example reward loop to My Civic Card with permanent lifetime unlocks at 100, 150 and 250 points, backend-owned 30-day claims, owner-private single-use codes and a clearly labelled simulated-use ending that never deducts civic points or implies merchant verification.
+- Added three owner-approved `DEMO_ONLY` reward fixtures, persistent **Example local reward** labelling, locked/unlocked/claimed/used/expired states in English, Marathi and Hindi, direct Firestore write denial, Google-linked mutations, per-citizen rate limiting and production-isolated ownership/cleanup coverage.
+- Added the Touchpoint 3 business-case document with survey-grounded citizen demand, an honest time-to-tier assessment, illustrative merchant unit economics and the controls and signed pilot relationship required before any reward becomes real.
 - Rotated the attendance-code runtime secret after a raw Cloud Run revision diagnostic exposed environment values in private task output; added the named finding `attendance_code_secret_exposed_in_diagnostic_output_rotated`, confirmed the value was absent from the repository, Git/shell history and Day 12 CI logs, restricted deployment diagnostics to traffic-only projections and added a required secret-safe diagnostics gate.
 - Froze `day12-recognition-privacy-content-contract-v0.1` and added in-place `citizen-profile-v0.2` migration: the backend privately stores the Google-provided name and email under the existing Firebase UID, never stores the Google photograph, and keeps public recognition consent separate.
 - Added deterministic IST-month top-three recognition from exact active `points-ledger-v0.3` / `reward-policy-v0.2` awards, with duplicate suppression, production-test exclusions, opt-in-only selection, alphabetical tie handling, idempotent private snapshots and a public names-only response.

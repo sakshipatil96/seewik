@@ -60,6 +60,8 @@ test('Firestore blocks forged profiles, consents, snapshots and recognition repo
     'recognitionNameCollisions',
     'recognitionMonths',
     'recognitionAbuseReports',
+    'recognitionRewardClaims',
+    'recognitionRewardEvents',
   ]) {
     const start = rules.indexOf(`match /${collection}/`);
     assert.notEqual(start, -1, `${collection} rules must exist`);
