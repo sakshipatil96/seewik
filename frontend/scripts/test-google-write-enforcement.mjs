@@ -44,6 +44,8 @@ try {
 
   const mine = await fetch(`${apiUrl}/api/initiatives/mine`, { headers: authorization });
   if (!mine.ok) throw new Error(`Anonymous read path returned ${mine.status}`);
+  const rewards = await fetch(`${apiUrl}/api/recognition/me/rewards`, { headers: authorization });
+  if (!rewards.ok) throw new Error(`Anonymous reward read path returned ${rewards.status}`);
   await getDocs(query(collection(db, 'reports'), where('ownerUid', '==', user.uid)));
   await getDocs(query(collection(db, 'pointsLedger'), where('ownerUid', '==', user.uid)));
 
@@ -60,6 +62,11 @@ try {
     method: 'POST',
     headers: { ...authorization, 'Content-Type': 'application/json' },
     body: JSON.stringify({ toStatus: 'FILED', idempotencyKey: `gate-${runId}` }),
+  });
+  await expectGoogleLinkRequired('/api/recognition/me/rewards/claims', {
+    method: 'POST',
+    headers: { ...authorization, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ couponId: 'coupon-juthalal-100' }),
   });
 
   await expectFirestoreDenied(doc(db, 'reports', `anonymous-gate-${runId}`), {
@@ -96,8 +103,10 @@ try {
   console.log(JSON.stringify({
     status: 'PASS',
     anonymousReadsPreserved: true,
+    anonymousRewardReadPreserved: true,
     initiativeApiWritesDenied: true,
     lifecycleApiWritesDenied: true,
+    rewardApiWritesDenied: true,
     reportWritesDenied: true,
     technicalFirestoreWritesDenied: true,
     technicalStorageWritesDenied: true,

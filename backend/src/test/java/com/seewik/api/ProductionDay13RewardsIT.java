@@ -60,7 +60,7 @@ class ProductionDay13RewardsIT {
             RecognitionService.RewardClaimResponse used = service.useRewardClaim(ownerUid, claim.claimId());
             RecognitionService.RewardClaimResponse usedReplay = service.useRewardClaim(ownerUid, claim.claimId());
             assertEquals("USED", used.claimStatus());
-            assertEquals(used.usedAt(), usedReplay.usedAt());
+            assertEquals(used.usedAt().toEpochMilli(), usedReplay.usedAt().toEpochMilli());
             assertEquals(2, events(firebase, ownerUid).size());
             assertEquals(100, service.rewardOverview(ownerUid).lifetimePoints());
         } finally {

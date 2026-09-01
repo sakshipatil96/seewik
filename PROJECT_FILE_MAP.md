@@ -200,6 +200,7 @@ Backend tests live under `backend/src/test/java/com/seewik/api`. The most releva
 - `ProductionDay11AttendanceIT.java`
 - `ProductionDay13RewardsIT.java`
 - `ProductionDay13RewardsHttpIT.java`
+- `ProductionDay13Legacy40PointAuditIT.java`
 - `ProductionDay7ReleaseIT.java`
 - `ProductionDay8Set2ReleaseIT.java`
 - `FirebaseCitizenIdentityVerifierTest.java`

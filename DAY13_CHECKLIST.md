@@ -34,7 +34,7 @@ Day 13 adds a clearly labelled demonstration reward loop. Civic points remain a 
 - [x] Expire each claim 30 days after it is created, using server time. Thirty days gives a citizen a reasonable demonstration window; a future real campaign may use a different clearly disclosed window based on partner inventory or campaign dates.
 - [x] Generate a unique single-use claim code and reject used or expired codes.
 - [x] Keep claim codes out of application logging and browser-console logging; the owner-private API response is the only client path that carries a code.
-- [ ] After deployment, confirm claim codes are absent from Cloud Run and CI logs.
+- [x] After deployment, confirm claim codes are absent from Cloud Run and CI logs.
 - [x] Do not expose citizen identity or civic activity to an example business.
 
 ## Simulated code-use contract
@@ -75,7 +75,7 @@ Day 13 adds a clearly labelled demonstration reward loop. Civic points remain a 
 - [x] Test duplicate simulated-use attempts: one `usedAt` value and one `COUPON_USE_SIMULATED` event only.
 - [x] Verify points and recognition totals never decrease or reorder because of claim/use actions.
 - [x] Verify locally that Firestore clients cannot forge points, eligibility, claims, codes, use events or expiry.
-- [ ] After the rules deployment, repeat direct-forgery verification against deployed rules.
+- [x] After the rules deployment, repeat direct-forgery verification against deployed rules.
 - [x] Verify claim codes are absent from backend application logging and frontend-console logging.
 - [x] Localize the catalogue, eligibility, claim, expiry and demo disclosures in English, Marathi and Hindi.
 - [x] Run report, points, Initiative, identity and production-isolation regressions before deployment.
@@ -103,9 +103,9 @@ This is a written judging deliverable, not functionality presented as already bu
 ## Release verification
 
 - [x] Run the backend suite, frontend suite, production build, dependency audit, repository policy, secret-safe diagnostics policy, boundary checksum and whitespace checks.
-- [ ] Run three-language and narrow-layout acceptance for locked, unlocked, claimed, used and expired states.
-- [ ] Run production claim, cross-owner and direct-forgery tests with exact temporary accounts/fixtures and mandatory cleanup.
-- [ ] Push and deploy only from green `main` after explicit owner approval; verify health, hosting routes, rules and temporary-tag cleanup.
+- [x] Run three-language and narrow-layout acceptance for locked, unlocked, claimed, used and expired states.
+- [x] Run production claim, cross-owner and direct-forgery tests with exact temporary accounts/fixtures and mandatory cleanup.
+- [x] Push and deploy only from green `main` after explicit owner approval; verify health, hosting routes, rules and temporary-tag cleanup.
 - [ ] Record the exact application Git SHA, final Cloud Run revision, image digest, workflow runs, fixture cleanup and limitations in `DAY13_BUILD_LOG.md`.
 
 ## Explicitly outside Day 13
