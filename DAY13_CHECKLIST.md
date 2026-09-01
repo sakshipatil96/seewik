@@ -67,7 +67,7 @@ Day 13 adds a clearly labelled demonstration reward loop. Civic points remain a 
 
 - [x] Version the new reward policy and Initiative points-ledger schema before implementation.
 - [x] Do not add retroactive `+20` adjustments and do not rewrite historical 40-point `FIX_VERIFIED` entries as part of the policy migration.
-- [ ] Audit any pre-launch 40-point production entries separately; delete only records proven to be test/demo fixtures, using an explicit document allowlist and preserving a privacy-safe cleanup record.
+- [x] Audit any pre-launch 40-point production entries separately; the final read-only production audit found zero 40-point entries, so no deletion allowlist or destructive action was required. Preserve the privacy-safe result in `DAY13_BUILD_LOG.md`.
 - [x] Test threshold boundaries at 99/100, 149/150 and 249/250 points.
 - [x] Reject below-tier and expired claims.
 - [x] Reject cross-citizen claim/code access and simulated-use attempts.
@@ -106,7 +106,7 @@ This is a written judging deliverable, not functionality presented as already bu
 - [x] Run three-language and narrow-layout acceptance for locked, unlocked, claimed, used and expired states.
 - [x] Run production claim, cross-owner and direct-forgery tests with exact temporary accounts/fixtures and mandatory cleanup.
 - [x] Push and deploy only from green `main` after explicit owner approval; verify health, hosting routes, rules and temporary-tag cleanup.
-- [ ] Record the exact application Git SHA, final Cloud Run revision, image digest, workflow runs, fixture cleanup and limitations in `DAY13_BUILD_LOG.md`.
+- [x] Record the exact application Git SHA, final Cloud Run revision, image digest, workflow runs, fixture cleanup and limitations in `DAY13_BUILD_LOG.md`.
 
 ## Explicitly outside Day 13
 

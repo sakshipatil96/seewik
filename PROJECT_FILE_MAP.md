@@ -11,15 +11,16 @@ This map is for handoffs and repository study. Generated directories such as `fr
 5. Product follow-ups: `PROJECT_TODOS.md`
 6. Day 13 rewards: `DAY13_CHECKLIST.md`
 7. Touchpoint 3 business case: `TOUCHPOINT3_BUSINESS_CASE.md`
-8. Parent project guide: `../Seewik_what_we_built till now.md`
-9. Version history: `CHANGELOG.md`
-10. Identity contract: `data/contracts/day10-identity-migration-contract-v0.1.md`
-11. Language/boundary contract: `data/contracts/day9-language-boundary-contract-v0.1.md`
-12. Main frontend: `frontend/src/main.tsx`
-13. Initiative backend: `backend/src/main/java/com/seewik/api/InitiativeController.java`, `InitiativeService.java`, `InitiativeGateway.java`, `FirestoreInitiativeGateway.java` and `AttendanceCodeService.java`
-14. Security rules: `firestore.rules` and `storage.rules`
-15. Required gates: `.github/workflows/quality.yml` and `.github/workflows/deploy.yml`
-16. Credential-handling record: `SECURITY_FINDINGS.md`
+8. Day 13 release evidence: `DAY13_BUILD_LOG.md`
+9. Parent project guide: `../Seewik_what_we_built till now.md`
+10. Version history: `CHANGELOG.md`
+11. Identity contract: `data/contracts/day10-identity-migration-contract-v0.1.md`
+12. Language/boundary contract: `data/contracts/day9-language-boundary-contract-v0.1.md`
+13. Main frontend: `frontend/src/main.tsx`
+14. Initiative backend: `backend/src/main/java/com/seewik/api/InitiativeController.java`, `InitiativeService.java`, `InitiativeGateway.java`, `FirestoreInitiativeGateway.java` and `AttendanceCodeService.java`
+15. Security rules: `firestore.rules` and `storage.rules`
+16. Required gates: `.github/workflows/quality.yml` and `.github/workflows/deploy.yml`
+17. Credential-handling record: `SECURITY_FINDINGS.md`
 
 ## Project roots and handling rules
 
@@ -55,6 +56,7 @@ This map is for handoffs and repository study. Generated directories such as `fr
 - `DAY12_BUILD_LOG.md` — Sets 1-6 profile, recognition, sharing, sourced-awareness, emergency and local verification evidence.
 - `SECURITY_FINDINGS.md` — named credential-diagnostic findings, persistence scope, remediation and prevention rules; never contains credential values.
 - `DAY13_CHECKLIST.md` — contribution/reward/coupon contract, completed local checks and remaining release gates.
+- `DAY13_BUILD_LOG.md` — final Day 13 test, deployment, browser, log-safety, cleanup and legacy-audit evidence.
 - `TOUCHPOINT3_BUSINESS_CASE.md` — survey-grounded demand case, proposed revenue loop, illustrative unit economics, pilot requirements and explicit demonstration boundaries.
 - `PROJECT_TODOS.md` — routing simplification, Initiative meeting-point redesign and UI-polish follow-ups.
 - `DESIGN_REFERENCE.md` — visual direction.
