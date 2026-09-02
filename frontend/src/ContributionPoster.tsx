@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AppIcon } from './AppIcon';
 import { createContributionPoster, type ContributionPosterResult } from './civicCardImage';
 import { citizenSafeError } from './uiErrors';
 
@@ -76,7 +77,7 @@ export function ContributionPoster({ defaultDisplayName, lifetimePoints, current
     <button disabled={busy} onClick={() => { void createPoster(); }}>{busy ? t('Creating image…') : t('Create my Civic Card image')}</button>
     {previewUrl && result && <div className="poster-result">
       <img src={previewUrl} alt={t('Preview of your generated Civic Card image')} />
-      <div className="poster-actions"><button onClick={() => { void sharePoster(); }}>{t('Share Civic Card')}</button><button className="secondary" onClick={() => downloadPoster(result)}>{t('Download image')}</button></div>
+      <div className="poster-actions"><button className="icon-button" onClick={() => { void sharePoster(); }}><AppIcon name="share" />{t('Share Civic Card')}</button><button className="secondary" onClick={() => downloadPoster(result)}>{t('Download image')}</button></div>
     </div>}
     {status && <div className="status-panel" role="status" aria-live="polite">{status}</div>}
     <small>{t('Creating or sharing this image does not change your public-recognition choice. The image is created locally and no public poster URL is made.')}</small>

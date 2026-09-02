@@ -155,7 +155,8 @@ test('signed-out reports show recovery copy without raw codes or misleading cont
   assert.match(source, /Sign in to view your saved civic work/);
   assert.match(source, /Signing out doesn't delete anything/);
   assert.match(source, /reportsView === 'LINKED_EMPTY'/);
-  assert.match(source, /\['new-report', 'review'\]\.includes\(screen\)/);
+  assert.match(source, /screen === 'review' && <div className="page-tools"/);
+  assert.match(source, /report-page-heading[^>]*><h1[^>]*>.*onClick=\{startOver\}/s);
   assert.doesNotMatch(source, /\['new-report', 'review', 'reports', 'report-detail'\]\.includes\(screen\)/);
   assert.match(i18n, /message\.includes\('ACCOUNT_SIGNED_OUT'\)/);
 });

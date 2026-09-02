@@ -72,8 +72,8 @@ test('all callable emergency contacts map to a current source and normalized tel
   assert.match(helpers, /emergencyContactIsCallable/);
   assert.match(emergencyUi, /href={`tel:\${contact\.telephoneNumber}`}/);
   assert.match(emergencyUi, /Source review expired — call action disabled/);
-  assert.match(emergencyUi, /not an emergency response service/i);
-  assert.match(emergencyUi, /t\(topic\.summary\)/);
+  assert.match(JSON.stringify(topic.limitations), /not an emergency response service/i);
+  assert.doesNotMatch(emergencyUi, /t\(topic\.summary\)/);
   assert.match(emergencyUi, /t\(group\)/);
   assert.match(emergencyUi, /t\(contact\.label\)/);
   assert.match(emergencyUi, /t\(contact\.description\)/);

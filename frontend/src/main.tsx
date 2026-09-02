@@ -25,6 +25,7 @@ import { ContributionPoster } from './ContributionPoster';
 import { CivicAwarenessPage } from './CivicAwarenessPage';
 import { EmergencyInformationPage } from './EmergencyInformationPage';
 import { RewardCatalogue } from './RewardCatalogue';
+import { AppIcon, type AppIconName } from './AppIcon';
 import InitiativeMeetingPointPicker, { type MeetingPointPosition } from './InitiativeMeetingPointPicker';
 import PrabhagBoundaryMap from './PrabhagBoundaryMap';
 import {
@@ -73,6 +74,22 @@ const INITIATIVE_TEMPLATES = [
   { value: 'MEDITATION_WORKSHOP', label: 'Meditation workshop', example: 'A guided community meditation session', title: 'Community meditation workshop', description: 'Organise a guided meditation workshop for neighbours in a calm and accessible public setting.', neededItems: ['Floor mat'] },
   { value: 'OTHER_CIVIC_ACTIVITY', label: 'Other', example: 'Tell people what it is', title: '', description: '', neededItems: [] },
 ] as const;
+
+const issueTypeIcon = (issueType: string): AppIconName => ({
+  GARBAGE_SOLID_WASTE: 'trash', ILLEGAL_DUMPING: 'trash', PUBLIC_AREA_CLEANLINESS: 'bench',
+  POTHOLE_ROAD_DAMAGE: 'road', STREETLIGHT: 'bulb', DRAINAGE_SEWAGE: 'drop', WATER_SUPPLY: 'tap',
+  PUBLIC_TOILET_SANITATION: 'bench', MOSQUITO_FOGGING: 'dots', DEAD_ANIMAL_REMOVAL: 'dots',
+  PUBLIC_ROAD_OBSTRUCTION: 'road',
+}[issueType] as AppIconName | undefined) ?? 'dots';
+
+const initiativeTypeIcon = (category: string): AppIconName => ({
+  PLANTATION: 'leaf', PLANTATION_DRIVE: 'leaf', DONATION: 'food', BIRTHDAY_DONATION: 'gift',
+  HEALTH_ACTIVITY: 'dumbbell', COMMUNITY_FITNESS: 'dumbbell', COMMUNITY_YOGA: 'dumbbell',
+  BOOK_SUPPLY_DRIVE: 'book', CLEANUP: 'broom', AWARENESS_SESSION: 'info',
+  MEDITATION_WORKSHOP: 'info', OTHER_CIVIC_ACTIVITY: 'dots',
+}[category] as AppIconName | undefined) ?? 'dots';
+
+const officialChannelIcon = (type: OfficialChannel['type']): AppIconName => type === 'EMAIL' ? 'mail' : type === 'ONLINE_FORM' ? 'form' : 'building';
 
 const PRIVATE_POINTS_CACHE_PREFIX = 'seewik.private-points.';
 const COMMUNITY_CACHE_PREFIX = 'seewik.community-feed.';
@@ -552,10 +569,9 @@ function App() {
   }, [accountState, accountUid]);
 
   useEffect(() => {
-    if (screen === 'new-initiative' && !initiativePublicOrganiserName.trim() && accountName?.trim()) {
-      setInitiativePublicOrganiserName(accountName.trim());
-    }
-  }, [screen, accountName]);
+    if (accountState !== 'GOOGLE_LINKED' || !accountName?.trim()) return;
+    setInitiativePublicOrganiserName((currentName) => currentName.trim() ? currentName : accountName.trim());
+  }, [accountState, accountName]);
 
   function navigate(nextScreen: AppScreen, replace = false, reportId?: string) {
     const path = pathForScreen(nextScreen, reportId);
@@ -617,6 +633,29 @@ function App() {
     setCurrentCoordinates(null);
     resetDraft();
     navigate('new-report');
+  }
+
+  function startInitiativeOver() {
+    setInitiativeTitle('');
+    setInitiativeCategory('');
+    setInitiativeDescription('');
+    setInitiativePublicOrganiserName(accountState === 'GOOGLE_LINKED' ? accountName?.trim() || '' : '');
+    setInitiativeStartAt('');
+    setInitiativeEndAt('');
+    setInitiativePlaceName('');
+    setInitiativeMeetingPoint(null);
+    setInitiativeMeetingPointConfirmed(false);
+    setInitiativeCapacity('');
+    setInitiativeNeededItems([]);
+    setInitiativeNeededItemDraft('');
+    setInitiativeOrganiserMessage('');
+    setInitiativeParticipationMode('OPEN');
+    setInitiativeReviewing(false);
+    setInitiativeFormStep(1);
+    setInitiativeHighestStep(1);
+    setInitiativeStatus('');
+    initiativeCreateRequestId.current = crypto.randomUUID();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function clearAccountBoundState() {
@@ -2032,15 +2071,7 @@ function App() {
     setInitiativeFormStep(nextStep);
     window.setTimeout(() => document.querySelector(`[data-initiative-step="${nextStep}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
   };
-  const communityIcon = (category: string) => ({
-    BIRTHDAY_DONATION: '□',
-    PLANTATION_DRIVE: '♧',
-    AWARENESS_SESSION: '!',
-    COMMUNITY_YOGA: '◎',
-    MEDITATION_WORKSHOP: '◌',
-    HEALTH_ACTIVITY: '+',
-    OTHER_CIVIC_ACTIVITY: '◇',
-  }[category] ?? '◇');
+  const communityIcon = (category: string) => <AppIcon name={initiativeTypeIcon(category)} />;
   const emailChannel = routeResult?.officialChannels?.find((channel) => channel.type === 'EMAIL');
   const formChannel = routeResult?.officialChannels?.find((channel) => channel.type === 'ONLINE_FORM');
   const officeChannel = routeResult?.officialChannels?.find((channel) => channel.type === 'IN_PERSON');
@@ -2082,15 +2113,15 @@ function App() {
       <div><strong>{t('Device-only access')}</strong><span>{t('This work is saved only on this device until you connect Google.')}</span></div>
       <button className="secondary" onClick={openAccount}>{t('Connect Google')}</button>
     </aside>}
-    {['new-report', 'review'].includes(screen) && <div className="page-tools"><span>{t('Saved reports are not deleted by Start over.')}</span><button className="secondary" onClick={startOver}>{t('Start over')}</button></div>}
+    {screen === 'review' && <div className="page-tools"><button className="secondary" onClick={startOver}>{t('Start over')}</button></div>}
 
     {screen === 'home' && <>
       <section className="home-greeting" aria-labelledby="home-greeting-title">
         {accountProfileLoading ? <div className="home-greeting-skeleton" role="status" aria-label={t('Loading your profile')}><span /><span /></div> : <>
           <div className="home-greeting-line">
-            <h1 id="home-greeting-title">{t('Namaste')}, {linkedAccount ? homeFirstName : t('Citizen')}</h1>
+            <h1 className="page-title" id="home-greeting-title">{t('Namaste')}, {linkedAccount ? homeFirstName : t('Citizen')}</h1>
             <button className="home-civic-points" onClick={() => navigate('points')} aria-label={`${headerPoints ?? 0} ${t('points')}`}>
-              <span className="points-star" aria-hidden="true">★</span>
+              <AppIcon name="star" className="points-star" />
               <b>{headerPoints ?? 0}</b>
               <span>{t('points')}</span>
             </button>
@@ -2102,13 +2133,13 @@ function App() {
           <h2>{t('Improve')}</h2>
           <p className="home-action-subtext">{t('Something needs fixing')}</p>
           <p className="home-action-examples">{t('Garbage · Roads · Drainage · Water · Streetlights')}</p>
-          <button onClick={() => navigate('new-report')}>{t('Report a civic problem')}</button>
+          <button className="icon-button" onClick={() => navigate('new-report')}><AppIcon name="camera" />{t('Report a civic problem')}</button>
         </article>
         <article className="home-primary-action initiate-action">
           <h2>{t('Initiate')}</h2>
           <p className="home-action-subtext">{t('Start something good')}</p>
           <p className="home-action-examples">{t('Donation · Plantation · Cleanup · Fitness')}</p>
-          <button onClick={() => navigate('new-initiative')}>{t('Start a community activity')}</button>
+          <button className="icon-button" onClick={() => navigate('new-initiative')}><AppIcon name="users" />{t('Start a community activity')}</button>
         </article>
         <article><h2>{t('My Actions')}</h2><p>{t('Resume drafts and review filed reports. Filed reports can’t be edited.')}</p><button className="secondary" onClick={() => navigate('reports')}>{t('Open My Actions')}</button></article>
         <article><h2>{t('My Civic Card')}</h2><p>{t('See your civic contribution record and how your points were earned.')}</p><button className="secondary" onClick={() => navigate('points')}>{t('Open my Civic Card')}</button></article>
@@ -2122,7 +2153,7 @@ function App() {
 
     {screen === 'initiatives' && <>
       <section className="community-page">
-        <div className="community-heading"><span className="eyebrow">{t('COMMUNITY')}</span><h1>{t('Happening in your community')}</h1><p>{t('Browse upcoming civic activities across Nandurbar. Share your location only if you want to narrow the list.')}</p></div>
+        <div className="community-heading"><h1 className="page-title">{t('Happening in your community')}</h1><p>{t('Browse upcoming civic activities across Nandurbar. Share your location only if you want to narrow the list.')}</p></div>
         <div className="community-controls" aria-label={t('Community activity controls')}>
           <button className={`community-chip ${communityNearMe ? 'active' : ''}`} onClick={() => communityNearMe ? setCommunityNearMe(false) : locateForInitiatives()}>{communityNearMe ? `${t('Within')} ${initiativeRadiusKm} km` : t('All Nandurbar')}</button>
           <button className={`community-chip ${communityFiltersOpen ? 'active' : ''}`} aria-expanded={communityFiltersOpen} aria-controls="community-filters" onClick={() => setCommunityFiltersOpen((open) => !open)}>≡ {communityFiltersOpen ? t('Hide filters') : t('Filter')}</button>
@@ -2168,33 +2199,32 @@ function App() {
         <div className="activity-detail-banner"><span className="community-type-chip">{initiativeCategoryLabel(selectedInitiative.category)}</span><span className="activity-banner-icon" aria-hidden="true">{communityIcon(selectedInitiative.category)}</span></div>
         <div className="activity-detail-content">
           <h1>{selectedInitiative.title}</h1>
-          <p className="activity-time">{timestampLabel(selectedInitiative.startAt, language)}{selectedInitiative.endAt && selectedInitiative.endAt !== selectedInitiative.startAt ? ` · ${t('ends')} ${new Intl.DateTimeFormat(communityLocale, { hour: 'numeric', minute: '2-digit' }).format(new Date(selectedInitiative.endAt))}` : ''}</p>
+          <p className="activity-time icon-copy"><AppIcon name="clock" />{timestampLabel(selectedInitiative.startAt, language)}{selectedInitiative.endAt && selectedInitiative.endAt !== selectedInitiative.startAt ? ` · ${t('ends')} ${new Intl.DateTimeFormat(communityLocale, { hour: 'numeric', minute: '2-digit' }).format(new Date(selectedInitiative.endAt))}` : ''}</p>
           <dl className="activity-facts">
-            <div><dt>{t('Where')}</dt><dd>{selectedInitiative.mapsUrl ? <a href={selectedInitiative.mapsUrl} target="_blank" rel="noreferrer">{selectedInitiative.placeName} ↗</a> : selectedInitiative.placeName}</dd></div>
-            <div><dt>{t('Organised by')}</dt><dd>{selectedInitiative.publicOrganiserName || t('Citizen organiser')}</dd></div>
-            {selectedInitiative.joiningCountVisible && <div><dt>{t('Joining')}</dt><dd>{activityJoiningLabel(selectedInitiative)}</dd></div>}
+            <div><dt><AppIcon name="pin" />{t('Where')}</dt><dd>{selectedInitiative.mapsUrl ? <a href={selectedInitiative.mapsUrl} target="_blank" rel="noreferrer">{selectedInitiative.placeName} ↗</a> : selectedInitiative.placeName}</dd></div>
+            <div><dt><AppIcon name="users" />{t('Organised by')}</dt><dd>{selectedInitiative.publicOrganiserName || t('Citizen organiser')}</dd></div>
+            {selectedInitiative.joiningCountVisible && <div><dt><AppIcon name="users" />{t('Joining')}</dt><dd>{activityJoiningLabel(selectedInitiative)}</dd></div>}
           </dl>
           <section className="activity-description"><h2>{t('About this activity')}</h2><p>{selectedInitiative.description}</p></section>
           {selectedInitiative.neededItems?.length > 0 && <section className="activity-needed"><h2>{t('What is needed')}</h2><div className="activity-needed-chips">{selectedInitiative.neededItems.map((item) => <span key={item}>{item}</span>)}</div></section>}
           {selectedInitiative.organiserMessage && <blockquote className="organiser-message"><strong>{t('From the organiser:')}</strong> {selectedInitiative.organiserMessage}</blockquote>}
           {selectedInitiative.joined && !selectedInitiative.canManage ? <>
-            <div className="joined-confirmation"><strong>✓ {t('Joined')}</strong><span>{t('See you on')} {activityReminderLabel(selectedInitiative)}.</span></div>
-            <div className="joined-actions"><button className="secondary" onClick={() => addActivityToCalendar(selectedInitiative)}>◷ {t('Calendar')}</button><button className="secondary" onClick={() => void shareActivity(selectedInitiative)}>⌯ {t('Share')}</button></div>
+            <div className="joined-confirmation"><strong className="icon-copy"><AppIcon name="check" />{t('Joined')}</strong><span>{t('See you on')} {activityReminderLabel(selectedInitiative)}.</span></div>
+            <div className="joined-actions"><button className="secondary icon-button" onClick={() => addActivityToCalendar(selectedInitiative)}><AppIcon name="clock" />{t('Calendar')}</button><button className="secondary icon-button" onClick={() => void shareActivity(selectedInitiative)}><AppIcon name="share" />{t('Share')}</button></div>
           </> : selectedInitiative.joinRequestedByMe && !selectedInitiative.canManage ? <div className="joined-confirmation"><strong>{t('Approval requested')}</strong><span>{t('The organiser will accept or decline your request.')}</span></div> : !selectedInitiative.canManage && <button className="activity-join-button" disabled={selectedInitiative.full || joiningInitiativeId === selectedInitiative.initiativeId} onClick={() => requestLinkedMutation(() => joinInitiative(selectedInitiative.initiativeId).catch((error) => setInitiativeStatus(citizenSafeError(error, 'The initiative could not be joined.'))))}>{selectedInitiative.full ? t('Full') : joiningInitiativeId === selectedInitiative.initiativeId ? t('Joining…') : selectedInitiative.participationMode === 'APPROVAL_REQUIRED' ? t('Request to join') : t('Join Activity')}</button>}
-          {selectedInitiative.canManage && <section className="organiser-tools"><span className="eyebrow">{t('ORGANISER TOOLS')}</span>{Date.now() >= Date.parse(selectedInitiative.endAt || selectedInitiative.startAt) ? <><h2>{t('Activity day is over — record what happened')}</h2><p>{t('Completion and attendance tools remain protected in My Actions.')}</p></> : <p>{t('Manage this activity and attendance securely in My Actions.')}</p>}<button className="secondary" onClick={() => { navigate('reports'); window.setTimeout(() => document.getElementById('my-initiatives')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); }}>{t('Open organiser tools in My Actions')}</button></section>}
+          {selectedInitiative.canManage && <section className="organiser-tools"><span className="eyebrow icon-copy"><AppIcon name="shield" />{t('ORGANISER TOOLS')}</span>{Date.now() >= Date.parse(selectedInitiative.endAt || selectedInitiative.startAt) ? <><h2>{t('Activity day is over — record what happened')}</h2><p>{t('Completion and attendance tools remain protected in My Actions.')}</p></> : <p>{t('Manage this activity and attendance securely in My Actions.')}</p>}<button className="secondary icon-button" onClick={() => { navigate('reports'); window.setTimeout(() => document.getElementById('my-initiatives')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); }}><AppIcon name="shield" />{t('Open organiser tools in My Actions')}</button></section>}
           {initiativeStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{runtimeMessage(initiativeStatus)}</div>}
         </div>
       </article>}
     </section>}
 
     {screen === 'new-initiative' && <section className="initiative-create-page">
-      <header className="flow-page-heading initiative-page-heading"><h1>{t('NEW INITIATIVE')}</h1></header>
+      <header className="flow-page-heading initiative-page-heading"><h1 className="page-title">{t('New Initiative')}</h1><button type="button" className="secondary flow-start-over" onClick={startInitiativeOver}>{t('Start over')}</button></header>
       {!initiativeReviewing ? <div className="initiative-form">
       <section className={`initiative-form-block ${initiativeFormStep === 1 ? 'is-active' : 'is-complete'}`} data-initiative-step="1">
       <div className="initiative-block-header"><span className="initiative-step">{initiativeFormStep === 1 ? '1' : '✓'}</span><div className="initiative-block-heading"><h2>{t('What are you organising?')}</h2>{initiativeFormStep === 1 && <p>{t('Pick the closest one. You can add details next.')}</p>}</div>{initiativeFormStep !== 1 && <button type="button" className="initiative-step-edit" onClick={() => openInitiativeFormStep(1)}>{t('Edit')}</button>}</div>
       {initiativeFormStep === 1 ? <>
-      <label>{t('Activity type')}<select value={initiativeCategory} onChange={(event) => applyInitiativeTemplate(event.target.value)}><option value="" disabled>{t('Choose an activity type')}</option>{INITIATIVE_TEMPLATES.map((template) => <option key={template.value} value={template.value}>{t(template.label)} — {t(template.example)}</option>)}</select></label>
-      {selectedInitiativeTemplate && <div className="activity-type-example"><strong>{t(selectedInitiativeTemplate.label)}</strong><span>{t(selectedInitiativeTemplate.example)}</span></div>}
+      <fieldset className="icon-choice-fieldset"><legend>{t('Activity type')}</legend><div className="activity-type-grid">{INITIATIVE_TEMPLATES.map((template) => <button type="button" className={`icon-choice-card ${initiativeCategory === template.value ? 'selected' : ''}`} aria-pressed={initiativeCategory === template.value} key={template.value} onClick={() => applyInitiativeTemplate(template.value)}><AppIcon name={initiativeTypeIcon(template.value)} /><span><strong>{t(template.label)}</strong><small>{t(template.example)}</small></span></button>)}</div></fieldset>
       <label>{t('Title')}<input type="text" maxLength={100} value={initiativeTitle} onChange={(event) => setInitiativeTitle(event.target.value)} /></label>
       <label>{t('Description')}<textarea maxLength={1200} value={initiativeDescription} onChange={(event) => setInitiativeDescription(event.target.value)} /></label>
       <div className="initiative-next-row"><button type="button" disabled={!initiativeCategory || !initiativeTitle.trim() || !initiativeDescription.trim()} onClick={() => advanceInitiativeForm(1)}>{t('Next')}</button></div>
@@ -2225,7 +2255,7 @@ function App() {
         setInitiativeMeetingPointConfirmed(true);
         setInitiativeStatus('Meeting point confirmed.');
       }}>{initiativeMeetingPointConfirmed ? `✓ ${t('Meeting point confirmed')}` : t('Confirm meeting point')}</button>
-      {initiativeMeetingPointConfirmed && initiativeMeetingPoint && <div className="confirmed-meeting-point" role="status" aria-live="polite"><div><b>{initiativePlaceName.trim()}</b><span>{t('Confirmed public meeting point')}</span></div><a href={`https://www.google.com/maps/search/?api=1&query=${initiativeMeetingPoint.latitude.toFixed(6)}%2C${initiativeMeetingPoint.longitude.toFixed(6)}`} target="_blank" rel="noreferrer">⌖ {t('Preview in Google Maps')}</a></div>}
+      {initiativeMeetingPointConfirmed && initiativeMeetingPoint && <div className="confirmed-meeting-point" role="status" aria-live="polite"><div><b>{initiativePlaceName.trim()}</b><span>{t('Confirmed public meeting point')}</span></div><a className="icon-copy" href={`https://www.google.com/maps/search/?api=1&query=${initiativeMeetingPoint.latitude.toFixed(6)}%2C${initiativeMeetingPoint.longitude.toFixed(6)}`} target="_blank" rel="noreferrer"><AppIcon name="pin" />{t('Preview in Google Maps')}</a></div>}
       <div className="initiative-time-grid"><label>{t('Start time')}<input type="datetime-local" step={300} value={initiativeStartAt} onFocus={initialiseInitiativeStartTime} onChange={(event) => changeInitiativeStartAt(event.target.value)} /></label><label>{t('End time')}<input type="datetime-local" step={300} min={initiativeStartAt || undefined} value={initiativeEndAt} onChange={(event) => setInitiativeEndAt(normaliseActivityTime(event.target.value))} /></label></div>
       <div className="initiative-next-row"><button type="button" disabled={!initiativeMeetingPoint || !initiativeMeetingPointConfirmed || !initiativePlaceName.trim() || !initiativeStartAt || !initiativeEndAt || Date.parse(initiativeEndAt) <= Date.parse(initiativeStartAt)} onClick={() => advanceInitiativeForm(2)}>{t('Next')}</button></div>
       </> : initiativeHighestStep >= 2 ? <button type="button" className="initiative-step-summary" onClick={() => openInitiativeFormStep(2)}><strong>{initiativePlaceName}</strong><span>{initiativeStartAt ? new Intl.DateTimeFormat(communityLocale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(initiativeStartAt)) : ''}</span></button> : <p className="initiative-step-locked">{t('Complete the previous step to continue.')}</p>}
@@ -2233,7 +2263,7 @@ function App() {
       <section className={`initiative-form-block ${initiativeFormStep === 3 ? 'is-active' : initiativeHighestStep >= 3 ? 'is-complete' : 'is-upcoming'}`} data-initiative-step="3">
       <div className="initiative-block-header"><span className="initiative-step">{initiativeHighestStep > 3 && initiativeFormStep !== 3 ? '✓' : '3'}</span><div className="initiative-block-heading"><h2>{t('What is needed?')}</h2>{initiativeFormStep === 3 && <p>{t('People bring what they can. Keep it simple.')}</p>}</div>{initiativeHighestStep >= 3 && initiativeFormStep !== 3 && <button type="button" className="initiative-step-edit" onClick={() => openInitiativeFormStep(3)}>{t('Edit')}</button>}</div>
       {initiativeFormStep === 3 ? <>
-      <fieldset className="needed-items-editor"><legend>{t('What is needed (optional)')}</legend>{initiativeNeededItems.length > 0 && <div className="activity-needed-chips editable-needed-chips">{initiativeNeededItems.map((item) => <span className="needed-item-chip" key={item}>{item}<button type="button" className="needed-item-remove" aria-label={`${t('Remove item')}: ${item}`} title={t('Remove item')} onClick={() => setInitiativeNeededItems((items) => items.filter((value) => value !== item))}>×</button></span>)}</div>}<div className="needed-item-entry"><input type="text" maxLength={80} value={initiativeNeededItemDraft} placeholder={t('For example, gloves')} onChange={(event) => setInitiativeNeededItemDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addInitiativeNeededItem(); } }} /><button type="button" className="secondary" disabled={!initiativeNeededItemDraft.trim() || initiativeNeededItems.length >= 8} onClick={addInitiativeNeededItem}>{t('Add')}</button></div><small>{t('Suggested items are prefilled from the activity type. Remove any with × or add your own.')}</small></fieldset>
+      <fieldset className="needed-items-editor"><legend>{t('What is needed (optional)')}</legend>{initiativeNeededItems.length > 0 && <div className="activity-needed-chips editable-needed-chips">{initiativeNeededItems.map((item) => <span className="needed-item-chip" key={item}>{item}<button type="button" className="needed-item-remove" aria-label={`${t('Remove item')}: ${item}`} title={t('Remove item')} onClick={() => setInitiativeNeededItems((items) => items.filter((value) => value !== item))}>×</button></span>)}</div>}<div className="needed-item-entry"><input type="text" maxLength={80} value={initiativeNeededItemDraft} placeholder={t('For example, gloves')} onChange={(event) => setInitiativeNeededItemDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addInitiativeNeededItem(); } }} /><button type="button" className="secondary icon-button" disabled={!initiativeNeededItemDraft.trim() || initiativeNeededItems.length >= 8} onClick={addInitiativeNeededItem}><AppIcon name="plus" />{t('Add')}</button></div><small>{t('Suggested items are prefilled from the activity type. Remove any with × or add your own.')}</small></fieldset>
       <div className="initiative-next-row"><button type="button" onClick={() => advanceInitiativeForm(3)}>{t('Next')}</button></div>
       </> : initiativeHighestStep >= 3 ? <button type="button" className="initiative-step-summary" onClick={() => openInitiativeFormStep(3)}><strong>{initiativeNeededItems.length} {t('items')}</strong><span>{initiativeNeededItems.slice(0, 3).join(' · ') || t('Nothing needed')}</span></button> : <p className="initiative-step-locked">{t('Complete the previous step to continue.')}</p>}
       </section>
@@ -2245,7 +2275,7 @@ function App() {
           ['OPEN', 'Anyone can join', 'No approval needed'],
           ['CAPPED', 'Cap the numbers', 'Stops at your maximum'],
           ['APPROVAL_REQUIRED', 'Approval required', 'You accept each request'],
-        ] as const).map(([value, title, description]) => <label className={initiativeParticipationMode === value ? 'selected' : ''} key={value}><input type="radio" name="participation-mode" value={value} checked={initiativeParticipationMode === value} onChange={() => { setInitiativeParticipationMode(value); if (value !== 'CAPPED') setInitiativeCapacity(''); }} /><span><strong>{t(title)}</strong><small>{t(description)}</small></span></label>)}
+        ] as const).map(([value, title, description]) => <label className={initiativeParticipationMode === value ? 'selected' : ''} key={value}><input type="radio" name="participation-mode" value={value} checked={initiativeParticipationMode === value} onChange={() => { setInitiativeParticipationMode(value); if (value !== 'CAPPED') setInitiativeCapacity(''); }} /><AppIcon name={value === 'APPROVAL_REQUIRED' ? 'shield' : 'users'} /><span><strong>{t(title)}</strong><small>{t(description)}</small></span></label>)}
       </div>
       {initiativeParticipationMode === 'CAPPED' && <label>{t('Maximum participants')}<input type="number" inputMode="numeric" min={1} max={500} value={initiativeCapacity} onChange={(event) => setInitiativeCapacity(event.target.value)} /></label>}
       <div className="initiative-next-row"><button type="button" disabled={initiativeParticipationMode === 'CAPPED' && (!initiativeCapacity || Number(initiativeCapacity) < 1 || Number(initiativeCapacity) > 500)} onClick={() => advanceInitiativeForm(4)}>{t('Next')}</button></div>
@@ -2288,33 +2318,37 @@ function App() {
     </section>}
 
     {screen === 'new-report' && <>
-    <header className="flow-page-heading report-page-heading"><h1>{t('NEW REPORT')}</h1></header>
+    <header className="flow-page-heading report-page-heading"><h1 className="page-title">{t('New Report')}</h1><button type="button" className="secondary flow-start-over" onClick={startOver}>{t('Start over')}</button></header>
     <section className="card report-flow-card">
-      <div className="signal" aria-hidden="true" /><h2>{t('Find the civic route')}</h2>
-      <p>{t('Start with a photo or short description. Seewik may suggest an issue category, but you confirm it before finding the right office.')}</p>
-      <div className="flow-step"><span>1</span><b>{t('Describe the issue')}</b></div>
-      <div className="photo-input-grid">
-        <label>{t('Take a photo')}<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => chooseEvidenceImage(event.target.files?.[0] ?? null)} /></label>
-        <label>{t('Choose a photo')}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => chooseEvidenceImage(event.target.files?.[0] ?? null)} /></label>
-      </div>
-      <label>{t('Short description (optional)')}<textarea maxLength={2000} value={evidenceText} placeholder="उदा. रस्त्यावर मोठा खड्डा आहे" onChange={(event) => {
-        setEvidenceText(event.target.value);
-        resetEvidenceDerivedState();
-      }} /></label>
-      <button className="secondary" onClick={() => prefillReportDetails().catch(() => {
-        setClassificationStatus('The category could not be checked. Choose it manually below.');
-        setClassificationSource('CITIZEN_SELECTED');
-      })}>{t('Prefill report details')}</button>
-      <small className="field-help">{t('Seewik uses the photo or description to suggest wording and a category, and asks permission to suggest your Prabhag from location. You confirm or edit everything.')}</small>
-      {classificationStatus && <div role="status" aria-live="polite" className={`status-panel ${classification?.status === 'CLASSIFICATION_ERROR' ? 'state-error' : classification?.status === 'CLASSIFIED' ? 'state-success' : 'state-warning'}`}>
-        <strong>{classification?.status === 'CLASSIFIED' ? t('Category suggestion ready') : classification?.status === 'CLARIFICATION_REQUIRED' ? t('Please clarify') : t('Category confirmation')}</strong>
-        <span>{runtimeMessage(classificationStatus)}</span>
-        {classification?.description && <small>{classification.description}</small>}
-        {classification?.detectedLanguage && <small>{t('Detected language')}: {classification.detectedLanguage}</small>}
-      </div>}
-      <label>{t('Issue category')}<select value={issueType} onChange={(event) => chooseIssueType(event.target.value)}>{ISSUE_TYPES.map(([value]) => <option key={value} value={value}>{issueLabel(value, language)}</option>)}</select></label>
-      <button onClick={confirmIssueType}>{classificationConfirmed ? t('Category confirmed') : t('Confirm this category')}</button>
-      {classificationConfirmed && <div className="confirmed-line" role="status" aria-live="polite">✓ {issueLabel(issueType, language)} · {classificationSourceLabel(classificationSource)}</div>}
+      <div className="report-purpose"><span className="signal" aria-hidden="true" /><p>{t("Let's find how to report this issue")}</p></div>
+      {classificationConfirmed ? <>
+        <div className="report-step-summary">
+          <div><span><AppIcon name="check" /></span><div><b>{t('Describe the issue')}</b><small>{issueLabel(issueType, language)} · {classificationSourceLabel(classificationSource)}</small></div></div>
+          <button type="button" className="secondary" onClick={() => setClassificationConfirmed(false)}>{t('Edit')}</button>
+        </div>
+      </> : <>
+        <div className="flow-step"><span>1</span><b>{t('Describe the issue')}</b></div>
+        <div className="photo-input-grid">
+          <label className="photo-upload-label">{t('Add photo')}<span className="photo-file-control"><AppIcon name="camera" /><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => chooseEvidenceImage(event.target.files?.[0] ?? null)} /></span></label>
+        </div>
+        <label>{t('Short description (optional)')}<textarea maxLength={2000} value={evidenceText} placeholder="उदा. रस्त्यावर मोठा खड्डा आहे" onChange={(event) => {
+          setEvidenceText(event.target.value);
+          resetEvidenceDerivedState();
+        }} /></label>
+        <button className="secondary" onClick={() => prefillReportDetails().catch(() => {
+          setClassificationStatus('The category could not be checked. Choose it manually below.');
+          setClassificationSource('CITIZEN_SELECTED');
+        })}>{t('Prefill report details')}</button>
+        <small className="field-help">{t('Seewik uses the photo or description to suggest wording and a category, and asks permission to suggest your Prabhag from location. You confirm or edit everything.')}</small>
+        {classificationStatus && <div role="status" aria-live="polite" className={`status-panel ${classification?.status === 'CLASSIFICATION_ERROR' ? 'state-error' : classification?.status === 'CLASSIFIED' ? 'state-success' : 'state-warning'}`}>
+          <strong>{classification?.status === 'CLASSIFIED' ? t('Category suggestion ready') : classification?.status === 'CLARIFICATION_REQUIRED' ? t('Please clarify') : t('Category confirmation')}</strong>
+          <span>{runtimeMessage(classificationStatus)}</span>
+          {classification?.description && <small>{classification.description}</small>}
+          {classification?.detectedLanguage && <small>{t('Detected language')}: {classification.detectedLanguage}</small>}
+        </div>}
+        <fieldset className="icon-choice-fieldset"><legend>{t('Issue category')}</legend><div className="issue-category-grid">{ISSUE_TYPES.map(([value]) => <button type="button" className={`icon-choice-card ${issueType === value ? 'selected' : ''}`} aria-pressed={issueType === value} key={value} onClick={() => chooseIssueType(value)}><AppIcon name={issueTypeIcon(value)} /><span><strong>{issueLabel(value, language)}</strong></span></button>)}</div></fieldset>
+        <button onClick={confirmIssueType}>{t('Confirm this category')}</button>
+      </>}
 
       <div className="flow-step"><span>2</span><b>{t('Confirm your prabhag')}</b></div>
       <p>{t('Use your location for a suggestion, or choose your Prabhag manually. You always confirm the result.')}</p>
@@ -2350,26 +2384,19 @@ function App() {
           {routeResult.department && <div className="department-result">
             <b>{routeResult.department.status === 'TYPICAL_STRUCTURE_UNVERIFIED' ? t('Likely department') : t('Department')}: {routeResult.department.displayName}</b>
             <span>{routeResult.department.localName}</span>
-            <span>{routeResult.department.basis}</span>
-            <span>{routeResult.department.status}</span>
           </div>}
           <span>{routeResult.prabhagId}</span>
-          {(routeResult.knownLimitations?.length ?? 0) > 0 && <div className="route-limitations">
-            <b>{t('Please check before filing')}</b>
-            <ul>{routeResult.knownLimitations?.map((limitation) => <li key={limitation.code}>{limitation.citizenMessage}</li>)}</ul>
-          </div>}
           {(routeResult.officialChannels?.length ?? 0) > 0 && <div className="route-channels">
             <b>{t('Official contact options')}</b>
-            <ul>{routeResult.officialChannels?.map((channel) => <li key={channel.channelId}>
+            <ul>{routeResult.officialChannels?.map((channel) => <li key={channel.channelId}><AppIcon name={officialChannelIcon(channel.type)} /><div>
               {channel.type === 'EMAIL' && <a href={`mailto:${channel.value}`}>{channel.label}</a>}
               {channel.type === 'ONLINE_FORM' && <a href={channel.value} target="_blank" rel="noreferrer">{channel.label}</a>}
               {channel.type === 'IN_PERSON' && <span>{channel.label}: {channel.value}</span>}
-              <small>{channel.scopeNote}</small>
-            </li>)}</ul>
+            </div></li>)}</ul>
           </div>}
           {(routeResult.informationalLinks?.length ?? 0) > 0 && <div className="informational-links">
             <b>{t('Information only — not a verified filing channel')}</b>
-            <ul>{routeResult.informationalLinks?.map((link) => <li key={link.linkId}><a href={link.value} target="_blank" rel="noreferrer">{link.label}</a><small>{link.scopeNote}</small></li>)}</ul>
+            <ul>{routeResult.informationalLinks?.map((link) => <li key={link.linkId}><AppIcon name="info" /><a href={link.value} target="_blank" rel="noreferrer">{link.label}</a></li>)}</ul>
           </div>}
         </>}
       </div>}
@@ -2423,9 +2450,9 @@ function App() {
           <div className="flow-step"><span>5</span><b id="filing-choice-title">{t('Choose how to file')}</b></div>
           <p>{t('Select one option after reviewing the complaint. Seewik prepares the next step but never claims it was submitted.')}</p>
           <div className="filing-choice-grid">
-            <article className="filing-choice-card"><span className="filing-choice-number">1</span><h3>{t('Email')}</h3><p>{t('Open an editable email with the subject and complaint already added.')}</p><label>{t('Recipient email')}<input type="email" value={filingEmail} onChange={(event) => setFilingEmail(event.target.value)} /></label><button disabled={!draftReviewed || !emailChannel} onClick={openEmailDraft}>{t('Open email to send')}</button></article>
-            <article className="filing-choice-card"><span className="filing-choice-number">2</span><h3>{t('Official complaint form')}</h3><p>{t('Copy the prepared complaint and open the Maharashtra government form. Paste it there, then add the personal details requested by the form.')}</p><button disabled={!draftReviewed || !formChannel} onClick={() => copyComplaintAndOpenForm().catch((error) => setFilingActionStatus(citizenSafeError(error, 'The official form could not be opened.')))}>{t('Copy complaint and open form')}</button></article>
-            <article className="filing-choice-card"><span className="filing-choice-number">3</span><h3>{t('Print a letter')}</h3><p>{officeChannel ? `${officeChannel.label}: ${officeChannel.value}` : t('Prepare a letter for the municipal office.')}</p><small>{t('Write your full name and sign the letter before submitting it to the Nagar Parishad.')}</small><div className="letter-actions"><button className="secondary" disabled={!draftReviewed} onClick={() => shareLetter().catch((error) => setFilingActionStatus(citizenSafeError(error, 'The letter could not be shared.')))}>{t('Share letter')}</button><button disabled={!draftReviewed} onClick={printLetter}>{t('Print letter')}</button></div></article>
+            <article className="filing-choice-card"><span className="filing-choice-number"><AppIcon name="mail" /></span><h3>{t('Email')}</h3><p>{t('Open an editable email with the subject and complaint already added.')}</p><label>{t('Recipient email')}<input type="email" value={filingEmail} onChange={(event) => setFilingEmail(event.target.value)} /></label><button className="icon-button" disabled={!draftReviewed || !emailChannel} onClick={openEmailDraft}><AppIcon name="mail" />{t('Open email to send')}</button></article>
+            <article className="filing-choice-card"><span className="filing-choice-number"><AppIcon name="form" /></span><h3>{t('Official complaint form')}</h3><p>{t('Copy the prepared complaint and open the Maharashtra government form. Paste it there, then add the personal details requested by the form.')}</p><button className="icon-button" disabled={!draftReviewed || !formChannel} onClick={() => copyComplaintAndOpenForm().catch((error) => setFilingActionStatus(citizenSafeError(error, 'The official form could not be opened.')))}><AppIcon name="form" />{t('Copy complaint and open form')}</button></article>
+            <article className="filing-choice-card"><span className="filing-choice-number"><AppIcon name="building" /></span><h3>{t('Print a letter')}</h3><p>{officeChannel ? `${officeChannel.label}: ${officeChannel.value}` : t('Prepare a letter for the municipal office.')}</p><small>{t('Write your full name and sign the letter before submitting it to the Nagar Parishad.')}</small><div className="letter-actions"><button className="secondary icon-button" disabled={!draftReviewed} onClick={() => shareLetter().catch((error) => setFilingActionStatus(citizenSafeError(error, 'The letter could not be shared.')))}><AppIcon name="share" />{t('Share letter')}</button><button className="icon-button" disabled={!draftReviewed} onClick={printLetter}><AppIcon name="building" />{t('Print letter')}</button></div></article>
           </div>
           {filingActionStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{runtimeMessage(filingActionStatus)}</div>}
           <article className="print-letter" aria-hidden="true"><p>{t('To')},</p><strong>{complaintDraft.authorityLocalName || complaintDraft.authority}</strong><h1>{draftSubject}</h1><p>{draftBody}</p><div><span>{t('Citizen name')}: ______________________________</span><span>{t('Signature')}: ______________________________</span><span>{t('Date')}: ______________________________</span></div></article>
@@ -2495,7 +2522,7 @@ function App() {
     </section>}
 
     {screen === 'reports' && <section className="card page-card my-actions-page">
-      <span className="eyebrow">{t('MY ACTIONS')}</span><h1>{t('My Actions')}</h1>
+      <h1 className="page-title">{t('My Actions')}</h1>
       {reportsView === 'SIGNED_OUT' ? <div className="empty-state account-recovery-state">
         <b>{t('Sign in to view your saved civic work.')}</b>
         <p>{t("Signing out doesn't delete anything.")}</p>
@@ -2532,10 +2559,8 @@ function App() {
 
     {screen === 'points' && <>
       <section className="card page-card points-page">
-        <div className="civic-card-heading"><h1>{t('My Civic Card')}</h1><p>{t('A record of what you have actually done.')}</p></div>
+        <div className="civic-card-heading"><h1 className="page-title">{t('My Civic Card')}</h1><p className="icon-copy"><AppIcon name="info" />{t('A record of what you have actually done.')}</p></div>
         {accountState === 'SIGNED_OUT' ? <div className="empty-state account-recovery-state"><b>{t('Sign in to view your contribution record.')}</b><p>{t('Your points remain attached to your account and are never shown in the public recognition panel.')}</p><button onClick={openAccount}>{t('Continue with Google')}</button></div> : <>
-          <h2>{privatePoints?.lifetimePoints ?? pointsTotal} {t('lifetime points')}</h2>
-          <p>{t('Points are earned only from verified actions. Only you can see this detail.')}</p>
           {privatePoints && <div className="private-month-points"><span>{localizedMonthLabel(language, privatePoints.monthLabel)}</span><strong>{privatePoints.currentMonthPoints} {t('points')}</strong></div>}
           {privatePoints?.breakdown.length ? <div className="points-breakdown">{privatePoints.breakdown.map((item) => <div key={item.contributionType}><span><b>{contributionTypeLabel(item.contributionType)}</b><small>{item.lifetimeAwards} {t('recorded awards')}</small></span><strong>{item.lifetimePoints}</strong></div>)}</div> : null}
           <RewardCatalogue

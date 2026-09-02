@@ -20,8 +20,7 @@ export function CivicAwarenessPage({ t, onReportIssue, onStartInitiative }: Prop
   const sourceIndex = civicAwarenessContent.topics.flatMap((topic) => topic.sources.map((source) => ({ topic: topic.heading, ...source })));
   return <>
     <section className="hero page-hero awareness-hero">
-      <span className="eyebrow">{t('CIVIC AWARENESS · DID YOU KNOW?')}</span>
-      <h1>{t('Know how local civic action works')}</h1>
+      <h1 className="page-title">{t('Civic Awareness · Did You Know?')}</h1>
       <p>{t('Short, sourced explanations that connect civic duties, municipal work and official programmes to useful action.')}</p>
     </section>
     <section className="awareness-topics" aria-label={t('Civic awareness topics')}>

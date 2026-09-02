@@ -23,7 +23,11 @@ test('home removes the large report title while retaining concise civic guidance
 });
 
 test('report flow provides camera, editable confirmation, and three honest filing choices', () => {
-  assert.match(app, /capture="environment"/);
+  assert.match(app, /photo-upload-label.*AppIcon name="camera"/s);
+  assert.match(app, /Add photo/);
+  assert.doesNotMatch(app, /Take a photo|Choose a photo/);
+  assert.match(app, /issue-category-grid/);
+  assert.match(app, /aria-pressed=\{issueType === value\}/);
   assert.match(app, /Prefill report details/);
   assert.match(app, /Recipient email/);
   assert.match(app, /mailto:/);
@@ -32,6 +36,8 @@ test('report flow provides camera, editable confirmation, and three honest filin
   assert.match(app, /Print letter/);
   assert.match(app, /Seewik did not send it/);
   assert.match(civicPack, /complaint-2\/\?dma_tab=regional/);
+  assert.doesNotMatch(app, /Saved reports are not deleted by Start over\./);
+  assert.match(app, /report-page-heading[^>]*><h1[^>]*>.*New Report.*flow-start-over/s);
 });
 
 test('initiative templates and backend categories stay aligned', () => {
@@ -46,6 +52,10 @@ test('initiative templates and backend categories stay aligned', () => {
   assert.match(app, /What is needed \(optional\)/);
   assert.match(app, /Message from the organiser \(optional\)/);
   assert.match(app, /Your name, as the city will see it/);
+  assert.match(app, /setInitiativePublicOrganiserName\(\(currentName\)/);
+  assert.match(app, /activity-type-grid/);
+  assert.match(app, /aria-pressed=\{initiativeCategory === template\.value\}/);
+  assert.match(app, /initiative-page-heading[^>]*><h1[^>]*>.*New Initiative.*startInitiativeOver/s);
   assert.match(app, /APPROVAL_REQUIRED/);
   assert.match(app, /Review activity/);
   assert.match(app, /PRIVATE REVIEW/);
