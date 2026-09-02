@@ -130,6 +130,20 @@ class InitiativeServiceTest {
     }
 
     @Test
+    void citizenRequestedActivityCategoriesAreAccepted() {
+        for (String category : List.of(
+                "BIRTHDAY_DONATION", "PLANTATION_DRIVE", "AWARENESS_SESSION",
+                "COMMUNITY_YOGA", "MEDITATION_WORKSHOP", "HEALTH_ACTIVITY",
+                "OTHER_CIVIC_ACTIVITY")) {
+            var input = new InitiativeService.CreateRequest(
+                    "Community activity", category, "Useful activity details",
+                    "2026-08-28T08:00:00Z", "Public square", 21.36, 74.24, "Additional information");
+
+            assertEquals(category, service.create("owner-" + category, input).category());
+        }
+    }
+
+    @Test
     void malformedCoordinatesRadiusAndExcessivelyFutureDateAreRejected() {
         var badCoordinates = new InitiativeService.CreateRequest(
                 "Clean-up", "CLEANUP", "Clean the public square", "2026-08-28T08:00:00Z",

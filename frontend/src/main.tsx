@@ -61,6 +61,16 @@ const ISSUE_TYPES = [
   ['PUBLIC_ROAD_OBSTRUCTION', 'Public-road obstruction'],
 ] as const;
 
+const INITIATIVE_TEMPLATES = [
+  { value: 'BIRTHDAY_DONATION', label: 'Birthday Donations', title: 'Birthday donation drive', description: 'Celebrate a birthday by collecting useful items and donating them responsibly to people who need them.', needs: 'Add the items being collected, who will receive them, and any volunteer help needed.' },
+  { value: 'PLANTATION_DRIVE', label: 'Plantation Drive', title: 'Community plantation drive', description: 'Bring neighbours together to plant suitable saplings and plan how they will be cared for after the activity.', needs: 'Add sapling, tool, water, permission, or volunteer details.' },
+  { value: 'AWARENESS_SESSION', label: 'Awareness Session', title: 'Community awareness session', description: 'Host a practical awareness session for neighbours on a useful civic, health, safety, or environmental topic.', needs: 'Add the topic, intended audience, speaker, materials, or accessibility details.' },
+  { value: 'COMMUNITY_YOGA', label: 'Community Yoga', title: 'Community yoga session', description: 'Organise an inclusive community yoga session at a safe public meeting place.', needs: 'Add mat, instructor, accessibility, age-group, or water details.' },
+  { value: 'MEDITATION_WORKSHOP', label: 'Meditation Workshop', title: 'Community meditation workshop', description: 'Organise a guided meditation workshop for neighbours in a calm and accessible public setting.', needs: 'Add facilitator, seating, accessibility, or preparation details.' },
+  { value: 'HEALTH_ACTIVITY', label: 'Health Activity', title: 'Community health activity', description: 'Organise a responsible community health activity with clear participation details and appropriate support.', needs: 'Add qualified support, equipment, eligibility, safety, or accessibility details.' },
+  { value: 'OTHER_CIVIC_ACTIVITY', label: 'Other', title: '', description: '', needs: '' },
+] as const;
+
 type DepartmentResult = {
   departmentId: string;
   displayName: string;
@@ -379,13 +389,15 @@ function App() {
   const [initiativeCoordinates, setInitiativeCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
   const [initiativeRadiusKm, setInitiativeRadiusKm] = useState(5);
   const [initiativeTitle, setInitiativeTitle] = useState('');
-  const [initiativeCategory, setInitiativeCategory] = useState('CLEANUP');
+  const [initiativeCategory, setInitiativeCategory] = useState('');
   const [initiativeDescription, setInitiativeDescription] = useState('');
   const [initiativeStartAt, setInitiativeStartAt] = useState('');
   const [initiativePlaceName, setInitiativePlaceName] = useState('');
   const [initiativeMeetingPoint, setInitiativeMeetingPoint] = useState<MeetingPointPosition | null>(null);
   const [initiativeMeetingPointConfirmed, setInitiativeMeetingPointConfirmed] = useState(false);
   const [initiativeNeeds, setInitiativeNeeds] = useState('');
+  const [filingEmail, setFilingEmail] = useState('');
+  const [filingActionStatus, setFilingActionStatus] = useState('');
   const [accountState, setAccountState] = useState<AccountIdentityState>('ANONYMOUS_SESSION');
   const [accountName, setAccountName] = useState<string | null>(null);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
@@ -413,6 +425,7 @@ function App() {
   const runtimeMessage = (message: string) => localizedRuntimeMessage(language, message);
   const classificationSourceLabel = (source: string) => source === 'CITIZEN_CONFIRMED_GEMINI' || source === 'GEMINI_SUGGESTED' ? t('Automatic suggestion confirmed') : t('Selected manually');
   const initiativePublishRequirements = [
+    !initiativeCategory ? 'Choose an activity type.' : '',
     !initiativeTitle.trim() ? 'Add an activity title.' : '',
     !initiativeDescription.trim() ? 'Add an activity description.' : '',
     !initiativeStartAt || Date.parse(initiativeStartAt) <= Date.now() ? 'Choose a future date and time.' : '',
@@ -437,6 +450,12 @@ function App() {
     PLANTATION: t('Plantation'),
     DONATION: t('Donation activity'),
     COMMUNITY_FITNESS: t('Community fitness'),
+    BIRTHDAY_DONATION: t('Birthday Donations'),
+    PLANTATION_DRIVE: t('Plantation Drive'),
+    AWARENESS_SESSION: t('Awareness Session'),
+    COMMUNITY_YOGA: t('Community Yoga'),
+    MEDITATION_WORKSHOP: t('Meditation Workshop'),
+    HEALTH_ACTIVITY: t('Health Activity'),
     OTHER_CIVIC_ACTIVITY: t('Other civic activity'),
   }[category] ?? category);
   const contributionTypeLabel = (reason: string) => ({
@@ -488,6 +507,8 @@ function App() {
     setLifecycleStatus('');
     setDuplicateWarning(null);
     setFilingChannelId('');
+    setFilingEmail('');
+    setFilingActionStatus('');
     setAcknowledgementId('');
     setSelectedReport(null);
   }
@@ -545,6 +566,7 @@ function App() {
     setCancellationReasons({});
     setInitiativeCoordinates(null);
     setInitiativeTitle('');
+    setInitiativeCategory('');
     setInitiativeDescription('');
     setInitiativeStartAt('');
     setInitiativePlaceName('');
@@ -903,6 +925,7 @@ function App() {
     const result = await response.json();
     if (!response.ok) throw new Error(result.message ?? `Publish failed (${response.status})`);
     setInitiativeTitle('');
+    setInitiativeCategory('');
     setInitiativeDescription('');
     setInitiativeStartAt('');
     setInitiativePlaceName('');
@@ -1064,6 +1087,11 @@ function App() {
     );
   }
 
+  async function prefillReportDetails() {
+    useMyLocation();
+    await classifyEvidence();
+  }
+
   function confirmCandidate() {
     if (!resolution?.prabhagId || !resolution.datasetVersion) return;
     const confirmedPrabhagName = resolution.prabhagName ?? `Prabhag ${Number(resolution.prabhagId.slice(-2))}`;
@@ -1098,6 +1126,11 @@ function App() {
     resetDraft();
   }
 
+  function chooseEvidenceImage(file: File | null) {
+    setEvidenceImage(file);
+    resetEvidenceDerivedState();
+  }
+
   async function classifyEvidence() {
     setClassification(null);
     setClassificationConfirmed(false);
@@ -1125,6 +1158,7 @@ function App() {
     const result: ClassificationResult = await response.json();
     setClassification(result);
     setComplaintFacts(evidenceText.trim() || result.description || '');
+    if (!evidenceText.trim() && result.description) setEvidenceText(result.description);
     if (!response.ok || result.status === 'CLASSIFICATION_ERROR') {
       setClassificationStatus(result.message ?? 'The category could not be checked. Choose it manually below.');
       setClassificationSource('CITIZEN_SELECTED');
@@ -1172,6 +1206,7 @@ function App() {
     const result: RouteResult = await response.json();
     setRouteResult(result);
     setFilingChannelId(result.officialChannels?.[0]?.channelId ?? '');
+    setFilingEmail(result.officialChannels?.find((channel) => channel.type === 'EMAIL')?.value ?? '');
     if (result.status === 'SUPPORTED_ROUTE' && !complaintFacts.trim()) {
       setComplaintFacts(evidenceText.trim() || classification?.description || '');
     }
@@ -1226,8 +1261,7 @@ function App() {
   async function saveGeneratedDraft(result: ComplaintDraftResult) {
     try {
       const reportId = await persistNewDraft(result);
-      setDraftStatus(`Saved as Firestore DRAFT · ${reportId.slice(0, 8)}…`);
-      navigate('review', false, reportId);
+      setDraftStatus(`Draft saved · ${reportId.slice(0, 8)}… Choose how you want to file it below.`);
     } catch (error) {
       setDraftStatus(`Draft created but could not be saved: ${(error as Error).message}`);
     }
@@ -1321,6 +1355,67 @@ function App() {
     const recipient = complaintDraft?.authorityLocalName || complaintDraft?.authority || '';
     await navigator.clipboard.writeText(`${recipient}\n\n${draftSubject.trim()}\n\n${draftBody.trim()}`);
     setDraftStatus('Reviewed complaint copied. No complaint was submitted automatically.');
+  }
+
+  function printableLetterText() {
+    return `${t('To')}\n${complaintDraft?.authorityLocalName || complaintDraft?.authority || routeResult?.authority || ''}\n\n${t('Subject')}: ${draftSubject.trim()}\n\n${draftBody.trim()}\n\n${t('Citizen name')}: ______________________________\n${t('Signature')}: ______________________________\n${t('Date')}: ______________________________`;
+  }
+
+  function openEmailDraft() {
+    if (!/^\S+@\S+\.\S+$/.test(filingEmail.trim())) {
+      setFilingActionStatus('Enter a valid recipient email address.');
+      return;
+    }
+    const channel = routeResult?.officialChannels?.find((item) => item.type === 'EMAIL');
+    if (channel) setFilingChannelId(channel.channelId);
+    window.location.href = `mailto:${encodeURIComponent(filingEmail.trim())}?subject=${encodeURIComponent(draftSubject.trim())}&body=${encodeURIComponent(draftBody.trim())}`;
+    setFilingActionStatus('Your email app was opened with an editable draft. Seewik did not send it.');
+  }
+
+  async function copyComplaintAndOpenForm() {
+    const channel = routeResult?.officialChannels?.find((item) => item.type === 'ONLINE_FORM');
+    if (!channel) {
+      setFilingActionStatus('No verified official complaint form is available for this route.');
+      return;
+    }
+    window.open(channel.value, '_blank', 'noopener,noreferrer');
+    await navigator.clipboard.writeText(`${draftSubject.trim()}\n\n${draftBody.trim()}`);
+    setFilingChannelId(channel.channelId);
+    setFilingActionStatus('The complaint was copied and the official form was opened. Paste it there and add the personal details requested by the form.');
+  }
+
+  async function shareLetter() {
+    const text = printableLetterText();
+    const channel = routeResult?.officialChannels?.find((item) => item.type === 'IN_PERSON');
+    if (channel) setFilingChannelId(channel.channelId);
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: draftSubject.trim(), text });
+        setFilingActionStatus('Your device share sheet was opened. Seewik did not submit the letter.');
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+      }
+    }
+    await navigator.clipboard.writeText(text);
+    setFilingActionStatus('The letter was copied because sharing is unavailable on this device.');
+  }
+
+  function printLetter() {
+    const channel = routeResult?.officialChannels?.find((item) => item.type === 'IN_PERSON');
+    if (channel) setFilingChannelId(channel.channelId);
+    setFilingActionStatus('The print window was opened. Write your name and sign the printed letter before submitting it.');
+    window.print();
+  }
+
+  function applyInitiativeTemplate(value: string) {
+    setInitiativeCategory(value);
+    const template = INITIATIVE_TEMPLATES.find((item) => item.value === value);
+    if (!template) return;
+    setInitiativeTitle(template.title ? t(template.title) : '');
+    setInitiativeDescription(template.description ? t(template.description) : '');
+    setInitiativeNeeds(template.needs ? t(template.needs) : '');
+    setInitiativeStatus('Activity details prefilled. Review and edit every field before publishing.');
   }
 
   async function fileReviewedReport(dedupeOverride = false) {
@@ -1629,6 +1724,9 @@ function App() {
   ];
 
   const navCurrent = (active: boolean) => active ? 'page' as const : undefined;
+  const emailChannel = routeResult?.officialChannels?.find((channel) => channel.type === 'EMAIL');
+  const formChannel = routeResult?.officialChannels?.find((channel) => channel.type === 'ONLINE_FORM');
+  const officeChannel = routeResult?.officialChannels?.find((channel) => channel.type === 'IN_PERSON');
 
   return <>
     <a className="skip-link" href="#main-content">{t('Skip to main content')}</a>
@@ -1669,7 +1767,7 @@ function App() {
     {['new-report', 'review'].includes(screen) && <div className="page-tools"><span>{t('Saved reports are not deleted by Start over.')}</span><button className="secondary" onClick={startOver}>{t('Start over')}</button></div>}
 
     {screen === 'home' && <>
-      <section className="hero"><span className="eyebrow">{t('LOCAL CIVIC ACTION')}</span><h1>{t('Report a problem. Get it to the right office.')}</h1><p>{t('Identify a civic issue, find the confirmed route, prepare a complaint and track the outcome.')}</p></section>
+      <section className="hero home-intro"><span className="eyebrow">{t('LOCAL CIVIC ACTION')}</span><p>{t('Identify a civic issue, find the confirmed route, prepare a complaint and track the outcome.')}</p></section>
       <section className="home-actions" aria-label={t('Start using Seewik')}>
         <article className="home-primary-action improve-action">
           <h2>{t('Improve')}</h2>
@@ -1728,7 +1826,7 @@ function App() {
 
     {screen === 'new-initiative' && <section className="card page-card initiative-form">
       <span className="eyebrow">{t('CREATE AN INITIATIVE')}</span><h2>{t('Start something useful nearby')}</h2><p>{t('Publish the real date, a confirmed public meeting point and what neighbours should bring. Seewik does not claim participation or impact until it happens.')}</p>
-      <label>{t('Activity type')}<select value={initiativeCategory} onChange={(event) => setInitiativeCategory(event.target.value)}><option value="CLEANUP">{t('Neighbourhood clean-up')}</option><option value="PLANTATION">{t('Plantation')}</option><option value="DONATION">{t('Donation activity')}</option><option value="COMMUNITY_FITNESS">{t('Community fitness')}</option><option value="OTHER_CIVIC_ACTIVITY">{t('Other civic activity')}</option></select></label>
+      <label>{t('Activity type')}<select value={initiativeCategory} onChange={(event) => applyInitiativeTemplate(event.target.value)}><option value="" disabled>{t('Choose an activity type')}</option>{INITIATIVE_TEMPLATES.map((template) => <option key={template.value} value={template.value}>{t(template.label)}</option>)}</select><small>{t('Choosing a type prefills editable suggestions. Confirm the real date, place, and details yourself.')}</small></label>
       <label>{t('Title')}<input type="text" maxLength={100} value={initiativeTitle} onChange={(event) => setInitiativeTitle(event.target.value)} /></label>
       <label>{t('Description')}<textarea maxLength={1200} value={initiativeDescription} onChange={(event) => setInitiativeDescription(event.target.value)} /></label>
       <label>{t('Date and time')}<input type="datetime-local" value={initiativeStartAt} onChange={(event) => setInitiativeStartAt(event.target.value)} /></label>
@@ -1755,7 +1853,7 @@ function App() {
         setInitiativeStatus('Meeting point confirmed.');
       }}>{initiativeMeetingPointConfirmed ? `✓ ${t('Meeting point confirmed')}` : t('Confirm meeting point')}</button>
       {initiativeMeetingPointConfirmed && initiativeMeetingPoint && <div className="confirmed-meeting-point" role="status" aria-live="polite"><div><b>{initiativePlaceName.trim()}</b><span>{t('Confirmed public meeting point')}</span></div><a href={`https://www.google.com/maps/search/?api=1&query=${initiativeMeetingPoint.latitude.toFixed(6)}%2C${initiativeMeetingPoint.longitude.toFixed(6)}`} target="_blank" rel="noreferrer">⌖ {t('Preview in Google Maps')}</a></div>}
-      <label>{t('Supplies or volunteers needed (optional)')}<textarea maxLength={500} value={initiativeNeeds} onChange={(event) => setInitiativeNeeds(event.target.value)} /></label>
+      <label>{t('Additional info (optional)')}<textarea maxLength={500} value={initiativeNeeds} onChange={(event) => setInitiativeNeeds(event.target.value)} /></label>
       <div className={`publish-requirements${initiativePublishRequirements.length ? '' : ' is-complete'}`} role="status" aria-live="polite">
         <b>{initiativePublishRequirements.length ? t('Before you can publish') : `✓ ${t('Ready to publish')}`}</b>
         {initiativePublishRequirements.length > 0 && <ul>{initiativePublishRequirements.map((requirement) => <li key={requirement}>{t(requirement)}</li>)}</ul>}
@@ -1771,18 +1869,19 @@ function App() {
       <div className="signal" aria-hidden="true" /><h2>{t('Find the civic route')}</h2>
       <p>{t('Start with a photo or short description. Seewik may suggest an issue category, but you confirm it before finding the right office.')}</p>
       <div className="flow-step"><span>1</span><b>{t('Describe the issue')}</b></div>
-      <label>{t('Photo (optional)')}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => {
-        setEvidenceImage(event.target.files?.[0] ?? null);
-        resetEvidenceDerivedState();
-      }} /></label>
+      <div className="photo-input-grid">
+        <label>{t('Take a photo')}<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => chooseEvidenceImage(event.target.files?.[0] ?? null)} /></label>
+        <label>{t('Choose a photo')}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => chooseEvidenceImage(event.target.files?.[0] ?? null)} /></label>
+      </div>
       <label>{t('Short description (optional)')}<textarea maxLength={2000} value={evidenceText} placeholder="उदा. रस्त्यावर मोठा खड्डा आहे" onChange={(event) => {
         setEvidenceText(event.target.value);
         resetEvidenceDerivedState();
       }} /></label>
-      <button className="secondary" onClick={() => classifyEvidence().catch(() => {
+      <button className="secondary" onClick={() => prefillReportDetails().catch(() => {
         setClassificationStatus('The category could not be checked. Choose it manually below.');
         setClassificationSource('CITIZEN_SELECTED');
-      })}>{t('Suggest issue category')}</button>
+      })}>{t('Prefill report details')}</button>
+      <small className="field-help">{t('Seewik uses the photo or description to suggest wording and a category, and asks permission to suggest your Prabhag from location. You confirm or edit everything.')}</small>
       {classificationStatus && <div role="status" aria-live="polite" className={`status-panel ${classification?.status === 'CLASSIFICATION_ERROR' ? 'state-error' : classification?.status === 'CLASSIFIED' ? 'state-success' : 'state-warning'}`}>
         <strong>{classification?.status === 'CLASSIFIED' ? t('Category suggestion ready') : classification?.status === 'CLARIFICATION_REQUIRED' ? t('Please clarify') : t('Category confirmation')}</strong>
         <span>{runtimeMessage(classificationStatus)}</span>
@@ -1896,6 +1995,17 @@ function App() {
           </div>
           <small>{t('No complaint is submitted automatically. The saved record remains a DRAFT owned by your recoverable profile.')}</small>
         </div>}
+        {complaintDraft?.status === 'DRAFT_READY' && <section className="filing-choice-panel" aria-labelledby="filing-choice-title">
+          <div className="flow-step"><span>5</span><b id="filing-choice-title">{t('Choose how to file')}</b></div>
+          <p>{t('Select one option after reviewing the complaint. Seewik prepares the next step but never claims it was submitted.')}</p>
+          <div className="filing-choice-grid">
+            <article className="filing-choice-card"><span className="filing-choice-number">1</span><h3>{t('Email')}</h3><p>{t('Open an editable email with the subject and complaint already added.')}</p><label>{t('Recipient email')}<input type="email" value={filingEmail} onChange={(event) => setFilingEmail(event.target.value)} /></label><button disabled={!draftReviewed || !emailChannel} onClick={openEmailDraft}>{t('Open email to send')}</button></article>
+            <article className="filing-choice-card"><span className="filing-choice-number">2</span><h3>{t('Official complaint form')}</h3><p>{t('Copy the prepared complaint and open the Maharashtra government form. Paste it there, then add the personal details requested by the form.')}</p><button disabled={!draftReviewed || !formChannel} onClick={() => copyComplaintAndOpenForm().catch((error) => setFilingActionStatus(citizenSafeError(error, 'The official form could not be opened.')))}>{t('Copy complaint and open form')}</button></article>
+            <article className="filing-choice-card"><span className="filing-choice-number">3</span><h3>{t('Print a letter')}</h3><p>{officeChannel ? `${officeChannel.label}: ${officeChannel.value}` : t('Prepare a letter for the municipal office.')}</p><small>{t('Write your full name and sign the letter before submitting it to the Nagar Parishad.')}</small><div className="letter-actions"><button className="secondary" disabled={!draftReviewed} onClick={() => shareLetter().catch((error) => setFilingActionStatus(citizenSafeError(error, 'The letter could not be shared.')))}>{t('Share letter')}</button><button disabled={!draftReviewed} onClick={printLetter}>{t('Print letter')}</button></div></article>
+          </div>
+          {filingActionStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{runtimeMessage(filingActionStatus)}</div>}
+          <article className="print-letter" aria-hidden="true"><p>{t('To')},</p><strong>{complaintDraft.authorityLocalName || complaintDraft.authority}</strong><h1>{draftSubject}</h1><p>{draftBody}</p><div><span>{t('Citizen name')}: ______________________________</span><span>{t('Signature')}: ______________________________</span><span>{t('Date')}: ______________________________</span></div></article>
+        </section>}
         {draftDocumentId && <div className="lifecycle-panel">
           <div className="lifecycle-heading">
             <div><small>{t('Report lifecycle')}</small><strong>{localizedStatus(language, reportStatus)}</strong></div>
@@ -2004,7 +2114,6 @@ function App() {
           <p>{t('Points are earned only from verified actions. Only you can see this detail.')}</p>
           {privatePoints && <div className="private-month-points"><span>{localizedMonthLabel(language, privatePoints.monthLabel)}</span><strong>{privatePoints.currentMonthPoints} {t('points')}</strong></div>}
           {privatePoints?.breakdown.length ? <div className="points-breakdown">{privatePoints.breakdown.map((item) => <div key={item.contributionType}><span><b>{contributionTypeLabel(item.contributionType)}</b><small>{item.lifetimeAwards} {t('recorded awards')}</small></span><strong>{item.lifetimePoints}</strong></div>)}</div> : null}
-          <div className="points-rules"><div><b>+5</b><span>{t('First accepted filing')}</span></div><div><b>+20</b><span>{t('Organiser-code attendance')}</span></div><div><b>+40</b><span>{t('Completed organiser with two code attendees')}</span></div><div><b>+60</b><span>{t('First verified fix')}</span></div><div><b>0</b><span>{t('Self-attendance, duplicate override, reopening or re-verification')}</span></div></div>
           <RewardCatalogue
             language={language}
             overview={rewardOverview}
@@ -2033,6 +2142,7 @@ function App() {
       />}
       <RecognitionSettings connected={accountState === 'GOOGLE_LINKED'} settings={recognitionSettings} busy={recognitionSettingsBusy} status={recognitionSettingsStatus} t={t} onConnect={openAccount} onSave={updateRecognitionSettings} />
       <RecognitionPanel panel={publicRecognition ? { ...publicRecognition, monthLabel: localizedMonthLabel(language, publicRecognition.monthLabel) } : null} loading={publicRecognitionLoading} status={publicRecognitionStatus} t={t} onReport={sendRecognitionReport} onRetry={loadPublicRecognition} />
+      <section className="card points-rules-card"><span className="eyebrow">{t('HOW POINTS ARE EARNED')}</span><h2>{t('How you get points')}</h2><div className="points-rules"><div><b>+5</b><span>{t('First accepted filing')}</span></div><div><b>+20</b><span>{t('Organiser-code attendance')}</span></div><div><b>+40</b><span>{t('Completed organiser with two code attendees')}</span></div><div><b>+60</b><span>{t('First verified fix')}</span></div><div><b>0</b><span>{t('Self-attendance, duplicate override, reopening or re-verification')}</span></div></div></section>
     </>}
 
     {screen === 'awareness' && <CivicAwarenessPage

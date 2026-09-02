@@ -33,7 +33,7 @@ export function RecognitionPanel({ panel, loading, status, t, onReport, onRetry 
   return <section className="recognition-panel" aria-labelledby="recognition-title">
     <div className="recognition-heading">
       <span className="eyebrow">{t('MONTHLY THANK-YOU')}</span>
-      <h2 id="recognition-title">{t('Thanks to Our Top Three Citizens of the Month')}</h2>
+      <h2 id="recognition-title">{t('Thanks to Our Citizens of the Month')}</h2>
       <p>{t('A Seewik thank-you for recorded civic contributions.')}</p>
       {panel?.monthLabel && <small>{panel.monthLabel}</small>}
     </div>

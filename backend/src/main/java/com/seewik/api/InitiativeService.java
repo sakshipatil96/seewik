@@ -35,7 +35,9 @@ public class InitiativeService {
     static final double DEFAULT_RADIUS_KM = 5.0;
     static final double MAX_RADIUS_KM = 25.0;
     private static final Set<String> CATEGORIES = Set.of(
-            "CLEANUP", "PLANTATION", "DONATION", "COMMUNITY_FITNESS", "OTHER_CIVIC_ACTIVITY");
+            "CLEANUP", "PLANTATION", "DONATION", "COMMUNITY_FITNESS",
+            "BIRTHDAY_DONATION", "PLANTATION_DRIVE", "AWARENESS_SESSION", "COMMUNITY_YOGA",
+            "MEDITATION_WORKSHOP", "HEALTH_ACTIVITY", "OTHER_CIVIC_ACTIVITY");
 
     private final InitiativeGateway gateway;
     private final Clock clock;

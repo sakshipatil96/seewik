@@ -1,5 +1,5 @@
 import boundaryGeoJsonText from '../../data/prabhags/official-map-digitized-boundaries-v0.1.geojson?raw';
-import { useEffect, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { translate, type InterfaceLanguage } from './i18n';
 import GoogleMeetingPointSearch, { type GoogleMeetingPointSelection } from './GoogleMeetingPointSearch';
 import './InitiativeMeetingPointPicker.css';
@@ -98,34 +98,15 @@ function labelPoint(ring: Coordinate[]): Coordinate {
   ];
 }
 
-function validPosition(latitude: number, longitude: number) {
-  return Number.isFinite(latitude)
-    && latitude >= -90
-    && latitude <= 90
-    && Number.isFinite(longitude)
-    && longitude >= -180
-    && longitude <= 180;
-}
-
 export default function InitiativeMeetingPointPicker({ language, position, onChange, onGooglePlaceSelect }: Props) {
   const t = (source: string) => translate(language, source);
   const [dragging, setDragging] = useState(false);
-  const [manualLatitude, setManualLatitude] = useState(position?.latitude.toFixed(6) ?? '');
-  const [manualLongitude, setManualLongitude] = useState(position?.longitude.toFixed(6) ?? '');
-  const [manualStatus, setManualStatus] = useState('');
-
-  useEffect(() => {
-    if (!position) return;
-    setManualLatitude(position.latitude.toFixed(6));
-    setManualLongitude(position.longitude.toFixed(6));
-  }, [position]);
 
   function updatePosition(next: MeetingPointPosition) {
     onChange({
       latitude: Number(next.latitude.toFixed(6)),
       longitude: Number(next.longitude.toFixed(6)),
     });
-    setManualStatus('');
   }
 
   function positionFromPointer(event: PointerEvent<HTMLButtonElement>) {
@@ -186,17 +167,6 @@ export default function InitiativeMeetingPointPicker({ language, position, onCha
     });
   }
 
-  function applyManualCoordinates() {
-    const latitude = Number(manualLatitude);
-    const longitude = Number(manualLongitude);
-    if (!validPosition(latitude, longitude)) {
-      setManualStatus(t('Enter a valid latitude from -90 to 90 and longitude from -180 to 180.'));
-      return;
-    }
-    updatePosition({ latitude, longitude });
-    setManualStatus(t('Manual coordinates applied. Confirm the public label and meeting point below.'));
-  }
-
   const marker = position && mapGeometry ? mapGeometry.point([position.longitude, position.latitude]) : null;
   const googleBounds = mapGeometry ? {
     south: mapGeometry.bounds.minLatitude,
@@ -211,6 +181,7 @@ export default function InitiativeMeetingPointPicker({ language, position, onCha
       <span aria-hidden="true">⌖</span>
     </div>
     <GoogleMeetingPointSearch language={language} bounds={googleBounds} onSelect={onGooglePlaceSelect} />
+    <div className="nandurbar-map-context"><strong>{t('Nandurbar municipal area')}</strong><span>{t('The numbered outlines show Nandurbar wards. Search above or place the pin, then open it in Google Maps to confirm.')}</span></div>
     {collection && mapGeometry
       ? <button
           type="button"
@@ -239,19 +210,11 @@ export default function InitiativeMeetingPointPicker({ language, position, onCha
             </g>}
           </svg>
         </button>
-      : <div className="status-panel state-warning" role="status">{t('The meeting-point map is unavailable. Enter coordinates manually below.')}</div>}
+      : <div className="status-panel state-warning" role="status">{t('The meeting-point map is unavailable. Search for a public place above and try again.')}</div>}
     <p className="meeting-point-map-note">{t('The outlines are an approximate local orientation guide, not official navigation data. Your confirmed pin supplies the meeting-point coordinates.')}</p>
-    <details className="meeting-point-manual">
-      <summary>{t('Enter coordinates manually')}</summary>
-      <div className="meeting-point-coordinate-grid">
-        <label>{t('Latitude')}<input type="text" inputMode="decimal" value={manualLatitude} onChange={(event) => setManualLatitude(event.target.value)} placeholder="21.370000" /></label>
-        <label>{t('Longitude')}<input type="text" inputMode="decimal" value={manualLongitude} onChange={(event) => setManualLongitude(event.target.value)} placeholder="74.240000" /></label>
-      </div>
-      <button type="button" className="secondary" onClick={applyManualCoordinates}>{t('Apply coordinates')}</button>
-      {manualStatus && <small role="status" aria-live="polite">{manualStatus}</small>}
-    </details>
     <div className={`meeting-point-pin-status${position ? ' is-set' : ''}`} role="status" aria-live="polite">
       {position ? `✓ ${t('Pin placed. Confirm it with the public label below.')}` : t('No meeting-point pin has been placed yet.')}
     </div>
+    {position && <a className="meeting-point-google-preview" href={`https://www.google.com/maps/search/?api=1&query=${position.latitude.toFixed(6)}%2C${position.longitude.toFixed(6)}`} target="_blank" rel="noreferrer">⌖ {t('Check this pin in Google Maps')}</a>}
   </section>;
 }

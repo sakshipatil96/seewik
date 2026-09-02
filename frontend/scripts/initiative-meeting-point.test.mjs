@@ -24,14 +24,14 @@ test('creation uses a separate confirmed pin instead of device discovery locatio
   assert.match(app, /initiativeCreateRequestId\.current = crypto\.randomUUID\(\)/);
 });
 
-test('local picker remains the accessible fallback when optional Google place search is unavailable', () => {
+test('local Nandurbar pin map remains the accessible fallback when optional Google place search is unavailable', () => {
   assert.match(picker, /official-map-digitized-boundaries-v0\.1\.geojson\?raw/);
   assert.match(picker, /onPointerDown=\{beginMove\}/);
   assert.match(picker, /onPointerMove=\{continueMove\}/);
   assert.match(picker, /ArrowUp/);
-  assert.match(picker, /Enter coordinates manually/);
-  assert.match(picker, /latitude >= -90/);
-  assert.match(picker, /longitude >= -180/);
+  assert.match(picker, /Nandurbar municipal area/);
+  assert.match(picker, /Check this pin in Google Maps/);
+  assert.doesNotMatch(picker, /Enter coordinates manually/);
   assert.doesNotMatch(picker, /navigator\.geolocation|mapbox|leaflet/i);
   assert.match(pickerStyles, /touch-action: none/);
   assert.match(pickerStyles, /:focus-visible/);
@@ -128,6 +128,8 @@ test('meeting-point copy is available in Marathi and Hindi', () => {
     'Open in Google Maps',
     'Before you can publish',
     'Place the meeting-point pin.',
+    'Nandurbar municipal area',
+    'Check this pin in Google Maps',
   ]) {
     assert.notEqual(translate('mr', key), key, `Missing Marathi: ${key}`);
     assert.notEqual(translate('hi', key), key, `Missing Hindi: ${key}`);

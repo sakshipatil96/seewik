@@ -31,6 +31,9 @@
 .google-place-search-error { padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-warning-soft); color: var(--color-warning-ink) !important; }
 .google-place-search-divider { display: flex; align-items: center; gap: var(--space-3); color: var(--color-muted); font-size: .67rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .google-place-search-divider::before, .google-place-search-divider::after { content: ''; flex: 1; height: 1px; background: var(--color-line); }
+.nandurbar-map-context { display: grid; gap: 3px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-teal-soft); color: var(--color-teal-ink); }
+.nandurbar-map-context strong { font-size: .82rem; }
+.nandurbar-map-context span { color: inherit; font-size: .72rem; line-height: 1.45; }
 
 .meeting-point-map {
   display: block;
@@ -59,19 +62,13 @@
 .meeting-point-marker-centre { fill: #fff; }
 .meeting-point-map-note { color: var(--color-muted); font-size: .73rem; line-height: 1.5; }
 
-.meeting-point-manual { padding: var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-surface); }
-.meeting-point-manual summary { cursor: pointer; color: var(--color-navy); font-size: .78rem; font-weight: 800; }
-.meeting-point-coordinate-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-3); }
-.meeting-point-coordinate-grid label { margin: 0; }
-.meeting-point-manual button { width: auto; margin-top: var(--space-3); }
-.meeting-point-manual small { display: block; margin-top: var(--space-2); color: var(--color-muted); }
 .meeting-point-pin-status { padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-warning-soft); color: var(--color-warning-ink); font-size: .78rem; font-weight: 750; }
 .meeting-point-pin-status.is-set { background: var(--color-teal-soft); color: var(--color-teal-ink); }
+.meeting-point-google-preview { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding: 10px 14px; border: 1.5px solid var(--color-teal); border-radius: var(--radius-md); color: var(--color-teal-ink); font-size: .82rem; font-weight: 800; text-decoration: none; }
+.meeting-point-google-preview:hover { background: var(--color-teal-soft); }
 
 @media (max-width: 520px) {
   .meeting-point-map, .meeting-point-map svg { min-height: 220px; }
-  .meeting-point-coordinate-grid { grid-template-columns: 1fr; }
-  .meeting-point-manual button { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

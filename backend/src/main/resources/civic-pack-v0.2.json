@@ -27,13 +27,13 @@
     {
       "channelId": "FORM_DMA",
       "type": "ONLINE_FORM",
-      "value": "https://mahadma.maharashtra.gov.in/en/complaint-2/",
+      "value": "https://mahadma.maharashtra.gov.in/en/complaint-2/?dma_tab=regional",
       "label": "Maharashtra Directorate of Municipal Administration complaint form",
       "scopeNote": "State-level directorate form, not a Nandurbar-specific grievance portal.",
       "sourceStatus": "OFFICIAL_SOURCE",
       "sourceReference": {
         "title": "Directorate of Municipal Administration complaint form",
-        "url": "https://mahadma.maharashtra.gov.in/en/complaint-2/",
+        "url": "https://mahadma.maharashtra.gov.in/en/complaint-2/?dma_tab=regional",
         "reference": "Official online complaint form"
       }
     },

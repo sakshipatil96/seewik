@@ -16,7 +16,7 @@ test('the public contract exposes ordered names without private selection fields
 test('the panel shows equal names-only cards and honest empty or partial arrays', async () => {
   const panel = await readFile(new URL('../src/RecognitionPanel.tsx', import.meta.url), 'utf8');
   const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
-  assert.match(panel, /Thanks to Our Top Three Citizens of the Month/);
+  assert.match(panel, /Thanks to Our Citizens of the Month/);
   assert.match(panel, /panel\.names\.map/);
   assert.match(panel, /panel\.names\.length === 0/);
   assert.match(panel, /recognition-name-card/);
