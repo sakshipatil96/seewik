@@ -58,6 +58,14 @@ test('Google place search is controlled, restricted, localized, minimal, and nev
   assert.doesNotMatch(placeSearch, /navigator\.geolocation/);
 });
 
+test('the production build receives the restricted browser key from GitHub Actions', async () => {
+  const workflow = await readFile(new URL('../../.github/workflows/deploy.yml', import.meta.url), 'utf8');
+
+  assert.match(workflow, /VITE_GOOGLE_MAPS_API_KEY: \$\{\{ secrets\.VITE_GOOGLE_MAPS_API_KEY \}\}/);
+  assert.match(workflow, /test -n "\$VITE_GOOGLE_MAPS_API_KEY"/);
+  assert.doesNotMatch(workflow, /VITE_GOOGLE_MAPS_API_KEY:\s*AIza/);
+});
+
 test('Google place selections accept only usable results inside the municipal bounds', () => {
   const bounds = { south: 21.35, west: 74.21, north: 21.41, east: 74.28 };
   const selected = meetingPointSelectionFromPlace({

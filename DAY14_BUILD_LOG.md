@@ -14,7 +14,7 @@ Initiative creation now sends a stable client request ID. The backend derives a 
 ## Automated evidence
 
 - Backend: 221 tests passed; zero failures, errors or skips.
-- Frontend: 68 tests passed; zero failures or skips.
+- Frontend: 69 tests passed; zero failures or skips.
 - TypeScript and Vite production build: passed.
 - Production bundle: main JavaScript 1,104.40 kB (303.16 kB gzip). The existing over-500 kB optimization advisory remains non-blocking.
 - `npm audit --audit-level=high`: zero vulnerabilities.
@@ -49,6 +49,7 @@ These pending checks require the Android phone or an approved deployment. They d
 
 - Local Vite development and preview servers proxy `/api` to the deployed backend, so routing remains available when Vite selects a different local port.
 - The backend CORS allowlist also includes the supported `localhost` and `127.0.0.1` development origins for the next deployment.
+- The production workflow receives the restricted Maps browser key from a GitHub Actions secret and fails before building if that value is absent; no key value is committed or printed.
 
 ## Preserved limitations
 
