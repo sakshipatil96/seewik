@@ -125,13 +125,14 @@ Owner-approved execution order on 2026-09-01:
 - [x] Verify English, Marathi and Hindi search instructions and preserve the keyboard/manual pin flow when Google search is optional or unavailable.
 - [x] Cover accepted, missing-coordinate, missing-label and outside-Nandurbar Google selections with deterministic tests.
 - [x] Select a real Google result through the live desktop suggestion list; confirm label/pin population and adjustment invalidation.
-- [ ] Repeat the live Google-result selection on physical Android and after production deployment; confirm the exact Maps preview/handoff.
+- [x] Repeat the live Google-result selection after production deployment; confirm localized label and pin population without publishing a production Initiative.
+- [ ] Repeat the live Google-result selection on physical Android; confirm the exact Maps app/web preview and handoff.
 - [x] Coordinate boundaries, missing label, missing pin, non-numeric values and forged/cross-organiser writes are rejected by backend validation and local rule/ownership coverage.
 - [x] A retry with the same client request ID creates one Initiative only; the transactional write prevents partial public records, and frontend failures preserve the form.
 - [x] Legacy text-only Initiative records still render and remain joinable where otherwise valid.
 - [x] Google Maps links encode the exact validated coordinates and open correctly in local desktop verification.
 - [x] Direct Firestore Initiative creation and meeting-point forgery remain rejected by the current local rule suite.
-- [ ] Repeat direct Initiative and meeting-point forgery checks against the deployed rules after release.
+- [x] Repeat direct Initiative and meeting-point forgery checks against the deployed rules after release.
 - [x] Keyboard selection, visible focus, screen-reader labels, status announcements and non-map/manual fallback work in automated and live local checks.
 - [x] English, Marathi and Hindi automated responsive coverage plus the earlier physical Android portrait/landscape/intermediate-width pass remain green. Repeat the changed Google search and header on Android in Set 1.
 - [x] Full regression: reports, lifecycle, points, My Civic Card, recognition, rewards, Initiative join/organise, attendance, identity recovery and emergency information.
@@ -139,12 +140,12 @@ Owner-approved execution order on 2026-09-01:
 
 ## Set 7 — Release
 
-- [ ] Run backend tests, frontend tests, production build, dependency audit, repository checks and secret scan.
+- [x] Run backend tests, frontend tests, production build, dependency audit, repository checks and secret scan.
 - [ ] Test the production create/join/location flow using controlled temporary records and remove them afterward without touching citizen records.
 - [ ] Complete three-language, keyboard and narrow-layout browser checks.
-- [ ] Obtain explicit owner approval before pushing or deploying.
-- [ ] Deploy only from green `main`; record the commit SHA, frontend release and Cloud Run revision when applicable.
-- [ ] Write `DAY14_BUILD_LOG.md` with test counts, physical-device results, production evidence, cleanup and limitations.
+- [x] Obtain explicit owner approval before pushing or deploying.
+- [x] Deploy only from green `main`; record the commit SHA, frontend release and Cloud Run revision when applicable.
+- [x] Write `DAY14_BUILD_LOG.md` with test counts, available production evidence, cleanup and limitations; append the remaining physical-device results when the Android phone is available.
 
 ## Explicitly outside Day 14
 
@@ -160,6 +161,6 @@ Owner-approved execution order on 2026-09-01:
 
 ## Owner inputs needed
 
-- Provide the remaining Android results when the phone is available: Google persistence, WhatsApp image share and reward-card check.
-- Send any final minor wording/UI changes before Set 5 begins.
-- Approve push and production deployment only after the Day 14 release evidence is green.
+- Provide the remaining Android results when the phone is available: Google persistence, WhatsApp image share, reward-card check, meeting-point selection and Maps handoff.
+- [x] The Day 14 wording/UI batch was completed before release.
+- [x] Owner approved the green Day 14 push and production deployment.

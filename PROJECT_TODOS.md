@@ -42,7 +42,8 @@ The current `Public meeting place` text field is not sufficient. Replace it with
 - [x] Record the original lower-dependency choice as contract v0.1 and the later owner-approved Google search amendment as v0.2 without changing the deterministic stored meeting-point schema.
 - [x] Verify English, Marathi and Hindi labels, keyboard-operated local pin, map fallback and participant link behavior locally.
 - [x] Select a real Google result in the local desktop browser and confirm it fills the label, moves the pin and invalidates confirmation after adjustment.
-- [ ] Repeat Google-result selection on physical Android and once after production deployment; confirm the exact Maps preview/handoff.
+- [x] Repeat Google-result selection once after production deployment; confirm localized label and pin population without publishing a production Initiative.
+- [ ] Repeat Google-result selection on physical Android; confirm the exact Maps app/web preview and handoff.
 - [x] Before deployment, remove the broad `*seewik*` HTTP referrer and retain only the four exact local/Firebase referrers on the Maps browser key.
 - [x] Do not leave **Publish activity** silently disabled when coordinates are missing. The form now shows every unmet requirement, preserves completed fields and provides a manual coordinate fallback without requiring browser geolocation.
 

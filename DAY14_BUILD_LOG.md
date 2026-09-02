@@ -1,7 +1,7 @@
 # Day 14 build log — local Set 5 and Set 6 evidence
 
 Date prepared: 2026-09-01
-Release state: local implementation complete; not pushed or deployed
+Release state: pushed and deployed; physical Android acceptance remains
 
 ## Outcome
 
@@ -16,12 +16,12 @@ Initiative creation now sends a stable client request ID. The backend derives a 
 - Backend: 221 tests passed; zero failures, errors or skips.
 - Frontend: 69 tests passed; zero failures or skips.
 - TypeScript and Vite production build: passed.
-- Production bundle: main JavaScript 1,104.40 kB (303.16 kB gzip). The existing over-500 kB optimization advisory remains non-blocking.
+- Production bundle: main JavaScript 1,104.48 kB (303.17 kB gzip). The existing over-500 kB optimization advisory remains non-blocking.
 - `npm audit --audit-level=high`: zero vulnerabilities.
 - Repository content policy: passed.
 - Secret-safe diagnostics policy: passed.
 - Whitespace check: passed.
-- The browser key remains only in ignored `frontend/.env.local`; the committed `.env.example` contains a placeholder.
+- The Maps browser-key value is absent from the repository. Local development reads the ignored `frontend/.env.local`; production receives the value from a GitHub Actions secret, and `.env.example` contains only a placeholder. The resulting client key is intentionally browser-visible and is protected by exact referrer and API restrictions.
 
 Coverage includes coordinate boundaries, missing label, non-finite coordinates, legacy text-only records, exact generated Maps links, retry-safe creation, local pin/manual fallback, selected-place municipal bounds, keyboard support, translated copy, emergency call validation, Firestore write denial and the full reports/points/rewards/recognition/Initiative/identity regression suite.
 
@@ -37,13 +37,23 @@ Coverage includes coordinate boundaries, missing label, non-finite coordinates, 
 
 No public Initiative or production record was created during these checks.
 
+## Production release evidence
+
+- Final deployed application commit: `a17124665976d3dbd09b3e4470d4a8cca84519a2`.
+- Cloud Run revision: `seewik-api-00085-wib`, Ready and serving production traffic.
+- Container image digest: `sha256:246e559eb1f8ab343199cfd404a63c6a38b93dd3516528d484183f020be73c5a`.
+- Quality workflow `33593822198`: passed.
+- Deploy workflow `33593898345`: passed, including zero-traffic candidate health, traffic routing, frontend build, Hosting/rules deployment, public-route verification and temporary-tag cleanup.
+- The deployed Initiative form returned a live Google result for `Bus stand Nandurbar` in Hindi. Selecting it filled the localized public label, moved the pin and preserved explicit confirmation. No Initiative was published.
+- Deployed Firestore forgery verification passed: direct Initiative, Initiative event, participation attendance, attempt, points, reward claim and reward event writes were denied. The temporary anonymous identity was deleted.
+- The safe production metadata check confirmed the deployed Git SHA, Ready state and public health endpoint without reading or printing service environment variables.
+
 ## Remaining external acceptance
 
 - Physical Android: retry Google connection/persistence, WhatsApp Civic Card image sharing, reward-card review, changed header/search layout, real Google place selection and exact Maps app/web handoff.
-- Production: repeat Google-result selection, direct deployed-rule forgery checks, controlled create/join/location flow and cleanup.
-- Release: obtain explicit approval, push, wait for green `main`, deploy, record the commit SHA/Cloud Run revision/Hosting evidence and rerun release gates.
+- Production: the controlled Google selection and deployed-rule forgery checks are complete; a full signed-in create/join/location temporary-record acceptance remains pending and must include cleanup.
 
-These pending checks require the Android phone or an approved deployment. They do not represent incomplete local Set 5 or Set 6 implementation.
+These pending checks require the Android phone or controlled signed-in production identities. They do not represent incomplete local Set 5 or Set 6 implementation.
 
 ## Local routing follow-up
 
