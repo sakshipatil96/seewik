@@ -29,10 +29,10 @@ test('attendance UI remains usable on narrow screens and by keyboard', () => {
   assert.match(source, /role="status"/);
 });
 
-test('Initiate is for creating or joining while personal initiatives live in My Actions', () => {
-  assert.match(source, /Create or join an initiative/);
-  assert.match(source, /<h2>\{t\('Create an Initiative'\)\}<\/h2>/);
-  assert.match(source, /<h2>\{t\('Join an Initiative'\)\}<\/h2>/);
+test('Community is for discovery while creation is direct and personal initiatives live in My Actions', () => {
+  assert.match(source, /Happening in your community/);
+  assert.match(source, /navigate\('new-initiative'\)/);
+  assert.match(source, /community-feed/);
   assert.match(source, /My Reports/);
   assert.match(source, /My Initiatives/);
   assert.match(source, /initiative-role-chip/);

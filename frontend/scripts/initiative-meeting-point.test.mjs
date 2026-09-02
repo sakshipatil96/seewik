@@ -24,17 +24,20 @@ test('creation uses a separate confirmed pin instead of device discovery locatio
   assert.match(app, /initiativeCreateRequestId\.current = crypto\.randomUUID\(\)/);
 });
 
-test('local Nandurbar pin map remains the accessible fallback when optional Google place search is unavailable', () => {
+test('interactive Google map supports a movable pin and a clear unavailable state', () => {
   assert.match(picker, /official-map-digitized-boundaries-v0\.1\.geojson\?raw/);
-  assert.match(picker, /onPointerDown=\{beginMove\}/);
-  assert.match(picker, /onPointerMove=\{continueMove\}/);
-  assert.match(picker, /ArrowUp/);
+  assert.match(picker, /loadGoogleMaps/);
+  assert.match(picker, /importLibrary\('maps'\)/);
+  assert.match(picker, /importLibrary\('marker'\)/);
+  assert.match(picker, /AdvancedMarkerElement/);
+  assert.match(picker, /gmpDraggable: true/);
+  assert.match(picker, /map\.addListener\('click'/);
   assert.match(picker, /Nandurbar municipal area/);
   assert.match(picker, /Check this pin in Google Maps/);
+  assert.match(picker, /The Google map is unavailable/);
   assert.doesNotMatch(picker, /Enter coordinates manually/);
   assert.doesNotMatch(picker, /navigator\.geolocation|mapbox|leaflet/i);
-  assert.match(pickerStyles, /touch-action: none/);
-  assert.match(pickerStyles, /:focus-visible/);
+  assert.match(pickerStyles, /meeting-point-google-map/);
   assert.match(pickerStyles, /@media \(max-width: 520px\)/);
 });
 

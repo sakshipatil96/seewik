@@ -23,7 +23,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class InitiativeService {
     static final String SCHEMA_VERSION = "initiative-v0.2";
-    static final String INITIATIVE_RECORD_SCHEMA_VERSION = "initiative-v0.3";
+    static final String INITIATIVE_RECORD_SCHEMA_VERSION = "initiative-v0.4";
     static final String MEETING_POINT_SCHEMA_VERSION = "initiative-meeting-point-v0.1";
     static final String ATTENDANCE_SCHEMA_VERSION = "initiative-attendance-v0.1";
     static final String LEDGER_SCHEMA_VERSION = "points-ledger-v0.3";
@@ -37,7 +37,8 @@ public class InitiativeService {
     private static final Set<String> CATEGORIES = Set.of(
             "CLEANUP", "PLANTATION", "DONATION", "COMMUNITY_FITNESS",
             "BIRTHDAY_DONATION", "PLANTATION_DRIVE", "AWARENESS_SESSION", "COMMUNITY_YOGA",
-            "MEDITATION_WORKSHOP", "HEALTH_ACTIVITY", "OTHER_CIVIC_ACTIVITY");
+            "MEDITATION_WORKSHOP", "HEALTH_ACTIVITY", "BOOK_SUPPLY_DRIVE", "OTHER_CIVIC_ACTIVITY");
+    private static final Set<String> PARTICIPATION_MODES = Set.of("OPEN", "CAPPED", "APPROVAL_REQUIRED");
 
     private final InitiativeGateway gateway;
     private final Clock clock;
@@ -80,7 +81,10 @@ public class InitiativeService {
         initiative.put("title", input.title());
         initiative.put("category", input.category());
         initiative.put("description", input.description());
+        initiative.put("publicOrganiserName", input.publicOrganiserName());
+        initiative.put("publicOrganiserNameConfirmed", true);
         initiative.put("startAt", input.startAt().toString());
+        initiative.put("endAt", input.endAt().toString());
         initiative.put("placeName", input.placeName());
         initiative.put("latitude", input.latitude());
         initiative.put("longitude", input.longitude());
@@ -90,7 +94,11 @@ public class InitiativeService {
         meetingPoint.put("longitude", input.longitude());
         meetingPoint.put("schemaVersion", MEETING_POINT_SCHEMA_VERSION);
         initiative.put("meetingPoint", meetingPoint);
-        initiative.put("needs", input.needs());
+        initiative.put("capacity", input.capacity());
+        initiative.put("neededItems", input.neededItems());
+        initiative.put("organiserMessage", input.organiserMessage());
+        initiative.put("participationMode", input.participationMode());
+        initiative.put("needs", String.join(", ", input.neededItems()));
         initiative.put("status", "PUBLISHED");
         initiative.put("participantCount", 1);
         initiative.put("createdAt", now.toString());
@@ -132,19 +140,50 @@ public class InitiativeService {
                     number(initiative.get("longitude")));
             if (distanceKm <= radiusKm) nearby.add(view(initiative, distanceKm, item));
         }
-        nearby.sort(Comparator.comparingDouble(InitiativeView::distanceKm)
-                .thenComparing(InitiativeView::startAt));
+        nearby.sort(Comparator.comparing(InitiativeView::startAt));
         return new DiscoveryResponse("NEARBY_INITIATIVES", radiusKm, nearby.size(), List.copyOf(nearby));
+    }
+
+    public InitiativeView detail(String ownerUid, String initiativeId) {
+        String cleanId = clean(initiativeId, 80, "INVALID_INITIATIVE_ID", "Initiative ID is required");
+        return gateway.listPublished(ownerUid).stream()
+                .filter(item -> cleanId.equals(String.valueOf(item.initiative().get("initiativeId"))))
+                .findFirst()
+                .map(item -> view(item.initiative(), 0.0, item))
+                .orElseThrow(() -> new InitiativeException("INITIATIVE_NOT_FOUND", "Activity was not found"));
     }
 
     public JoinResponse join(String ownerUid, String initiativeId) {
         String cleanId = clean(initiativeId, 80, "INVALID_INITIATIVE_ID", "Initiative ID is required");
         InitiativeGateway.JoinResult result = gateway.join(ownerUid, cleanId, clock.instant());
         return new JoinResponse(
-                result.alreadyJoined() ? "ALREADY_JOINED" : "JOINED",
+                result.approvalRequested() ? "APPROVAL_REQUESTED"
+                        : result.alreadyJoined() ? "ALREADY_JOINED" : "JOINED",
                 cleanId,
                 integer(result.initiative().get("participantCount")),
                 result.alreadyJoined());
+    }
+
+    public JoinRequestsResponse joinRequests(String ownerUid, String initiativeId) {
+        String cleanId = clean(initiativeId, 80, "INVALID_INITIATIVE_ID", "Initiative ID is required");
+        List<JoinRequestView> requests = gateway.listJoinRequests(ownerUid, cleanId).stream()
+                .map(request -> new JoinRequestView(request.requestId(), request.requestedAt()))
+                .toList();
+        return new JoinRequestsResponse("JOIN_REQUESTS", cleanId, requests.size(), requests);
+    }
+
+    public ReviewJoinRequestResponse reviewJoinRequest(
+            String ownerUid, String initiativeId, String requestId, boolean approved) {
+        String cleanId = clean(initiativeId, 80, "INVALID_INITIATIVE_ID", "Initiative ID is required");
+        String cleanRequestId = clean(requestId, 100, "INVALID_JOIN_REQUEST_ID", "Join request ID is required");
+        InitiativeGateway.ReviewJoinRequestResult result = gateway.reviewJoinRequest(
+                ownerUid, cleanId, cleanRequestId, approved, clock.instant());
+        return new ReviewJoinRequestResponse(
+                approved ? "JOIN_REQUEST_APPROVED" : "JOIN_REQUEST_DECLINED",
+                cleanId,
+                cleanRequestId,
+                result.participantCount(),
+                result.idempotentReplay());
     }
 
     public MyInitiativesResponse mine(String ownerUid) {
@@ -372,9 +411,21 @@ public class InitiativeService {
             throw new InitiativeException("INVALID_CATEGORY", "Choose a supported activity category");
         }
         String description = clean(request.description(), 1200, "INVALID_DESCRIPTION", "Describe the activity");
+        String publicOrganiserName = clean(
+                request.publicOrganiserName(), 60, "INVALID_ORGANISER_NAME", "Add the public organiser name");
         String placeName = clean(request.placeName(), 200, "INVALID_PLACE", "Add a public meeting place");
-        String needs = cleanOptional(request.needs(), 500);
-        String clientRequestId = cleanOptional(request.clientRequestId(), 100);
+        List<String> neededItems = cleanItems(request.neededItems());
+        String organiserMessage = cleanOptional(
+                request.organiserMessage(), 500, "INVALID_ORGANISER_MESSAGE", "The organiser message is too long");
+        String participationMode = cleanOptional(
+                request.participationMode(), 30, "INVALID_PARTICIPATION_MODE", "Choose who can participate")
+                .toUpperCase(Locale.ROOT);
+        if (participationMode.isBlank()) participationMode = "OPEN";
+        if (!PARTICIPATION_MODES.contains(participationMode)) {
+            throw new InitiativeException("INVALID_PARTICIPATION_MODE", "Choose a supported participation option");
+        }
+        String clientRequestId = cleanOptional(
+                request.clientRequestId(), 100, "INVALID_CLIENT_REQUEST_ID", "The retry identifier is too long");
         Instant startAt;
         try {
             startAt = Instant.parse(request.startAt());
@@ -385,15 +436,37 @@ public class InitiativeService {
         if (!startAt.isAfter(now) || startAt.isAfter(now.plusSeconds(366L * 24 * 60 * 60))) {
             throw new InitiativeException("INVALID_START_TIME", "Choose a future date within one year");
         }
+        Instant endAt;
+        try {
+            endAt = Instant.parse(request.endAt());
+        } catch (DateTimeParseException | NullPointerException exception) {
+            throw new InitiativeException("INVALID_END_TIME", "Use a valid activity end time");
+        }
+        if (!endAt.isAfter(startAt)) {
+            throw new InitiativeException("INVALID_END_TIME", "The end time must be after the start time");
+        }
+        Integer capacity = request.capacity();
+        if ("CAPPED".equals(participationMode) && capacity == null) {
+            throw new InitiativeException("INVALID_CAPACITY", "Add the maximum number of participants");
+        }
+        if (capacity != null && (capacity < 1 || capacity > 500)) {
+            throw new InitiativeException("INVALID_CAPACITY", "Participant capacity must be from 1 to 500");
+        }
+        if (!"CAPPED".equals(participationMode)) capacity = null;
         return new ValidatedCreate(
                 title,
                 category,
                 description,
+                publicOrganiserName,
                 startAt,
+                endAt,
                 placeName,
                 validLatitude(request.latitude()),
                 validLongitude(request.longitude()),
-                needs,
+                capacity,
+                neededItems,
+                organiserMessage,
+                participationMode,
                 clientRequestId);
     }
 
@@ -403,10 +476,23 @@ public class InitiativeService {
         return cleaned;
     }
 
-    private static String cleanOptional(String value, int max) {
+    private static String cleanOptional(String value, int max, String code, String message) {
         String cleaned = value == null ? "" : value.strip();
-        if (cleaned.length() > max) throw new InitiativeException("INVALID_NEEDS", "Activity needs are too long");
+        if (cleaned.length() > max) throw new InitiativeException(code, message);
         return cleaned;
+    }
+
+    private static List<String> cleanItems(List<String> values) {
+        if (values == null) return List.of();
+        if (values.size() > 8) {
+            throw new InitiativeException("INVALID_NEEDED_ITEMS", "Add no more than eight needed items");
+        }
+        List<String> result = new ArrayList<>();
+        for (String value : values) {
+            String item = clean(value, 80, "INVALID_NEEDED_ITEMS", "Each needed item must contain text");
+            if (!result.contains(item)) result.add(item);
+        }
+        return List.copyOf(result);
     }
 
     private static double validLatitude(Double value) {
@@ -457,10 +543,13 @@ public class InitiativeService {
         Map<String, Object> participation = citizen.participation();
         Instant now = clock.instant();
         Instant startAt = instant(data.get("startAt"));
+        Instant endAt = instant(data.get("endAt"));
+        if (endAt == null) endAt = startAt;
         Instant codeEndsAt = startAt == null ? null : startAt.plus(CODE_WINDOW);
         Instant completedAt = instant(data.get("completedAt"));
         String attendanceBasis = String.valueOf(participation.getOrDefault("attendanceBasis", ""));
         boolean participant = "PARTICIPANT".equals(role);
+        boolean approvalRequested = "REQUESTED".equals(role);
         boolean noAttendance = attendanceBasis.isBlank();
         boolean codeWindowOpen = startAt != null && !now.isBefore(startAt) && !now.isAfter(codeEndsAt)
                 && !"CANCELLED".equals(data.get("status"));
@@ -469,25 +558,42 @@ public class InitiativeService {
                 && !now.isAfter(completedAt.plus(SELF_ATTENDANCE_WINDOW));
         boolean showSelfAttendance = codeEndsAt != null && now.isAfter(codeEndsAt);
         MeetingPoint meetingPoint = readMeetingPoint(data);
+        int storedParticipantCount = integer(data.get("participantCount"));
+        int storedJoinerCount = Math.max(0, storedParticipantCount - 1);
+        Integer capacity = data.get("capacity") instanceof Number number && number.intValue() > 0
+                ? number.intValue()
+                : null;
+        boolean countVisible = participant || "ORGANISER".equals(role)
+                || capacity != null && storedJoinerCount * 100 >= capacity * 60;
+        boolean full = capacity != null && storedJoinerCount >= capacity;
         return new InitiativeView(
                 String.valueOf(data.get("initiativeId")),
                 String.valueOf(data.get("title")),
                 String.valueOf(data.get("category")),
                 String.valueOf(data.get("description")),
+                text(data.get("publicOrganiserName")),
                 String.valueOf(data.get("startAt")),
+                endAt == null ? "" : endAt.toString(),
                 meetingPoint.label(),
                 meetingPoint.mapsUrl(),
                 meetingPoint.schemaVersion(),
                 meetingPoint.legacy(),
                 String.valueOf(data.getOrDefault("needs", "")),
+                storedItems(data),
+                text(data.get("organiserMessage")),
+                capacity,
+                text(data.get("participationMode")).isBlank() ? (capacity == null ? "OPEN" : "CAPPED") : text(data.get("participationMode")),
                 String.valueOf(data.get("status")),
                 String.valueOf(data.getOrDefault("cancellationReason", "")),
-                integer(data.get("participantCount")),
+                countVisible ? storedParticipantCount : null,
                 Math.round(distanceKm * 100.0) / 100.0,
-                role != null && !role.isBlank(),
+                participant || "ORGANISER".equals(role),
+                approvalRequested,
                 role == null ? "" : role,
                 "ORGANISER".equals(role),
-                citizen.joinerCount(),
+                countVisible ? storedJoinerCount : null,
+                countVisible,
+                full,
                 citizen.selfAttendanceCount(),
                 citizen.codeAttendanceCount(),
                 String.valueOf(participation.getOrDefault("attendanceStatus", "")),
@@ -498,6 +604,28 @@ public class InitiativeService {
                 participant && noAttendance && selfWindowOpen && showSelfAttendance,
                 "ORGANISER".equals(role) && codeWindowOpen,
                 String.valueOf(data.get("schemaVersion")));
+    }
+
+    private static List<String> storedItems(Map<String, Object> data) {
+        Object stored = data.get("neededItems");
+        if (stored instanceof List<?> values) {
+            List<String> result = new ArrayList<>();
+            for (Object value : values) {
+                String item = text(value).strip();
+                if (!item.isBlank()) result.add(item);
+            }
+            return List.copyOf(result);
+        }
+        String legacy = text(data.get("needs")).strip();
+        return legacy.isBlank() ? List.of() : List.of(legacy);
+    }
+
+    private static String defaultEndAt(String startAt) {
+        try {
+            return Instant.parse(startAt).plus(Duration.ofHours(2)).toString();
+        } catch (DateTimeParseException | NullPointerException exception) {
+            return startAt;
+        }
     }
 
     private static MeetingPoint readMeetingPoint(Map<String, Object> data) {
@@ -554,11 +682,16 @@ public class InitiativeService {
             String title,
             String category,
             String description,
+            String publicOrganiserName,
             Instant startAt,
+            Instant endAt,
             String placeName,
             double latitude,
             double longitude,
-            String needs,
+            Integer capacity,
+            List<String> neededItems,
+            String organiserMessage,
+            String participationMode,
             String clientRequestId) {}
 
     public record CreateRequest(
@@ -566,11 +699,32 @@ public class InitiativeService {
             String category,
             String description,
             String startAt,
+            String endAt,
+            String publicOrganiserName,
+            boolean publicOrganiserNameConfirmed,
             String placeName,
             Double latitude,
             Double longitude,
-            String needs,
+            Integer capacity,
+            List<String> neededItems,
+            String organiserMessage,
+            String participationMode,
             String clientRequestId) {
+        public CreateRequest(
+                String title,
+                String category,
+                String description,
+                String startAt,
+                String placeName,
+                Double latitude,
+                Double longitude,
+                String needs,
+                String clientRequestId) {
+            this(title, category, description, startAt, defaultEndAt(startAt), "A citizen organiser", true,
+                    placeName, latitude, longitude, null,
+                    needs == null || needs.isBlank() ? List.of() : List.of(needs), "", "OPEN", clientRequestId);
+        }
+
         public CreateRequest(
                 String title,
                 String category,
@@ -603,20 +757,29 @@ public class InitiativeService {
             String title,
             String category,
             String description,
+            String publicOrganiserName,
             String startAt,
+            String endAt,
             String placeName,
             String mapsUrl,
             String meetingPointSchemaVersion,
             boolean legacyMeetingPoint,
             String needs,
+            List<String> neededItems,
+            String organiserMessage,
+            Integer capacity,
+            String participationMode,
             String status,
             String cancellationReason,
-            int participantCount,
+            Integer participantCount,
             double distanceKm,
             boolean joined,
+            boolean joinRequestedByMe,
             String role,
             boolean canManage,
-            int joinerCount,
+            Integer joinerCount,
+            boolean joiningCountVisible,
+            boolean full,
             int selfAttendanceCount,
             int codeAttendanceCount,
             String attendanceStatus,
@@ -639,6 +802,18 @@ public class InitiativeService {
 
     public record JoinResponse(
             String status, String initiativeId, int participantCount, boolean idempotentReplay) {}
+
+    public record JoinRequestView(String requestId, String requestedAt) {}
+
+    public record JoinRequestsResponse(
+            String status, String initiativeId, int count, List<JoinRequestView> requests) {}
+
+    public record ReviewJoinRequestResponse(
+            String status,
+            String initiativeId,
+            String requestId,
+            int participantCount,
+            boolean idempotentReplay) {}
 
     public record MyInitiativesResponse(String status, int count, List<InitiativeView> initiatives) {}
 

@@ -61,6 +61,7 @@
 .meeting-point-marker path { fill: var(--color-teal-ink); stroke: #fff; stroke-width: 3; }
 .meeting-point-marker-centre { fill: #fff; }
 .meeting-point-map-note { color: var(--color-muted); font-size: .73rem; line-height: 1.5; }
+.meeting-point-google-map { width: 100%; min-height: 330px; overflow: hidden; border: 2px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-surface); }
 
 .meeting-point-pin-status { padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-warning-soft); color: var(--color-warning-ink); font-size: .78rem; font-weight: 750; }
 .meeting-point-pin-status.is-set { background: var(--color-teal-soft); color: var(--color-teal-ink); }
@@ -69,6 +70,7 @@
 
 @media (max-width: 520px) {
   .meeting-point-map, .meeting-point-map svg { min-height: 220px; }
+  .meeting-point-google-map { min-height: 280px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

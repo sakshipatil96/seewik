@@ -70,6 +70,20 @@ public class InitiativeController {
         }
     }
 
+    @GetMapping(value = "/{initiativeId}", produces = "application/json")
+    public ResponseEntity<?> detail(
+            @PathVariable String initiativeId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        try {
+            var citizen = identityVerifier.verifyBearer(authorization);
+            return ResponseEntity.ok(initiativeService.detail(citizen.uid(), initiativeId));
+        } catch (CitizenIdentityVerifier.AuthenticationException exception) {
+            return unauthorized(exception);
+        } catch (InitiativeService.InitiativeException exception) {
+            return failure(exception);
+        }
+    }
+
     @PostMapping(value = "/{initiativeId}/cancel", consumes = "application/json", produces = "application/json")
     public ResponseEntity<?> cancel(
             @PathVariable String initiativeId,
@@ -110,6 +124,53 @@ public class InitiativeController {
         try {
             var citizen = CitizenIdentityVerifier.requireGoogleLinked(identityVerifier.verifyBearer(authorization));
             return ResponseEntity.ok(initiativeService.join(citizen.uid(), initiativeId));
+        } catch (CitizenIdentityVerifier.LinkedIdentityRequiredException exception) {
+            return googleLinkRequired(exception);
+        } catch (CitizenIdentityVerifier.AuthenticationException exception) {
+            return unauthorized(exception);
+        } catch (InitiativeService.InitiativeException exception) {
+            return failure(exception);
+        }
+    }
+
+    @GetMapping(value = "/{initiativeId}/join-requests", produces = "application/json")
+    public ResponseEntity<?> joinRequests(
+            @PathVariable String initiativeId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        try {
+            var citizen = CitizenIdentityVerifier.requireGoogleLinked(identityVerifier.verifyBearer(authorization));
+            return ResponseEntity.ok(initiativeService.joinRequests(citizen.uid(), initiativeId));
+        } catch (CitizenIdentityVerifier.LinkedIdentityRequiredException exception) {
+            return googleLinkRequired(exception);
+        } catch (CitizenIdentityVerifier.AuthenticationException exception) {
+            return unauthorized(exception);
+        } catch (InitiativeService.InitiativeException exception) {
+            return failure(exception);
+        }
+    }
+
+    @PostMapping(value = "/{initiativeId}/join-requests/{requestId}/approve", produces = "application/json")
+    public ResponseEntity<?> approveJoinRequest(
+            @PathVariable String initiativeId,
+            @PathVariable String requestId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return reviewJoinRequest(initiativeId, requestId, true, authorization);
+    }
+
+    @PostMapping(value = "/{initiativeId}/join-requests/{requestId}/decline", produces = "application/json")
+    public ResponseEntity<?> declineJoinRequest(
+            @PathVariable String initiativeId,
+            @PathVariable String requestId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return reviewJoinRequest(initiativeId, requestId, false, authorization);
+    }
+
+    private ResponseEntity<?> reviewJoinRequest(
+            String initiativeId, String requestId, boolean approved, String authorization) {
+        try {
+            var citizen = CitizenIdentityVerifier.requireGoogleLinked(identityVerifier.verifyBearer(authorization));
+            return ResponseEntity.ok(initiativeService.reviewJoinRequest(
+                    citizen.uid(), initiativeId, requestId, approved));
         } catch (CitizenIdentityVerifier.LinkedIdentityRequiredException exception) {
             return googleLinkRequired(exception);
         } catch (CitizenIdentityVerifier.AuthenticationException exception) {

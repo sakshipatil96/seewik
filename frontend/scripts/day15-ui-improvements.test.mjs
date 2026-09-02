@@ -11,13 +11,15 @@ test('desktop header controls share a stable height and emergency copy cannot wr
   assert.match(styles, /\.desktop-nav button[^}]*height: 48px/);
   assert.match(styles, /\.header-emergency[^}]*height: 48px[^}]*white-space: nowrap/);
   assert.match(styles, /\.account-button[^}]*height: 48px/);
-  assert.match(styles, /\.language-switcher select[^}]*min-height: 48px/);
+  assert.match(styles, /\.language-switcher[^}]*height: 48px/);
+  assert.match(styles, /\.language-option[^}]*min-height: 44px/);
+  assert.match(app, /role="group" aria-label=\{t\('Language'\)\}/);
   assert.match(styles, /@media \(max-width: 1080px\)/);
 });
 
 test('home removes the large report title while retaining concise civic guidance', () => {
   assert.doesNotMatch(app, /<h1>\{t\('Report a problem\. Get it to the right office\.'\)\}<\/h1>/);
-  assert.match(app, /hero home-intro/);
+  assert.match(app, /home-greeting/);
 });
 
 test('report flow provides camera, editable confirmation, and three honest filing choices', () => {
@@ -35,13 +37,20 @@ test('report flow provides camera, editable confirmation, and three honest filin
 test('initiative templates and backend categories stay aligned', () => {
   for (const category of [
     'BIRTHDAY_DONATION', 'PLANTATION_DRIVE', 'AWARENESS_SESSION',
-    'COMMUNITY_YOGA', 'MEDITATION_WORKSHOP', 'HEALTH_ACTIVITY', 'OTHER_CIVIC_ACTIVITY',
+    'COMMUNITY_YOGA', 'MEDITATION_WORKSHOP', 'HEALTH_ACTIVITY', 'BOOK_SUPPLY_DRIVE',
+    'DONATION', 'CLEANUP', 'OTHER_CIVIC_ACTIVITY',
   ]) {
     assert.match(app, new RegExp(category));
     assert.match(backend, new RegExp(category));
   }
-  assert.match(app, /Additional info \(optional\)/);
-  assert.match(styles, /\.initiative-choice-grid \.card \+ \.card[^}]*margin-top: 0/);
+  assert.match(app, /What is needed \(optional\)/);
+  assert.match(app, /Message from the organiser \(optional\)/);
+  assert.match(app, /Your name, as the city will see it/);
+  assert.match(app, /APPROVAL_REQUIRED/);
+  assert.match(app, /Review activity/);
+  assert.match(app, /PRIVATE REVIEW/);
+  assert.match(app, /Happening in your community/);
+  assert.match(styles, /\.community-feed[^}]*grid-template-columns: 1fr/);
 });
 
 test('My Initiatives uses the full available width and point rules are last on Civic Card', () => {

@@ -40,7 +40,7 @@ class InitiativeServiceTest {
         assertEquals("points-ledger-v0.3", gateway.ledger.get("schemaVersion"));
         assertEquals("reward-policy-v0.2", gateway.ledger.get("rewardPolicyVersion"));
         assertTrue(result.canManage());
-        assertEquals("initiative-v0.3", result.schemaVersion());
+        assertEquals("initiative-v0.4", result.schemaVersion());
         assertEquals("initiative-meeting-point-v0.1", result.meetingPointSchemaVersion());
         assertEquals("https://www.google.com/maps/search/?api=1&query=21.360000%2C74.240000", result.mapsUrl());
         assertFalse(result.legacyMeetingPoint());

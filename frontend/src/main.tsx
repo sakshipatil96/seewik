@@ -18,7 +18,7 @@ import {
 } from './accountService';
 import { accountErrorMessage, isCredentialCollisionCode, reportsViewState, safeAccountErrorCode, type AccountIdentityState } from './accountIdentity';
 import { API_URL } from './apiConfig';
-import { LANGUAGE_OPTIONS, LANGUAGE_STORAGE_KEY, classificationConfirmedMessage, classificationSuggestionMessage, formatDateTime, initialLanguage, localizedMonthLabel, localizedRuntimeMessage, localizedStatus, prabhagConfirmedMessage, translate, type InterfaceLanguage } from './i18n';
+import { LANGUAGE_STORAGE_KEY, classificationConfirmedMessage, classificationSuggestionMessage, formatDateTime, initialLanguage, localizedMonthLabel, localizedRuntimeMessage, localizedStatus, prabhagConfirmedMessage, translate, type InterfaceLanguage } from './i18n';
 import { RecognitionPanel } from './RecognitionPanel';
 import { RecognitionSettings } from './RecognitionSettings';
 import { ContributionPoster } from './ContributionPoster';
@@ -41,7 +41,7 @@ import {
   type RewardOverview,
   type RecognitionSettings as RecognitionSettingsState,
 } from './recognitionClient';
-import { canEditReport, canResumeReport, draftRouteIsCurrent, pathForScreen, reportIdFromPath, reportIdFromReviewSearch, screenFromPath, type AppScreen } from './reportNavigation';
+import { canEditReport, canResumeReport, draftRouteIsCurrent, initiativeIdFromPath, pathForScreen, reportIdFromPath, reportIdFromReviewSearch, screenFromPath, type AppScreen } from './reportNavigation';
 import { citizenSafeError } from './uiErrors';
 import './styles.css';
 
@@ -62,14 +62,22 @@ const ISSUE_TYPES = [
 ] as const;
 
 const INITIATIVE_TEMPLATES = [
-  { value: 'BIRTHDAY_DONATION', label: 'Birthday Donations', title: 'Birthday donation drive', description: 'Celebrate a birthday by collecting useful items and donating them responsibly to people who need them.', needs: 'Add the items being collected, who will receive them, and any volunteer help needed.' },
-  { value: 'PLANTATION_DRIVE', label: 'Plantation Drive', title: 'Community plantation drive', description: 'Bring neighbours together to plant suitable saplings and plan how they will be cared for after the activity.', needs: 'Add sapling, tool, water, permission, or volunteer details.' },
-  { value: 'AWARENESS_SESSION', label: 'Awareness Session', title: 'Community awareness session', description: 'Host a practical awareness session for neighbours on a useful civic, health, safety, or environmental topic.', needs: 'Add the topic, intended audience, speaker, materials, or accessibility details.' },
-  { value: 'COMMUNITY_YOGA', label: 'Community Yoga', title: 'Community yoga session', description: 'Organise an inclusive community yoga session at a safe public meeting place.', needs: 'Add mat, instructor, accessibility, age-group, or water details.' },
-  { value: 'MEDITATION_WORKSHOP', label: 'Meditation Workshop', title: 'Community meditation workshop', description: 'Organise a guided meditation workshop for neighbours in a calm and accessible public setting.', needs: 'Add facilitator, seating, accessibility, or preparation details.' },
-  { value: 'HEALTH_ACTIVITY', label: 'Health Activity', title: 'Community health activity', description: 'Organise a responsible community health activity with clear participation details and appropriate support.', needs: 'Add qualified support, equipment, eligibility, safety, or accessibility details.' },
-  { value: 'OTHER_CIVIC_ACTIVITY', label: 'Other', title: '', description: '', needs: '' },
+  { value: 'PLANTATION_DRIVE', label: 'Plantation', example: 'Planting and caring for saplings', title: 'Community plantation drive', description: 'Bring neighbours together to plant suitable saplings and plan how they will be cared for after the activity.', neededItems: ['Saplings', 'Gloves', 'Water bottles'] },
+  { value: 'DONATION', label: 'Food donation', example: 'Meals or ration for those in need', title: 'Community food donation', description: 'Collect and distribute meals or ration responsibly to people who need them.', neededItems: ['Food packets', 'Volunteers'] },
+  { value: 'BIRTHDAY_DONATION', label: 'Birthday giving', example: 'Mark a birthday by giving', title: 'Birthday donation drive', description: 'Celebrate a birthday by collecting useful items and donating them responsibly to people who need them.', neededItems: ['Donation items', 'Volunteers'] },
+  { value: 'HEALTH_ACTIVITY', label: 'Health activity', example: 'A responsible community health activity', title: 'Community health activity', description: 'Organise a responsible community health activity with clear participation details and appropriate support.', neededItems: ['Qualified volunteers'] },
+  { value: 'BOOK_SUPPLY_DRIVE', label: 'Book or school-supply drive', example: 'Collect and hand over useful learning supplies', title: 'Book and school-supply drive', description: 'Collect useful books and school supplies and arrange a responsible handover.', neededItems: ['Books', 'School supplies', 'Volunteers'] },
+  { value: 'CLEANUP', label: 'Community cleanup', example: 'Clean a colony, society, open area or park', title: 'Community cleanup', description: 'Bring neighbours together to clean a shared public or community space responsibly.', neededItems: ['Gloves', 'Waste bags', 'Volunteers'] },
+  { value: 'AWARENESS_SESSION', label: 'Awareness session', example: 'Share practical civic, health or safety knowledge', title: 'Community awareness session', description: 'Host a practical awareness session for neighbours on a useful civic, health, safety, or environmental topic.', neededItems: ['Session materials'] },
+  { value: 'COMMUNITY_YOGA', label: 'Community yoga', example: 'An inclusive yoga session for neighbours', title: 'Community yoga session', description: 'Organise an inclusive community yoga session at a safe public meeting place.', neededItems: ['Yoga mat', 'Water bottle'] },
+  { value: 'MEDITATION_WORKSHOP', label: 'Meditation workshop', example: 'A guided community meditation session', title: 'Community meditation workshop', description: 'Organise a guided meditation workshop for neighbours in a calm and accessible public setting.', neededItems: ['Floor mat'] },
+  { value: 'OTHER_CIVIC_ACTIVITY', label: 'Other', example: 'Tell people what it is', title: '', description: '', neededItems: [] },
 ] as const;
+
+const PRIVATE_POINTS_CACHE_PREFIX = 'seewik.private-points.';
+const COMMUNITY_CACHE_PREFIX = 'seewik.community-feed.';
+const NANDURBAR_COMMUNITY_ORIGIN = { latitude: 21.3707, longitude: 74.2403 };
+const NANDURBAR_COMMUNITY_RADIUS_KM = 25;
 
 type DepartmentResult = {
   departmentId: string;
@@ -219,20 +227,29 @@ type Initiative = {
   title: string;
   category: string;
   description: string;
+  publicOrganiserName: string;
   startAt: string;
+  endAt: string;
   placeName: string;
   mapsUrl?: string;
   meetingPointSchemaVersion?: string;
   legacyMeetingPoint?: boolean;
   needs: string;
+  neededItems: string[];
+  organiserMessage: string;
+  capacity: number | null;
+  participationMode: 'OPEN' | 'CAPPED' | 'APPROVAL_REQUIRED';
   status: string;
   cancellationReason: string;
-  participantCount: number;
+  participantCount: number | null;
   distanceKm: number;
   joined: boolean;
+  joinRequestedByMe: boolean;
   role: string;
   canManage: boolean;
-  joinerCount: number;
+  joinerCount: number | null;
+  joiningCountVisible: boolean;
+  full: boolean;
   selfAttendanceCount: number;
   codeAttendanceCount: number;
   attendanceStatus: string;
@@ -243,6 +260,11 @@ type Initiative = {
   canSelfAttend: boolean;
   canViewAttendanceCode: boolean;
   schemaVersion: string;
+};
+
+type InitiativeJoinRequest = {
+  requestId: string;
+  requestedAt: string;
 };
 
 type InitiativeAttendanceResponse = {
@@ -383,6 +405,17 @@ function App() {
   const [initiatives, setInitiatives] = useState<Initiative[]>([]);
   const [myInitiatives, setMyInitiatives] = useState<Initiative[]>([]);
   const [initiativeStatus, setInitiativeStatus] = useState('');
+  const [communityNearMe, setCommunityNearMe] = useState(false);
+  const [communityFiltersOpen, setCommunityFiltersOpen] = useState(false);
+  const [communityCategory, setCommunityCategory] = useState('ALL');
+  const [communityDateRange, setCommunityDateRange] = useState('ALL');
+  const [communityLoading, setCommunityLoading] = useState(() => screen === 'initiatives');
+  const [communityOffline, setCommunityOffline] = useState(false);
+  const [communityCachedAt, setCommunityCachedAt] = useState<number | null>(null);
+  const [joiningInitiativeId, setJoiningInitiativeId] = useState('');
+  const [initiativeJoinRequests, setInitiativeJoinRequests] = useState<Record<string, InitiativeJoinRequest[]>>({});
+  const [selectedInitiative, setSelectedInitiative] = useState<Initiative | null>(null);
+  const [initiativeDetailLoading, setInitiativeDetailLoading] = useState(false);
   const [cancellationReasons, setCancellationReasons] = useState<Record<string, string>>({});
   const [attendanceCodeInputs, setAttendanceCodeInputs] = useState<Record<string, string>>({});
   const [activeAttendanceCodes, setActiveAttendanceCodes] = useState<Record<string, ActiveAttendanceCode>>({});
@@ -391,16 +424,28 @@ function App() {
   const [initiativeTitle, setInitiativeTitle] = useState('');
   const [initiativeCategory, setInitiativeCategory] = useState('');
   const [initiativeDescription, setInitiativeDescription] = useState('');
+  const [initiativePublicOrganiserName, setInitiativePublicOrganiserName] = useState('');
   const [initiativeStartAt, setInitiativeStartAt] = useState('');
+  const [initiativeEndAt, setInitiativeEndAt] = useState('');
   const [initiativePlaceName, setInitiativePlaceName] = useState('');
   const [initiativeMeetingPoint, setInitiativeMeetingPoint] = useState<MeetingPointPosition | null>(null);
   const [initiativeMeetingPointConfirmed, setInitiativeMeetingPointConfirmed] = useState(false);
-  const [initiativeNeeds, setInitiativeNeeds] = useState('');
+  const [initiativeCapacity, setInitiativeCapacity] = useState('');
+  const [initiativeNeededItems, setInitiativeNeededItems] = useState<string[]>([]);
+  const [initiativeNeededItemDraft, setInitiativeNeededItemDraft] = useState('');
+  const [initiativeOrganiserMessage, setInitiativeOrganiserMessage] = useState('');
+  const [initiativeParticipationMode, setInitiativeParticipationMode] = useState<'OPEN' | 'CAPPED' | 'APPROVAL_REQUIRED'>('OPEN');
+  const [initiativeReviewing, setInitiativeReviewing] = useState(false);
+  const [initiativeFormStep, setInitiativeFormStep] = useState(1);
+  const [initiativeHighestStep, setInitiativeHighestStep] = useState(1);
   const [filingEmail, setFilingEmail] = useState('');
   const [filingActionStatus, setFilingActionStatus] = useState('');
   const [accountState, setAccountState] = useState<AccountIdentityState>('ANONYMOUS_SESSION');
+  const [accountUid, setAccountUid] = useState<string | null>(null);
   const [accountName, setAccountName] = useState<string | null>(null);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
+  const [accountProfileLoading, setAccountProfileLoading] = useState(true);
+  const [headerPoints, setHeaderPoints] = useState<number | null>(null);
   const [accountDialog, setAccountDialog] = useState<AccountDialog>('CLOSED');
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountError, setAccountError] = useState('');
@@ -428,7 +473,11 @@ function App() {
     !initiativeCategory ? 'Choose an activity type.' : '',
     !initiativeTitle.trim() ? 'Add an activity title.' : '',
     !initiativeDescription.trim() ? 'Add an activity description.' : '',
+    !initiativePublicOrganiserName.trim() ? 'Add the public organiser display name.' : '',
     !initiativeStartAt || Date.parse(initiativeStartAt) <= Date.now() ? 'Choose a future date and time.' : '',
+    !initiativeEndAt || Date.parse(initiativeEndAt) <= Date.parse(initiativeStartAt) ? 'Choose an end time after the start time.' : '',
+    initiativeParticipationMode === 'CAPPED' && !initiativeCapacity ? 'Add the maximum number of participants.' : '',
+    initiativeParticipationMode === 'CAPPED' && initiativeCapacity && (Number(initiativeCapacity) < 1 || Number(initiativeCapacity) > 500) ? 'Participant capacity must be from 1 to 500.' : '',
     !initiativePlaceName.trim() ? 'Add a public meeting-point label.' : '',
     !initiativeMeetingPoint ? 'Place the meeting-point pin.' : '',
     !initiativeMeetingPointConfirmed ? 'Confirm the meeting-point label and pin.' : '',
@@ -446,9 +495,7 @@ function App() {
         : undefined;
   const reportsView = reportsViewState(accountState, savedReports.length, reportsStatus.startsWith('Loading'));
   const initiativeCategoryLabel = (category: string) => ({
-    CLEANUP: t('Neighbourhood clean-up'),
     PLANTATION: t('Plantation'),
-    DONATION: t('Donation activity'),
     COMMUNITY_FITNESS: t('Community fitness'),
     BIRTHDAY_DONATION: t('Birthday Donations'),
     PLANTATION_DRIVE: t('Plantation Drive'),
@@ -456,6 +503,9 @@ function App() {
     COMMUNITY_YOGA: t('Community Yoga'),
     MEDITATION_WORKSHOP: t('Meditation Workshop'),
     HEALTH_ACTIVITY: t('Health Activity'),
+    BOOK_SUPPLY_DRIVE: t('Book or school-supply drive'),
+    DONATION: t('Food donation'),
+    CLEANUP: t('Community cleanup'),
     OTHER_CIVIC_ACTIVITY: t('Other civic activity'),
   }[category] ?? category);
   const contributionTypeLabel = (reason: string) => ({
@@ -472,8 +522,17 @@ function App() {
 
   useEffect(() => observeAccount(({ state, user }) => {
     setAccountState(state);
+    setAccountUid(user?.uid ?? null);
     setAccountName(user?.displayName ?? null);
     setAccountEmail(user?.email ?? null);
+    setAccountProfileLoading(state === 'GOOGLE_LINKED');
+    if (state === 'GOOGLE_LINKED' && user) {
+      const cachedPoints = window.localStorage.getItem(`${PRIVATE_POINTS_CACHE_PREFIX}${user.uid}`);
+      const parsedPoints = cachedPoints === null ? Number.NaN : Number(cachedPoints);
+      setHeaderPoints(Number.isFinite(parsedPoints) && parsedPoints >= 0 ? parsedPoints : null);
+    } else {
+      setHeaderPoints(null);
+    }
     if (state === 'GOOGLE_LINKED' && user && syncedProfileUid.current !== user.uid) {
       syncedProfileUid.current = user.uid;
       void syncPrivateProfile(user).then((profile) => {
@@ -481,9 +540,22 @@ function App() {
         setAccountEmail(profile.privateGoogleEmail || user.email);
       }).catch(() => {
         syncedProfileUid.current = null;
-      });
+      }).finally(() => setAccountProfileLoading(false));
+      return;
     }
+    setAccountProfileLoading(false);
   }), []);
+
+  useEffect(() => {
+    if (accountState !== 'GOOGLE_LINKED' || !accountUid) return;
+    void refreshDerivedPoints().catch(() => undefined);
+  }, [accountState, accountUid]);
+
+  useEffect(() => {
+    if (screen === 'new-initiative' && !initiativePublicOrganiserName.trim() && accountName?.trim()) {
+      setInitiativePublicOrganiserName(accountName.trim());
+    }
+  }, [screen, accountName]);
 
   function navigate(nextScreen: AppScreen, replace = false, reportId?: string) {
     const path = pathForScreen(nextScreen, reportId);
@@ -568,11 +640,18 @@ function App() {
     setInitiativeTitle('');
     setInitiativeCategory('');
     setInitiativeDescription('');
+    setInitiativePublicOrganiserName('');
     setInitiativeStartAt('');
+    setInitiativeEndAt('');
     setInitiativePlaceName('');
     setInitiativeMeetingPoint(null);
     setInitiativeMeetingPointConfirmed(false);
-    setInitiativeNeeds('');
+    setInitiativeCapacity('');
+    setInitiativeNeededItems([]);
+    setInitiativeNeededItemDraft('');
+    setInitiativeOrganiserMessage('');
+    setInitiativeParticipationMode('OPEN');
+    setInitiativeReviewing(false);
     setEvidenceText('');
     setEvidenceImage(null);
     setComplaintFacts('');
@@ -809,21 +888,22 @@ function App() {
         loadReportById(reportId, true).catch((error) => setDraftStatus(citizenSafeError(error, 'The draft could not be resumed.')));
       }
     }
-    if (screen === 'initiatives') {
-      if (initiativeCoordinates) {
-        discoverInitiatives(false).catch((error) => setInitiativeStatus(citizenSafeError(error, 'Nearby initiatives could not be loaded.')));
+    if (screen === 'initiative-detail' && accountState !== 'SIGNED_OUT') {
+      const initiativeId = initiativeIdFromPath(window.location.pathname);
+      if (initiativeId && selectedInitiative?.initiativeId !== initiativeId) {
+        loadInitiativeDetail(initiativeId).catch((error) => setInitiativeStatus(citizenSafeError(error, 'The activity could not be loaded.')));
       }
     }
   }, [screen, locationKey, accountState]);
 
   useEffect(() => {
-    if (screen !== 'initiatives' || !initiativeCoordinates) return;
+    if (screen !== 'initiatives') return;
+    discoverInitiatives(false).catch((error) => setInitiativeStatus(citizenSafeError(error, 'Community activities could not be loaded.')));
     const interval = window.setInterval(() => {
       discoverInitiatives(true).catch(() => undefined);
-      loadMyInitiatives(true).catch(() => undefined);
-    }, 5000);
+    }, 30_000);
     return () => window.clearInterval(interval);
-  }, [screen, initiativeCoordinates, initiativeRadiusKm]);
+  }, [screen, communityNearMe, initiativeCoordinates, initiativeRadiusKm, accountUid]);
 
   useEffect(() => {
     if (screen !== 'reports') return;
@@ -851,21 +931,39 @@ function App() {
   }
 
   async function discoverInitiatives(background = false) {
-    if (!initiativeCoordinates) {
-      setInitiativeStatus('Share your location to discover activities nearby.');
-      return;
+    const usingCitizenLocation = communityNearMe && initiativeCoordinates;
+    const coordinates = usingCitizenLocation ? initiativeCoordinates : NANDURBAR_COMMUNITY_ORIGIN;
+    const radiusKm = usingCitizenLocation ? initiativeRadiusKm : NANDURBAR_COMMUNITY_RADIUS_KM;
+    const cacheKey = `${COMMUNITY_CACHE_PREFIX}${accountUid ?? 'device'}.${usingCitizenLocation ? `near-${radiusKm}` : 'nandurbar'}`;
+    if (!background) {
+      setCommunityLoading(true);
+      setInitiativeStatus('');
     }
-    if (!background) setInitiativeStatus('Finding nearby activities…');
-    const idToken = await authenticatedToken();
-    const response = await fetch(`${API_URL}/api/initiatives/nearby`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-      body: JSON.stringify({ ...initiativeCoordinates, radiusKm: initiativeRadiusKm }),
-    });
-    const result: InitiativeDiscovery = await response.json();
-    if (!response.ok) throw new Error(result.message ?? `Discovery failed (${response.status})`);
-    setInitiatives(result.initiatives);
-    if (!background) setInitiativeStatus(result.count ? `${result.count} upcoming activities within ${result.radiusKm} km.` : `No upcoming activities found within ${result.radiusKm} km.`);
+    try {
+      const idToken = await authenticatedToken();
+      const response = await fetch(`${API_URL}/api/initiatives/nearby`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ ...coordinates, radiusKm }),
+      });
+      const result: InitiativeDiscovery = await response.json();
+      if (!response.ok) throw new Error(result.message ?? `Discovery failed (${response.status})`);
+      const ordered = [...result.initiatives].sort((left, right) => Date.parse(left.startAt) - Date.parse(right.startAt));
+      setInitiatives(ordered);
+      setCommunityOffline(false);
+      setCommunityCachedAt(null);
+      window.localStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), initiatives: ordered }));
+    } catch (error) {
+      const cachedValue = window.localStorage.getItem(cacheKey);
+      if (!cachedValue) throw error;
+      const cached = JSON.parse(cachedValue) as { savedAt?: number; initiatives?: Initiative[] };
+      if (!Array.isArray(cached.initiatives)) throw error;
+      setInitiatives(cached.initiatives);
+      setCommunityOffline(true);
+      setCommunityCachedAt(typeof cached.savedAt === 'number' ? cached.savedAt : null);
+    } finally {
+      if (!background) setCommunityLoading(false);
+    }
   }
 
   async function loadMyInitiatives(background = false) {
@@ -877,6 +975,16 @@ function App() {
     const result: InitiativeDiscovery = await response.json();
     if (!response.ok) throw new Error(result.message ?? `Your activities could not be loaded (${response.status})`);
     setMyInitiatives(result.initiatives);
+    const organisers = result.initiatives.filter((initiative) => initiative.canManage && initiative.participationMode === 'APPROVAL_REQUIRED');
+    const requestEntries = await Promise.all(organisers.map(async (initiative) => {
+      const requestResponse = await fetch(`${API_URL}/api/initiatives/${encodeURIComponent(initiative.initiativeId)}/join-requests`, {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const requestResult = await requestResponse.json();
+      if (!requestResponse.ok) throw new Error(requestResult.message ?? `Join requests could not be loaded (${requestResponse.status})`);
+      return [initiative.initiativeId, requestResult.requests as InitiativeJoinRequest[]] as const;
+    }));
+    setInitiativeJoinRequests(Object.fromEntries(requestEntries));
     if (!background && result.count > 0) setInitiativeStatus(`${result.count} joined or organised ${result.count === 1 ? 'activity' : 'activities'} loaded.`);
   }
 
@@ -890,6 +998,7 @@ function App() {
       (position) => {
         const coordinates = { latitude: position.coords.latitude, longitude: position.coords.longitude };
         setInitiativeCoordinates(coordinates);
+        setCommunityNearMe(true);
         setInitiativeStatus('Location captured. Finding activities…');
       },
       () => setInitiativeStatus('Location permission was not provided.'),
@@ -906,6 +1015,10 @@ function App() {
       setInitiativeStatus('Choose the activity date and time.');
       return;
     }
+    if (!initiativeEndAt || Date.parse(initiativeEndAt) <= Date.parse(initiativeStartAt)) {
+      setInitiativeStatus('Choose an end time after the start time.');
+      return;
+    }
     setInitiativeStatus('Publishing activity…');
     const idToken = await authenticatedToken();
     const response = await fetch(`${API_URL}/api/initiatives`, {
@@ -915,10 +1028,16 @@ function App() {
         title: initiativeTitle,
         category: initiativeCategory,
         description: initiativeDescription,
+        publicOrganiserName: initiativePublicOrganiserName,
+        publicOrganiserNameConfirmed: true,
         startAt: new Date(initiativeStartAt).toISOString(),
+        endAt: new Date(initiativeEndAt).toISOString(),
         placeName: initiativePlaceName,
         ...initiativeMeetingPoint,
-        needs: initiativeNeeds,
+        capacity: initiativeCapacity ? Number(initiativeCapacity) : null,
+        neededItems: initiativeNeededItems,
+        organiserMessage: initiativeOrganiserMessage,
+        participationMode: initiativeParticipationMode,
         clientRequestId: initiativeCreateRequestId.current,
       }),
     });
@@ -927,29 +1046,94 @@ function App() {
     setInitiativeTitle('');
     setInitiativeCategory('');
     setInitiativeDescription('');
+    setInitiativePublicOrganiserName('');
     setInitiativeStartAt('');
+    setInitiativeEndAt('');
     setInitiativePlaceName('');
     setInitiativeMeetingPoint(null);
     setInitiativeMeetingPointConfirmed(false);
-    setInitiativeNeeds('');
+    setInitiativeCapacity('');
+    setInitiativeNeededItems([]);
+    setInitiativeNeededItemDraft('');
+    setInitiativeOrganiserMessage('');
+    setInitiativeParticipationMode('OPEN');
+    setInitiativeReviewing(false);
     initiativeCreateRequestId.current = crypto.randomUUID();
+    await loadMyInitiatives(true);
+    navigate('reports');
     setInitiativeStatus('Activity published. You are included as the organiser.');
-    navigate('initiatives');
+    window.setTimeout(() => document.getElementById('my-initiatives')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+  }
+
+  async function loadInitiativeDetail(initiativeId: string) {
+    setInitiativeDetailLoading(true);
+    setInitiativeStatus('');
+    try {
+      const idToken = await authenticatedToken();
+      const response = await fetch(`${API_URL}/api/initiatives/${encodeURIComponent(initiativeId)}`, {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message ?? `Activity could not be loaded (${response.status})`);
+      setSelectedInitiative(result as Initiative);
+    } finally {
+      setInitiativeDetailLoading(false);
+    }
   }
 
   async function joinInitiative(initiativeId: string) {
+    setJoiningInitiativeId(initiativeId);
     setInitiativeStatus('Joining activity…');
+    try {
+      const idToken = await authenticatedToken();
+      const response = await fetch(`${API_URL}/api/initiatives/${encodeURIComponent(initiativeId)}/join`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message ?? `Join failed (${response.status})`);
+      if (result.status === 'APPROVAL_REQUESTED') {
+        setInitiatives((items) => items.map((item) => item.initiativeId === initiativeId
+          ? { ...item, joinRequestedByMe: true }
+          : item));
+        setSelectedInitiative((item) => item?.initiativeId === initiativeId
+          ? { ...item, joinRequestedByMe: true }
+          : item);
+        setInitiativeStatus('Your request was sent to the organiser.');
+        await loadMyInitiatives(true);
+        return;
+      }
+      setInitiatives((items) => items.map((item) => item.initiativeId === initiativeId
+        ? { ...item, participantCount: result.participantCount, joinerCount: result.participantCount - 1, joiningCountVisible: true, joined: true, full: item.capacity !== null && result.participantCount - 1 >= item.capacity }
+        : item));
+      setSelectedInitiative((item) => item?.initiativeId === initiativeId
+        ? { ...item, participantCount: result.participantCount, joinerCount: result.participantCount - 1, joiningCountVisible: true, joined: true, full: item.capacity !== null && result.participantCount - 1 >= item.capacity }
+        : item);
+      setInitiativeStatus(result.status === 'ALREADY_JOINED' ? 'You already joined this activity.' : 'You joined. The live participant count has been updated.');
+      await loadMyInitiatives(true);
+    } finally {
+      setJoiningInitiativeId('');
+    }
+  }
+
+  async function reviewInitiativeJoinRequest(
+    initiativeId: string,
+    requestId: string,
+    decision: 'approve' | 'decline',
+  ) {
+    setInitiativeStatus(decision === 'approve' ? 'Accepting join request…' : 'Declining join request…');
     const idToken = await authenticatedToken();
-    const response = await fetch(`${API_URL}/api/initiatives/${encodeURIComponent(initiativeId)}/join`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${idToken}` },
-    });
+    const response = await fetch(
+      `${API_URL}/api/initiatives/${encodeURIComponent(initiativeId)}/join-requests/${encodeURIComponent(requestId)}/${decision}`,
+      { method: 'POST', headers: { Authorization: `Bearer ${idToken}` } },
+    );
     const result = await response.json();
-    if (!response.ok) throw new Error(result.message ?? `Join failed (${response.status})`);
-    setInitiatives((items) => items.map((item) => item.initiativeId === initiativeId
-      ? { ...item, participantCount: result.participantCount, joined: true }
-      : item));
-    setInitiativeStatus(result.status === 'ALREADY_JOINED' ? 'You already joined this activity.' : 'You joined. The live participant count has been updated.');
+    if (!response.ok) throw new Error(result.message ?? `Join request could not be reviewed (${response.status})`);
+    setInitiativeJoinRequests((values) => ({
+      ...values,
+      [initiativeId]: (values[initiativeId] ?? []).filter((request) => request.requestId !== requestId),
+    }));
+    setInitiativeStatus(decision === 'approve' ? 'Join request accepted.' : 'Join request declined.');
     await loadMyInitiatives(true);
   }
 
@@ -1414,8 +1598,105 @@ function App() {
     if (!template) return;
     setInitiativeTitle(template.title ? t(template.title) : '');
     setInitiativeDescription(template.description ? t(template.description) : '');
-    setInitiativeNeeds(template.needs ? t(template.needs) : '');
+    setInitiativeNeededItems(template.neededItems.map((item) => t(item)));
     setInitiativeStatus('Activity details prefilled. Review and edit every field before publishing.');
+  }
+
+  function addInitiativeNeededItem() {
+    const item = initiativeNeededItemDraft.trim();
+    if (!item || initiativeNeededItems.includes(item) || initiativeNeededItems.length >= 8) return;
+    setInitiativeNeededItems((items) => [...items, item]);
+    setInitiativeNeededItemDraft('');
+  }
+
+  function activityDateTimeValue(date: Date) {
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  }
+
+  function normaliseActivityTime(value: string) {
+    if (!value) return '';
+    const selected = new Date(value);
+    if (!Number.isFinite(selected.getTime())) return value;
+    const hour = new Date(selected);
+    hour.setMinutes(0, 0, 0);
+    const allowedMinutes = [0, 10, 15, 20, 30, 40, 45, 50, 60];
+    const nearestMinute = allowedMinutes.reduce((nearest, minute) => (
+      Math.abs(minute - selected.getMinutes()) < Math.abs(nearest - selected.getMinutes()) ? minute : nearest
+    ), 0);
+    hour.setMinutes(nearestMinute);
+    return activityDateTimeValue(hour);
+  }
+
+  function changeInitiativeStartAt(rawValue: string) {
+    const value = normaliseActivityTime(rawValue);
+    const previousStart = Date.parse(initiativeStartAt);
+    const previousEnd = Date.parse(initiativeEndAt);
+    const nextStart = Date.parse(value);
+    setInitiativeStartAt(value);
+    if (!Number.isFinite(nextStart)) return;
+    const currentDuration = Number.isFinite(previousStart)
+      && Number.isFinite(previousEnd)
+      && previousEnd > previousStart
+      ? previousEnd - previousStart
+      : 2 * 60 * 60 * 1000;
+    setInitiativeEndAt(activityDateTimeValue(new Date(nextStart + currentDuration)));
+  }
+
+  function initialiseInitiativeStartTime() {
+    if (initiativeStartAt) return;
+    const start = new Date();
+    if (start.getMinutes() || start.getSeconds() || start.getMilliseconds()) start.setHours(start.getHours() + 1);
+    start.setMinutes(0, 0, 0);
+    changeInitiativeStartAt(activityDateTimeValue(start));
+  }
+
+  function activityJoiningLabel(initiative: Initiative) {
+    if (initiative.joinerCount === null) return '';
+    return initiative.capacity
+      ? `${initiative.joinerCount} ${t('of')} ${initiative.capacity} ${t('joining')}`
+      : `${initiative.joinerCount} ${t('joining')}`;
+  }
+
+  function activityReminderLabel(initiative: Initiative) {
+    const date = new Date(initiative.startAt);
+    return new Intl.DateTimeFormat(communityLocale, { weekday: 'long', hour: 'numeric', minute: '2-digit' }).format(date);
+  }
+
+  function addActivityToCalendar(initiative: Initiative) {
+    const calendarDate = (value: string) => new Date(value).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+    const escapeCalendar = (value: string) => value.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+    const calendar = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Seewik//Community Activity//EN', 'BEGIN:VEVENT', `UID:${initiative.initiativeId}@seewik.web.app`, `DTSTART:${calendarDate(initiative.startAt)}`, `DTEND:${calendarDate(initiative.endAt || initiative.startAt)}`, `SUMMARY:${escapeCalendar(initiative.title)}`, `DESCRIPTION:${escapeCalendar(initiative.description)}`, `LOCATION:${escapeCalendar(initiative.placeName)}`, `URL:${window.location.href}`, 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+    const url = URL.createObjectURL(new Blob([calendar], { type: 'text/calendar;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${initiative.title.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'seewik-activity'}.ics`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setInitiativeStatus('Calendar reminder downloaded.');
+  }
+
+  async function shareActivity(initiative: Initiative) {
+    const url = `${window.location.origin}/initiatives/${encodeURIComponent(initiative.initiativeId)}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: initiative.title, text: `${initiative.title} · ${initiative.placeName}`, url });
+        setInitiativeStatus('Your device share menu was opened.');
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      const field = document.createElement('textarea');
+      field.value = url;
+      document.body.appendChild(field);
+      field.select();
+      document.execCommand('copy');
+      field.remove();
+    }
+    setInitiativeStatus('Activity link copied.');
   }
 
   async function fileReviewedReport(dedupeOverride = false) {
@@ -1546,6 +1827,8 @@ function App() {
       const summary = await fetchPrivatePoints(token);
       setPrivatePoints(summary);
       setPointsTotal(summary.lifetimePoints);
+      setHeaderPoints(summary.lifetimePoints);
+      if (accountUid) window.localStorage.setItem(`${PRIVATE_POINTS_CACHE_PREFIX}${accountUid}`, String(summary.lifetimePoints));
       setPrivatePointsStatus('');
     } catch (error) {
       setPrivatePointsStatus(citizenSafeError(error, 'Your points could not be loaded.'));
@@ -1658,7 +1941,7 @@ function App() {
     if (result.toStatus === 'FILED') navigate('report-detail', false, draftDocumentId);
   }
 
-  const myInitiativesSection = <section className="actions-subsection initiative-memberships">
+  const myInitiativesSection = <section id="my-initiatives" className="actions-subsection initiative-memberships">
     <div className="actions-section-heading">
       <div><h2>{t('My Initiatives')}</h2><p>{t('Initiatives you organise or join stay here, including their final status.')}</p></div>
       <button className="secondary" onClick={() => loadMyInitiatives().catch((error) => setInitiativeStatus(citizenSafeError(error, 'Your initiatives could not be loaded.')))}>{t('Refresh')}</button>
@@ -1668,26 +1951,31 @@ function App() {
     <div className="initiative-list compact-list" aria-live="polite">
       {myInitiatives.map((initiative) => <article className={`card initiative-card my-action-initiative-card ${initiative.status === 'COMPLETED' ? 'is-completed' : initiative.status === 'CANCELLED' ? 'is-cancelled' : ''}`} key={`mine-${initiative.initiativeId}`}>
         <div className="initiative-card-top">
-          <span className={`initiative-role-chip ${initiative.status === 'COMPLETED' ? 'role-completed' : initiative.status === 'CANCELLED' ? 'role-cancelled' : initiative.role === 'ORGANISER' ? 'role-organising' : 'role-joined'}`}>{initiative.role === 'ORGANISER' ? t('Organising') : t('Joined')}</span>
+          <span className={`initiative-role-chip ${initiative.status === 'COMPLETED' ? 'role-completed' : initiative.status === 'CANCELLED' ? 'role-cancelled' : initiative.role === 'ORGANISER' ? 'role-organising' : initiative.role === 'REQUESTED' ? 'role-requested' : 'role-joined'}`}>{initiative.role === 'ORGANISER' ? t('Organising') : initiative.role === 'REQUESTED' ? t('Approval requested') : t('Joined')}</span>
           <span className="initiative-card-status">{localizedStatus(language, initiative.status)} · {initiative.joinerCount} {t('joined')}</span>
         </div>
         <h3>{initiative.title}</h3>
         <p className="my-action-meeting-point"><span>{timestampLabel(initiative.startAt, language)} · {initiative.placeName}</span>{initiative.mapsUrl && <a href={initiative.mapsUrl} target="_blank" rel="noreferrer">⌖ {t('Open in Google Maps')}</a>}</p>
         {initiative.status === 'CANCELLED' && initiative.cancellationReason && <p><b>{t('Cancellation reason')}:</b> {initiative.cancellationReason}</p>}
         {initiative.canManage && initiative.status === 'PUBLISHED' && <div className="initiative-manage">
+          {initiative.participationMode === 'APPROVAL_REQUIRED' && <section className="join-request-panel">
+            <div><b>{t('Join requests')}</b><span>{(initiativeJoinRequests[initiative.initiativeId] ?? []).length} {t('pending')}</span></div>
+            {(initiativeJoinRequests[initiative.initiativeId] ?? []).map((request, index) => <article key={request.requestId}><span><strong>{t('Citizen request')} {index + 1}</strong><small>{timestampLabel(request.requestedAt, language)}</small></span><div><button className="secondary" onClick={() => requestLinkedMutation(() => reviewInitiativeJoinRequest(initiative.initiativeId, request.requestId, 'decline').catch((error) => setInitiativeStatus(citizenSafeError(error, 'The join request could not be reviewed.'))))}>{t('Decline')}</button><button onClick={() => requestLinkedMutation(() => reviewInitiativeJoinRequest(initiative.initiativeId, request.requestId, 'approve').catch((error) => setInitiativeStatus(citizenSafeError(error, 'The join request could not be reviewed.'))))}>{t('Accept')}</button></div></article>)}
+            {!(initiativeJoinRequests[initiative.initiativeId] ?? []).length && <small>{t('No pending join requests.')}</small>}
+          </section>}
           <label htmlFor={`cancel-reason-${initiative.initiativeId}`}>{t('Cancellation reason')}
             <input id={`cancel-reason-${initiative.initiativeId}`} maxLength={300} value={cancellationReasons[initiative.initiativeId] ?? ''} onChange={(event) => setCancellationReasons((values) => ({ ...values, [initiative.initiativeId]: event.target.value }))} placeholder={t('Required only when cancelling')} />
           </label>
           <div className="draft-actions">
             <button className="secondary" disabled={!cancellationReasons[initiative.initiativeId]?.trim() || initiative.codeAttendanceCount > 0} title={initiative.codeAttendanceCount > 0 ? t('Cancellation is unavailable after code attendance is recorded') : undefined} onClick={() => requestLinkedMutation(() => changeInitiativeStatus(initiative.initiativeId, 'CANCELLED').catch((error) => setInitiativeStatus(citizenSafeError(error, 'The initiative could not be updated.'))))}>{t('Cancel activity')}</button>
-            <button disabled={Date.now() < Date.parse(initiative.startAt)} title={Date.now() < Date.parse(initiative.startAt) ? t('Available after the scheduled activity time') : undefined} onClick={() => requestLinkedMutation(() => changeInitiativeStatus(initiative.initiativeId, 'COMPLETED').catch((error) => setInitiativeStatus(citizenSafeError(error, 'The initiative could not be updated.'))))}>{t('Mark completed')}</button>
+            <button disabled={Date.now() < Date.parse(initiative.endAt || initiative.startAt)} title={Date.now() < Date.parse(initiative.endAt || initiative.startAt) ? t('Available after the scheduled activity time') : undefined} onClick={() => requestLinkedMutation(() => changeInitiativeStatus(initiative.initiativeId, 'COMPLETED').catch((error) => setInitiativeStatus(citizenSafeError(error, 'The initiative could not be updated.'))))}>{t('Mark completed')}</button>
           </div>
         </div>}
-        <div className="attendance-summary" aria-label={t('Attendance summary')}>
+        {initiative.role !== 'REQUESTED' && <div className="attendance-summary" aria-label={t('Attendance summary')}>
           <p><strong>{initiative.codeAttendanceCount} {t('of')} {initiative.joinerCount}</strong> {t('joiners recorded attendance using the organiser’s code.')}</p>
           <p><strong>{initiative.selfAttendanceCount} {t('of')} {initiative.joinerCount}</strong> {t('joiners reported attending.')}</p>
           <small>{t('The organiser is not included in the joiner count. Neither attendance method is independently verified.')}</small>
-        </div>
+        </div>}
         {initiative.attendanceBasis === 'ORGANISER_CODE_ATTESTED' && <div className="attendance-result state-success" role="status"><b>{t('Attendance recorded using the organiser’s code')}</b><span>{t('You earned 20 points. This is organiser-mediated attendance, not independent verification.')}</span></div>}
         {initiative.attendanceBasis === 'SELF_ATTESTED' && <div className="attendance-result state-success" role="status"><b>{t('You reported attending')}</b><span>{t('Self-attendance earns zero points and is not verified.')}</span></div>}
         {initiative.canViewAttendanceCode && <div className="attendance-code-panel">
@@ -1724,6 +2012,35 @@ function App() {
   ];
 
   const navCurrent = (active: boolean) => active ? 'page' as const : undefined;
+  const homeFirstName = accountName?.trim().split(/\s+/)[0] || t('Citizen');
+  const linkedAccount = accountState === 'GOOGLE_LINKED';
+  const communityLocale = language === 'mr' ? 'mr-IN' : language === 'hi' ? 'hi-IN' : 'en-IN';
+  const communityDistanceLabel = (distanceKm: number) => distanceKm < 1
+    ? `${Math.round(distanceKm * 1000).toLocaleString(communityLocale)} m`
+    : `${distanceKm.toLocaleString(communityLocale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km`;
+  const communityDateLimit = communityDateRange === 'WEEK' ? Date.now() + 7 * 24 * 60 * 60 * 1000 : communityDateRange === 'MONTH' ? Date.now() + 30 * 24 * 60 * 60 * 1000 : Number.POSITIVE_INFINITY;
+  const visibleCommunityInitiatives = initiatives.filter((initiative) => (communityCategory === 'ALL' || initiative.category === communityCategory) && Date.parse(initiative.startAt) <= communityDateLimit);
+  const selectedInitiativeTemplate = INITIATIVE_TEMPLATES.find((template) => template.value === initiativeCategory);
+  const openInitiativeFormStep = (step: number) => {
+    if (step > initiativeHighestStep) return;
+    setInitiativeFormStep(step);
+    window.setTimeout(() => document.querySelector(`[data-initiative-step="${step}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  };
+  const advanceInitiativeForm = (step: number) => {
+    const nextStep = Math.min(5, step + 1);
+    setInitiativeHighestStep((highest) => Math.max(highest, nextStep));
+    setInitiativeFormStep(nextStep);
+    window.setTimeout(() => document.querySelector(`[data-initiative-step="${nextStep}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  };
+  const communityIcon = (category: string) => ({
+    BIRTHDAY_DONATION: '□',
+    PLANTATION_DRIVE: '♧',
+    AWARENESS_SESSION: '!',
+    COMMUNITY_YOGA: '◎',
+    MEDITATION_WORKSHOP: '◌',
+    HEALTH_ACTIVITY: '+',
+    OTHER_CIVIC_ACTIVITY: '◇',
+  }[category] ?? '◇');
   const emailChannel = routeResult?.officialChannels?.find((channel) => channel.type === 'EMAIL');
   const formChannel = routeResult?.officialChannels?.find((channel) => channel.type === 'ONLINE_FORM');
   const officeChannel = routeResult?.officialChannels?.find((channel) => channel.type === 'IN_PERSON');
@@ -1732,16 +2049,17 @@ function App() {
     <a className="skip-link" href="#main-content">{t('Skip to main content')}</a>
     <main id="main-content">
     <header className="app-header">
-      <button className="brand-button" onClick={() => navigate('home')} aria-label={t('Seewik home')}>SEEWIK</button>
+      <button className="brand-button" onClick={() => navigate('home')} aria-label={t('Seewik home')}><strong>SEEWIK</strong><small>{t('Civic Action to Community Impact')}</small></button>
       <div className="header-actions">
         <nav className="desktop-nav" aria-label={t('Primary navigation')}>
           <button aria-current={navCurrent(screen === 'home')} className={screen === 'home' ? 'active' : ''} onClick={() => navigate('home')}>{t('Home')}</button>
-          <button aria-current={navCurrent(screen === 'new-report' || screen === 'review')} className={screen === 'new-report' || screen === 'review' ? 'active' : ''} onClick={() => navigate('new-report')}>{t('Report an issue')}</button>
           <button aria-current={navCurrent(screen === 'reports' || screen === 'report-detail')} className={screen === 'reports' || screen === 'report-detail' ? 'active' : ''} onClick={() => navigate('reports')}>{t('My Actions')}</button>
-          <button aria-current={navCurrent(screen === 'initiatives' || screen === 'new-initiative')} className={screen === 'initiatives' || screen === 'new-initiative' ? 'active' : ''} onClick={() => navigate('initiatives')}>{t('Initiate')}</button>
-          <button aria-current={navCurrent(screen === 'points')} className={screen === 'points' ? 'active' : ''} onClick={() => navigate('points')}>{t('My Civic Card')}</button>
+          <button aria-current={navCurrent(screen === 'initiatives' || screen === 'initiative-detail')} className={screen === 'initiatives' || screen === 'initiative-detail' ? 'active' : ''} onClick={() => navigate('initiatives')}>{t('Community')}</button>
+          <button aria-current={navCurrent(screen === 'points')} className={screen === 'points' ? 'active' : ''} onClick={() => navigate('points')}>{t('Civic Card')}</button>
         </nav>
-        <label className="language-switcher"><span>{t('Language')}</span><select aria-label={t('Language')} value={language} onChange={(event) => setLanguage(event.target.value as InterfaceLanguage)}>{LANGUAGE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        <div className="language-switcher" role="group" aria-label={t('Language')}>
+          {([{ value: 'en', label: 'EN', lang: 'en' }, { value: 'mr', label: 'मराठी', lang: 'mr' }, { value: 'hi', label: 'हिंदी', lang: 'hi' }] as const).map((option) => <button type="button" key={option.value} lang={option.lang} className={`language-option ${language === option.value ? 'active' : ''}`} aria-pressed={language === option.value} onClick={() => setLanguage(option.value)}>{option.label}</button>)}
+        </div>
         <button className="header-emergency" onClick={() => navigate('emergency')} aria-label={t('Open Emergency Information — 112')}><strong>112</strong><span>{t('Emergency')}</span></button>
         <AccountControl
           state={accountState}
@@ -1767,7 +2085,18 @@ function App() {
     {['new-report', 'review'].includes(screen) && <div className="page-tools"><span>{t('Saved reports are not deleted by Start over.')}</span><button className="secondary" onClick={startOver}>{t('Start over')}</button></div>}
 
     {screen === 'home' && <>
-      <section className="hero home-intro"><span className="eyebrow">{t('LOCAL CIVIC ACTION')}</span><p>{t('Identify a civic issue, find the confirmed route, prepare a complaint and track the outcome.')}</p></section>
+      <section className="home-greeting" aria-labelledby="home-greeting-title">
+        {accountProfileLoading ? <div className="home-greeting-skeleton" role="status" aria-label={t('Loading your profile')}><span /><span /></div> : <>
+          <div className="home-greeting-line">
+            <h1 id="home-greeting-title">{t('Namaste')}, {linkedAccount ? homeFirstName : t('Citizen')}</h1>
+            <button className="home-civic-points" onClick={() => navigate('points')} aria-label={`${headerPoints ?? 0} ${t('points')}`}>
+              <span className="points-star" aria-hidden="true">★</span>
+              <b>{headerPoints ?? 0}</b>
+              <span>{t('points')}</span>
+            </button>
+          </div>
+        </>}
+      </section>
       <section className="home-actions" aria-label={t('Start using Seewik')}>
         <article className="home-primary-action improve-action">
           <h2>{t('Improve')}</h2>
@@ -1779,7 +2108,7 @@ function App() {
           <h2>{t('Initiate')}</h2>
           <p className="home-action-subtext">{t('Start something good')}</p>
           <p className="home-action-examples">{t('Donation · Plantation · Cleanup · Fitness')}</p>
-          <button onClick={() => navigate('initiatives')}>{t('Start a community activity')}</button>
+          <button onClick={() => navigate('new-initiative')}>{t('Start a community activity')}</button>
         </article>
         <article><h2>{t('My Actions')}</h2><p>{t('Resume drafts and review filed reports. Filed reports can’t be edited.')}</p><button className="secondary" onClick={() => navigate('reports')}>{t('Open My Actions')}</button></article>
         <article><h2>{t('My Civic Card')}</h2><p>{t('See your civic contribution record and how your points were earned.')}</p><button className="secondary" onClick={() => navigate('points')}>{t('Open my Civic Card')}</button></article>
@@ -1792,44 +2121,88 @@ function App() {
     </>}
 
     {screen === 'initiatives' && <>
-      <section className="hero page-hero initiative-hero"><span className="eyebrow">{t('LOCAL INITIATIVES')}</span><h1>{t('Create or join an initiative')}</h1><p>{t('Choose whether you want to start a useful local initiative or join one nearby.')}</p></section>
-      <section className="initiative-choice-grid" aria-label={t('Initiative options')}>
-        <article className="card initiative-choice">
-          <h2>{t('Create an Initiative')}</h2>
-          <p>{t('Start a useful community initiative with a real date and public meeting place.')}</p>
-          <button onClick={() => navigate('new-initiative')}>{t('Create an Initiative')}</button>
-        </article>
-        <article className="card initiative-choice join-choice">
-          <h2>{t('Join an Initiative')}</h2>
-          <p>{t('Find upcoming initiatives near you and join the ones that suit you.')}</p>
-          <button className="secondary" onClick={() => initiativeCoordinates ? discoverInitiatives(false).catch((error) => setInitiativeStatus(citizenSafeError(error, 'Nearby initiatives could not be loaded.'))) : locateForInitiatives()}>{initiativeCoordinates ? t('Refresh nearby') : t('Find nearby initiatives')}</button>
-        </article>
-      </section>
-      <section className="initiative-toolbar card">
-        <div><h2>{t('Nearby activities')}</h2><p>{t('Distance is calculated from the location you choose to share. Your coordinates are used for this request and are not shown to other citizens.')}</p></div>
-        <label>{t('Search radius')}<select value={initiativeRadiusKm} onChange={(event) => setInitiativeRadiusKm(Number(event.target.value))}><option value={2}>2 km</option><option value={5}>5 km</option><option value={10}>10 km</option><option value={25}>25 km</option></select></label>
-        <button className="secondary" onClick={() => initiativeCoordinates ? discoverInitiatives(false).catch((error) => setInitiativeStatus(citizenSafeError(error, 'Nearby initiatives could not be loaded.'))) : locateForInitiatives()}>{initiativeCoordinates ? t('Refresh nearby') : t('Use my location')}</button>
+      <section className="community-page">
+        <div className="community-heading"><span className="eyebrow">{t('COMMUNITY')}</span><h1>{t('Happening in your community')}</h1><p>{t('Browse upcoming civic activities across Nandurbar. Share your location only if you want to narrow the list.')}</p></div>
+        <div className="community-controls" aria-label={t('Community activity controls')}>
+          <button className={`community-chip ${communityNearMe ? 'active' : ''}`} onClick={() => communityNearMe ? setCommunityNearMe(false) : locateForInitiatives()}>{communityNearMe ? `${t('Within')} ${initiativeRadiusKm} km` : t('All Nandurbar')}</button>
+          <button className={`community-chip ${communityFiltersOpen ? 'active' : ''}`} aria-expanded={communityFiltersOpen} aria-controls="community-filters" onClick={() => setCommunityFiltersOpen((open) => !open)}>≡ {communityFiltersOpen ? t('Hide filters') : t('Filter')}</button>
+          <button className="community-chip community-start-chip" onClick={() => navigate('new-initiative')}>＋ {t('Start an initiative')}</button>
+        </div>
+        {communityFiltersOpen && <div id="community-filters" className="community-filter-panel">
+          <label>{t('Activity type')}<select value={communityCategory} onChange={(event) => setCommunityCategory(event.target.value)}><option value="ALL">{t('All activity types')}</option>{INITIATIVE_TEMPLATES.map((template) => <option key={template.value} value={template.value}>{t(template.label)}</option>)}</select></label>
+          <label>{t('Date')}<select value={communityDateRange} onChange={(event) => setCommunityDateRange(event.target.value)}><option value="ALL">{t('Any upcoming date')}</option><option value="WEEK">{t('Next 7 days')}</option><option value="MONTH">{t('Next 30 days')}</option></select></label>
+          {communityNearMe && <label>{t('Distance')}<select value={initiativeRadiusKm} onChange={(event) => setInitiativeRadiusKm(Number(event.target.value))}><option value={2}>2 km</option><option value={5}>5 km</option><option value={10}>10 km</option><option value={25}>25 km</option></select></label>}
+        </div>}
+        {communityOffline && <div className="community-offline-note" role="status">{t('Offline cached activities')}{communityCachedAt ? ` · ${t('Last updated')} ${formatDateTime(language, communityCachedAt)}` : ''}</div>}
         {initiativeStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{runtimeMessage(initiativeStatus)}</div>}
-      </section>
-      <section className="initiative-list" aria-live="polite">
-        {!initiatives.length && !initiativeCoordinates && !initiativeStatus && <div className="card empty-state"><b>{t('Share your location to find nearby initiatives.')}</b><p>{t('Your coordinates are used only for this search and are not shown to other citizens.')}</p><button onClick={locateForInitiatives}>{t('Find nearby initiatives')}</button></div>}
-        {initiatives.map((initiative) => <article className="card initiative-card" key={initiative.initiativeId}>
-          <div className="initiative-card-top"><span className="status-chip">{initiativeCategoryLabel(initiative.category)}</span><span className="live-count"><i aria-hidden="true" />{localizedStatus(language, initiative.status)} · {initiative.participantCount} {initiative.participantCount === 1 ? t('person') : t('people')}</span></div>
-          <h2>{initiative.title}</h2><p>{initiative.description}</p>
-          <dl><div><dt>{t('When')}</dt><dd>{timestampLabel(initiative.startAt, language)}</dd></div><div><dt>{t('Where')}</dt><dd className="meeting-point-display"><span>{initiative.placeName}</span>{initiative.mapsUrl && <a href={initiative.mapsUrl} target="_blank" rel="noreferrer">⌖ {t('Open in Google Maps')}</a>}</dd></div><div><dt>{t('Distance')}</dt><dd>{initiative.distanceKm.toFixed(2)} km</dd></div><div><dt>{t('What is needed')}</dt><dd>{initiative.needs || t('Just bring yourself')}</dd></div></dl>
-          <button disabled={initiative.joined} onClick={() => requestLinkedMutation(() => joinInitiative(initiative.initiativeId).catch((error) => setInitiativeStatus(citizenSafeError(error, 'The initiative could not be joined.'))))}>{initiative.joined ? t('Joined') : t('Join this activity')}</button>
-          <small>{t('Creating or joining alone earns no points. Joined participants can record attendance during the organiser-code window.')}</small>
-        </article>)}
-        {!initiatives.length && initiativeCoordinates && !initiativeStatus.startsWith('Finding') && <div className="card empty-state"><b>{t('No nearby activity is listed yet.')}</b><p>{t('You can create the first one without inventing an impact claim.')}</p><button onClick={() => navigate('new-initiative')}>{t('Create an activity')}</button></div>}
+        <section className="community-feed" aria-live="polite" aria-busy={communityLoading}>
+          {communityLoading && !initiatives.length && Array.from({ length: 3 }, (_, index) => <div className="community-card-skeleton" key={`community-skeleton-${index}`} aria-hidden="true"><span /><div><b /><i /><i /><em /></div></div>)}
+          {!communityLoading && visibleCommunityInitiatives.map((initiative, index) => {
+            const joining = joiningInitiativeId === initiative.initiativeId;
+            const joinDisabled = initiative.joined || initiative.joinRequestedByMe || initiative.full || joining || communityOffline || !navigator.onLine;
+            return <article className={`community-activity-card ${index === 0 ? 'is-next' : 'is-compact'}`} key={initiative.initiativeId}>
+              <div className="community-card-visual"><span className="community-type-icon" aria-hidden="true">{communityIcon(initiative.category)}</span><span className="community-type-chip">{initiativeCategoryLabel(initiative.category)}</span>{index === 0 && <small>{t('Next upcoming')}</small>}</div>
+              <div className="community-card-content">
+                <h2>{initiative.title}</h2>
+                <div className="community-card-meta">
+                  <span><i aria-hidden="true">◷</i>{timestampLabel(initiative.startAt, language)}</span>
+                  <span><i aria-hidden="true">⌖</i>{initiative.placeName}{communityNearMe && Number.isFinite(initiative.distanceKm) ? ` · ${communityDistanceLabel(initiative.distanceKm)}` : ''}</span>
+                  <span><i aria-hidden="true">♙</i>{initiative.publicOrganiserName || t('Citizen organiser')}{initiative.joiningCountVisible ? ` · ${activityJoiningLabel(initiative)}` : ''}</span>
+                </div>
+                {initiative.neededItems?.length > 0 && <div className="activity-needed-chips">{initiative.neededItems.map((item) => <span key={item}>{item}</span>)}</div>}
+                <div className="community-card-actions"><button className="secondary" onClick={() => { setSelectedInitiative(initiative); navigate('initiative-detail', false, initiative.initiativeId); }}>{t('View activity')}</button><button className={initiative.joined || initiative.joinRequestedByMe ? 'secondary joined-button' : ''} disabled={joinDisabled} onClick={() => requestLinkedMutation(() => joinInitiative(initiative.initiativeId).catch((error) => setInitiativeStatus(citizenSafeError(error, 'The initiative could not be joined.'))))}>{initiative.joined ? t('Joined') : initiative.joinRequestedByMe ? t('Approval requested') : initiative.full ? t('Full') : joining ? t('Joining…') : communityOffline || !navigator.onLine ? t('Connect to join') : initiative.participationMode === 'APPROVAL_REQUIRED' ? t('Request to join') : t('Join')}</button></div>
+              </div>
+            </article>;
+          })}
+          {!communityLoading && !visibleCommunityInitiatives.length && <div className="community-empty-state"><b>{initiatives.length ? t('No activities match these filters.') : communityNearMe ? t('No upcoming activities were found within this distance.') : t('No upcoming activities are listed in Nandurbar yet.')}</b><p>{t('You can adjust the list or start a useful activity for your community.')}</p><div>{communityCategory !== 'ALL' || communityDateRange !== 'ALL' ? <button className="secondary" onClick={() => { setCommunityCategory('ALL'); setCommunityDateRange('ALL'); }}>{t('Clear filters')}</button> : communityNearMe ? <><button className="secondary" onClick={() => setCommunityNearMe(false)}>{t('Show all Nandurbar')}</button>{initiativeRadiusKm < 25 && <button className="secondary" onClick={() => setInitiativeRadiusKm((radius) => radius < 5 ? 5 : radius < 10 ? 10 : 25)}>{t('Widen distance')}</button>}</> : null}<button onClick={() => navigate('new-initiative')}>{t('Start an initiative')}</button></div></div>}
+        </section>
+        <button className="community-bottom-start secondary" onClick={() => navigate('new-initiative')}>＋ {t('Start an initiative')}</button>
       </section>
     </>}
 
-    {screen === 'new-initiative' && <section className="card page-card initiative-form">
-      <span className="eyebrow">{t('CREATE AN INITIATIVE')}</span><h2>{t('Start something useful nearby')}</h2><p>{t('Publish the real date, a confirmed public meeting point and what neighbours should bring. Seewik does not claim participation or impact until it happens.')}</p>
-      <label>{t('Activity type')}<select value={initiativeCategory} onChange={(event) => applyInitiativeTemplate(event.target.value)}><option value="" disabled>{t('Choose an activity type')}</option>{INITIATIVE_TEMPLATES.map((template) => <option key={template.value} value={template.value}>{t(template.label)}</option>)}</select><small>{t('Choosing a type prefills editable suggestions. Confirm the real date, place, and details yourself.')}</small></label>
+    {screen === 'initiative-detail' && <section className="activity-detail-page">
+      <button className="activity-back secondary" onClick={() => navigate('initiatives')}>‹ {t('Community')}</button>
+      {initiativeDetailLoading && !selectedInitiative && <div className="activity-detail-skeleton" aria-label={t('Loading activity')}><span /><b /><i /><i /><em /></div>}
+      {!initiativeDetailLoading && !selectedInitiative && <div className="community-empty-state"><b>{t('This activity could not be found.')}</b><button onClick={() => navigate('initiatives')}>{t('Browse community activities')}</button></div>}
+      {selectedInitiative && <article className="activity-detail-card">
+        <div className="activity-detail-banner"><span className="community-type-chip">{initiativeCategoryLabel(selectedInitiative.category)}</span><span className="activity-banner-icon" aria-hidden="true">{communityIcon(selectedInitiative.category)}</span></div>
+        <div className="activity-detail-content">
+          <h1>{selectedInitiative.title}</h1>
+          <p className="activity-time">{timestampLabel(selectedInitiative.startAt, language)}{selectedInitiative.endAt && selectedInitiative.endAt !== selectedInitiative.startAt ? ` · ${t('ends')} ${new Intl.DateTimeFormat(communityLocale, { hour: 'numeric', minute: '2-digit' }).format(new Date(selectedInitiative.endAt))}` : ''}</p>
+          <dl className="activity-facts">
+            <div><dt>{t('Where')}</dt><dd>{selectedInitiative.mapsUrl ? <a href={selectedInitiative.mapsUrl} target="_blank" rel="noreferrer">{selectedInitiative.placeName} ↗</a> : selectedInitiative.placeName}</dd></div>
+            <div><dt>{t('Organised by')}</dt><dd>{selectedInitiative.publicOrganiserName || t('Citizen organiser')}</dd></div>
+            {selectedInitiative.joiningCountVisible && <div><dt>{t('Joining')}</dt><dd>{activityJoiningLabel(selectedInitiative)}</dd></div>}
+          </dl>
+          <section className="activity-description"><h2>{t('About this activity')}</h2><p>{selectedInitiative.description}</p></section>
+          {selectedInitiative.neededItems?.length > 0 && <section className="activity-needed"><h2>{t('What is needed')}</h2><div className="activity-needed-chips">{selectedInitiative.neededItems.map((item) => <span key={item}>{item}</span>)}</div></section>}
+          {selectedInitiative.organiserMessage && <blockquote className="organiser-message"><strong>{t('From the organiser:')}</strong> {selectedInitiative.organiserMessage}</blockquote>}
+          {selectedInitiative.joined && !selectedInitiative.canManage ? <>
+            <div className="joined-confirmation"><strong>✓ {t('Joined')}</strong><span>{t('See you on')} {activityReminderLabel(selectedInitiative)}.</span></div>
+            <div className="joined-actions"><button className="secondary" onClick={() => addActivityToCalendar(selectedInitiative)}>◷ {t('Calendar')}</button><button className="secondary" onClick={() => void shareActivity(selectedInitiative)}>⌯ {t('Share')}</button></div>
+          </> : selectedInitiative.joinRequestedByMe && !selectedInitiative.canManage ? <div className="joined-confirmation"><strong>{t('Approval requested')}</strong><span>{t('The organiser will accept or decline your request.')}</span></div> : !selectedInitiative.canManage && <button className="activity-join-button" disabled={selectedInitiative.full || joiningInitiativeId === selectedInitiative.initiativeId} onClick={() => requestLinkedMutation(() => joinInitiative(selectedInitiative.initiativeId).catch((error) => setInitiativeStatus(citizenSafeError(error, 'The initiative could not be joined.'))))}>{selectedInitiative.full ? t('Full') : joiningInitiativeId === selectedInitiative.initiativeId ? t('Joining…') : selectedInitiative.participationMode === 'APPROVAL_REQUIRED' ? t('Request to join') : t('Join Activity')}</button>}
+          {selectedInitiative.canManage && <section className="organiser-tools"><span className="eyebrow">{t('ORGANISER TOOLS')}</span>{Date.now() >= Date.parse(selectedInitiative.endAt || selectedInitiative.startAt) ? <><h2>{t('Activity day is over — record what happened')}</h2><p>{t('Completion and attendance tools remain protected in My Actions.')}</p></> : <p>{t('Manage this activity and attendance securely in My Actions.')}</p>}<button className="secondary" onClick={() => { navigate('reports'); window.setTimeout(() => document.getElementById('my-initiatives')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); }}>{t('Open organiser tools in My Actions')}</button></section>}
+          {initiativeStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{runtimeMessage(initiativeStatus)}</div>}
+        </div>
+      </article>}
+    </section>}
+
+    {screen === 'new-initiative' && <section className="initiative-create-page">
+      <header className="flow-page-heading initiative-page-heading"><h1>{t('NEW INITIATIVE')}</h1></header>
+      {!initiativeReviewing ? <div className="initiative-form">
+      <section className={`initiative-form-block ${initiativeFormStep === 1 ? 'is-active' : 'is-complete'}`} data-initiative-step="1">
+      <div className="initiative-block-header"><span className="initiative-step">{initiativeFormStep === 1 ? '1' : '✓'}</span><div className="initiative-block-heading"><h2>{t('What are you organising?')}</h2>{initiativeFormStep === 1 && <p>{t('Pick the closest one. You can add details next.')}</p>}</div>{initiativeFormStep !== 1 && <button type="button" className="initiative-step-edit" onClick={() => openInitiativeFormStep(1)}>{t('Edit')}</button>}</div>
+      {initiativeFormStep === 1 ? <>
+      <label>{t('Activity type')}<select value={initiativeCategory} onChange={(event) => applyInitiativeTemplate(event.target.value)}><option value="" disabled>{t('Choose an activity type')}</option>{INITIATIVE_TEMPLATES.map((template) => <option key={template.value} value={template.value}>{t(template.label)} — {t(template.example)}</option>)}</select></label>
+      {selectedInitiativeTemplate && <div className="activity-type-example"><strong>{t(selectedInitiativeTemplate.label)}</strong><span>{t(selectedInitiativeTemplate.example)}</span></div>}
       <label>{t('Title')}<input type="text" maxLength={100} value={initiativeTitle} onChange={(event) => setInitiativeTitle(event.target.value)} /></label>
       <label>{t('Description')}<textarea maxLength={1200} value={initiativeDescription} onChange={(event) => setInitiativeDescription(event.target.value)} /></label>
-      <label>{t('Date and time')}<input type="datetime-local" value={initiativeStartAt} onChange={(event) => setInitiativeStartAt(event.target.value)} /></label>
+      <div className="initiative-next-row"><button type="button" disabled={!initiativeCategory || !initiativeTitle.trim() || !initiativeDescription.trim()} onClick={() => advanceInitiativeForm(1)}>{t('Next')}</button></div>
+      </> : <button type="button" className="initiative-step-summary" onClick={() => openInitiativeFormStep(1)}><strong>{selectedInitiativeTemplate ? t(selectedInitiativeTemplate.label) : t('Activity')}</strong><span>{initiativeTitle}</span></button>}
+      </section>
+      <section className={`initiative-form-block ${initiativeFormStep === 2 ? 'is-active' : initiativeHighestStep >= 2 ? 'is-complete' : 'is-upcoming'}`} data-initiative-step="2">
+      <div className="initiative-block-header"><span className="initiative-step">{initiativeHighestStep > 2 && initiativeFormStep !== 2 ? '✓' : '2'}</span><div className="initiative-block-heading"><h2>{t('Where and when?')}</h2>{initiativeFormStep === 2 && <p>{t('Choose the public meeting place and the complete activity time.')}</p>}</div>{initiativeHighestStep >= 2 && initiativeFormStep !== 2 && <button type="button" className="initiative-step-edit" onClick={() => openInitiativeFormStep(2)}>{t('Edit')}</button>}</div>
+      {initiativeFormStep === 2 ? <>
       <InitiativeMeetingPointPicker language={language} position={initiativeMeetingPoint} onChange={(position) => {
         setInitiativeMeetingPoint(position);
         setInitiativeMeetingPointConfirmed(false);
@@ -1853,18 +2226,69 @@ function App() {
         setInitiativeStatus('Meeting point confirmed.');
       }}>{initiativeMeetingPointConfirmed ? `✓ ${t('Meeting point confirmed')}` : t('Confirm meeting point')}</button>
       {initiativeMeetingPointConfirmed && initiativeMeetingPoint && <div className="confirmed-meeting-point" role="status" aria-live="polite"><div><b>{initiativePlaceName.trim()}</b><span>{t('Confirmed public meeting point')}</span></div><a href={`https://www.google.com/maps/search/?api=1&query=${initiativeMeetingPoint.latitude.toFixed(6)}%2C${initiativeMeetingPoint.longitude.toFixed(6)}`} target="_blank" rel="noreferrer">⌖ {t('Preview in Google Maps')}</a></div>}
-      <label>{t('Additional info (optional)')}<textarea maxLength={500} value={initiativeNeeds} onChange={(event) => setInitiativeNeeds(event.target.value)} /></label>
+      <div className="initiative-time-grid"><label>{t('Start time')}<input type="datetime-local" step={300} value={initiativeStartAt} onFocus={initialiseInitiativeStartTime} onChange={(event) => changeInitiativeStartAt(event.target.value)} /></label><label>{t('End time')}<input type="datetime-local" step={300} min={initiativeStartAt || undefined} value={initiativeEndAt} onChange={(event) => setInitiativeEndAt(normaliseActivityTime(event.target.value))} /></label></div>
+      <div className="initiative-next-row"><button type="button" disabled={!initiativeMeetingPoint || !initiativeMeetingPointConfirmed || !initiativePlaceName.trim() || !initiativeStartAt || !initiativeEndAt || Date.parse(initiativeEndAt) <= Date.parse(initiativeStartAt)} onClick={() => advanceInitiativeForm(2)}>{t('Next')}</button></div>
+      </> : initiativeHighestStep >= 2 ? <button type="button" className="initiative-step-summary" onClick={() => openInitiativeFormStep(2)}><strong>{initiativePlaceName}</strong><span>{initiativeStartAt ? new Intl.DateTimeFormat(communityLocale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(initiativeStartAt)) : ''}</span></button> : <p className="initiative-step-locked">{t('Complete the previous step to continue.')}</p>}
+      </section>
+      <section className={`initiative-form-block ${initiativeFormStep === 3 ? 'is-active' : initiativeHighestStep >= 3 ? 'is-complete' : 'is-upcoming'}`} data-initiative-step="3">
+      <div className="initiative-block-header"><span className="initiative-step">{initiativeHighestStep > 3 && initiativeFormStep !== 3 ? '✓' : '3'}</span><div className="initiative-block-heading"><h2>{t('What is needed?')}</h2>{initiativeFormStep === 3 && <p>{t('People bring what they can. Keep it simple.')}</p>}</div>{initiativeHighestStep >= 3 && initiativeFormStep !== 3 && <button type="button" className="initiative-step-edit" onClick={() => openInitiativeFormStep(3)}>{t('Edit')}</button>}</div>
+      {initiativeFormStep === 3 ? <>
+      <fieldset className="needed-items-editor"><legend>{t('What is needed (optional)')}</legend>{initiativeNeededItems.length > 0 && <div className="activity-needed-chips editable-needed-chips">{initiativeNeededItems.map((item) => <span className="needed-item-chip" key={item}>{item}<button type="button" className="needed-item-remove" aria-label={`${t('Remove item')}: ${item}`} title={t('Remove item')} onClick={() => setInitiativeNeededItems((items) => items.filter((value) => value !== item))}>×</button></span>)}</div>}<div className="needed-item-entry"><input type="text" maxLength={80} value={initiativeNeededItemDraft} placeholder={t('For example, gloves')} onChange={(event) => setInitiativeNeededItemDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addInitiativeNeededItem(); } }} /><button type="button" className="secondary" disabled={!initiativeNeededItemDraft.trim() || initiativeNeededItems.length >= 8} onClick={addInitiativeNeededItem}>{t('Add')}</button></div><small>{t('Suggested items are prefilled from the activity type. Remove any with × or add your own.')}</small></fieldset>
+      <div className="initiative-next-row"><button type="button" onClick={() => advanceInitiativeForm(3)}>{t('Next')}</button></div>
+      </> : initiativeHighestStep >= 3 ? <button type="button" className="initiative-step-summary" onClick={() => openInitiativeFormStep(3)}><strong>{initiativeNeededItems.length} {t('items')}</strong><span>{initiativeNeededItems.slice(0, 3).join(' · ') || t('Nothing needed')}</span></button> : <p className="initiative-step-locked">{t('Complete the previous step to continue.')}</p>}
+      </section>
+      <section className={`initiative-form-block ${initiativeFormStep === 4 ? 'is-active' : initiativeHighestStep >= 4 ? 'is-complete' : 'is-upcoming'}`} data-initiative-step="4">
+      <div className="initiative-block-header"><span className="initiative-step">{initiativeHighestStep > 4 && initiativeFormStep !== 4 ? '✓' : '4'}</span><div className="initiative-block-heading"><h2>{t('Who can participate?')}</h2>{initiativeFormStep === 4 && <p>{t('Open is friendliest for a first activity.')}</p>}</div>{initiativeHighestStep >= 4 && initiativeFormStep !== 4 && <button type="button" className="initiative-step-edit" onClick={() => openInitiativeFormStep(4)}>{t('Edit')}</button>}</div>
+      {initiativeFormStep === 4 ? <>
+      <div className="participation-options" role="radiogroup" aria-label={t('Who can participate?')}>
+        {([
+          ['OPEN', 'Anyone can join', 'No approval needed'],
+          ['CAPPED', 'Cap the numbers', 'Stops at your maximum'],
+          ['APPROVAL_REQUIRED', 'Approval required', 'You accept each request'],
+        ] as const).map(([value, title, description]) => <label className={initiativeParticipationMode === value ? 'selected' : ''} key={value}><input type="radio" name="participation-mode" value={value} checked={initiativeParticipationMode === value} onChange={() => { setInitiativeParticipationMode(value); if (value !== 'CAPPED') setInitiativeCapacity(''); }} /><span><strong>{t(title)}</strong><small>{t(description)}</small></span></label>)}
+      </div>
+      {initiativeParticipationMode === 'CAPPED' && <label>{t('Maximum participants')}<input type="number" inputMode="numeric" min={1} max={500} value={initiativeCapacity} onChange={(event) => setInitiativeCapacity(event.target.value)} /></label>}
+      <div className="initiative-next-row"><button type="button" disabled={initiativeParticipationMode === 'CAPPED' && (!initiativeCapacity || Number(initiativeCapacity) < 1 || Number(initiativeCapacity) > 500)} onClick={() => advanceInitiativeForm(4)}>{t('Next')}</button></div>
+      </> : initiativeHighestStep >= 4 ? <button type="button" className="initiative-step-summary" onClick={() => openInitiativeFormStep(4)}><strong>{t(initiativeParticipationMode === 'OPEN' ? 'Anyone can join' : initiativeParticipationMode === 'CAPPED' ? 'Cap the numbers' : 'Approval required')}</strong>{initiativeParticipationMode === 'CAPPED' && <span>{initiativeCapacity} {t('maximum')}</span>}</button> : <p className="initiative-step-locked">{t('Complete the previous step to continue.')}</p>}
+      </section>
+      <section className={`initiative-form-block ${initiativeFormStep === 5 ? 'is-active' : 'is-upcoming'}`} data-initiative-step="5">
+      <div className="initiative-block-header"><span className="initiative-step">5</span><div className="initiative-block-heading"><h2>{t('Message and review')}</h2>{initiativeFormStep === 5 && <p>{t('Add a final note, then check the activity before publishing.')}</p>}</div></div>
+      {initiativeFormStep === 5 ? <>
+      <label>{t('Your name, as the city will see it')}<input type="text" maxLength={60} value={initiativePublicOrganiserName} onChange={(event) => setInitiativePublicOrganiserName(event.target.value)} /><small>{t('This name will appear publicly on the activity.')}</small></label>
+      <label>{t('Message from the organiser (optional)')}<textarea maxLength={500} value={initiativeOrganiserMessage} placeholder={t('For example: Saplings are arranged. Bring a cap and water.')} onChange={(event) => setInitiativeOrganiserMessage(event.target.value)} /></label>
       <div className={`publish-requirements${initiativePublishRequirements.length ? '' : ' is-complete'}`} role="status" aria-live="polite">
-        <b>{initiativePublishRequirements.length ? t('Before you can publish') : `✓ ${t('Ready to publish')}`}</b>
+        <b>{initiativePublishRequirements.length ? t('Before you can review') : `✓ ${t('Ready to review')}`}</b>
         {initiativePublishRequirements.length > 0 && <ul>{initiativePublishRequirements.map((requirement) => <li key={requirement}>{t(requirement)}</li>)}</ul>}
         {!initiativePublishRequirements.length && <span>{t('The meeting point and required activity details are confirmed.')}</span>}
       </div>
-      <div className="draft-actions"><button className="secondary" onClick={() => navigate('initiatives')}>{t('Cancel')}</button><button disabled={initiativePublishRequirements.length > 0} onClick={() => requestLinkedMutation(() => createInitiative().catch((error) => setInitiativeStatus(citizenSafeError(error, 'The initiative could not be published.'))))}>{t('Publish activity')}</button></div>
+      <div className="draft-actions"><button className="secondary" onClick={() => navigate('initiatives')}>{t('Cancel')}</button><button disabled={initiativePublishRequirements.length > 0} onClick={() => { setInitiativeReviewing(true); setInitiativeStatus(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>{t('Review activity')}</button></div>
       {initiativeStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{runtimeMessage(initiativeStatus)}</div>}
+      </> : <p className="initiative-step-locked">{t('Complete the previous step to continue.')}</p>}
+      </section>
+      </div> : <section className="initiative-review">
+        <div className="initiative-review-heading"><span className="eyebrow">{t('PRIVATE REVIEW')}</span><h2>{t('Check what joiners will see')}</h2><p>{t('Nothing has been published yet. Check every prefilled detail before continuing.')}</p></div>
+        <article className="activity-detail-card">
+          <div className="activity-detail-banner"><span className="community-type-chip">{initiativeCategoryLabel(initiativeCategory)}</span><span className="activity-banner-icon" aria-hidden="true">{communityIcon(initiativeCategory)}</span></div>
+          <div className="activity-detail-content">
+            <h2 className="initiative-preview-title">{initiativeTitle}</h2>
+            <p className="activity-time">{timestampLabel(new Date(initiativeStartAt).toISOString(), language)} · {t('ends')} {new Intl.DateTimeFormat(communityLocale, { hour: 'numeric', minute: '2-digit' }).format(new Date(initiativeEndAt))}</p>
+            <dl className="activity-facts">
+              <div><dt>{t('Where')}</dt><dd>{initiativePlaceName}</dd></div>
+              <div><dt>{t('Organised by')}</dt><dd>{initiativePublicOrganiserName}</dd></div>
+              <div><dt>{t('Participation')}</dt><dd>{t(initiativeParticipationMode === 'OPEN' ? 'Anyone can join' : initiativeParticipationMode === 'CAPPED' ? 'Cap the numbers' : 'Approval required')}{initiativeParticipationMode === 'CAPPED' ? ` · ${initiativeCapacity} ${t('maximum')}` : ''}</dd></div>
+            </dl>
+            <section className="activity-description"><h3>{t('About this activity')}</h3><p>{initiativeDescription}</p></section>
+            {initiativeNeededItems.length > 0 && <section className="activity-needed"><h3>{t('What is needed')}</h3><div className="activity-needed-chips">{initiativeNeededItems.map((item) => <span key={item}>{item}</span>)}</div></section>}
+            {initiativeOrganiserMessage && <blockquote className="organiser-message"><strong>{t('From the organiser:')}</strong> {initiativeOrganiserMessage}</blockquote>}
+            <div className="draft-actions initiative-review-actions"><button className="secondary" onClick={() => { setInitiativeReviewing(false); setInitiativeFormStep(5); setInitiativeHighestStep(5); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>{t('Edit activity')}</button><button onClick={() => requestLinkedMutation(() => createInitiative().catch((error) => setInitiativeStatus(citizenSafeError(error, 'The initiative could not be published.'))))}>{t('Publish activity')}</button></div>
+            {initiativeStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{runtimeMessage(initiativeStatus)}</div>}
+          </div>
+        </article>
+      </section>}
     </section>}
 
     {screen === 'new-report' && <>
-    <section className="hero page-hero"><span className="eyebrow">{t('NEW REPORT')}</span><h1>{t('Find the right civic route')}</h1><p>{t('Automatic classification may suggest a category. You confirm it, and Civic Pack determines the route.')}</p></section>
+    <header className="flow-page-heading report-page-heading"><h1>{t('NEW REPORT')}</h1></header>
     <section className="card report-flow-card">
       <div className="signal" aria-hidden="true" /><h2>{t('Find the civic route')}</h2>
       <p>{t('Start with a photo or short description. Seewik may suggest an issue category, but you confirm it before finding the right office.')}</p>
@@ -2176,7 +2600,7 @@ function App() {
     <nav className="mobile-nav" aria-label={t('Mobile navigation')}>
       <button aria-current={navCurrent(screen === 'home')} className={screen === 'home' ? 'active' : ''} onClick={() => navigate('home')}><span aria-hidden="true">⌂</span>{t('Home')}</button>
       <button aria-current={navCurrent(screen === 'new-report' || screen === 'review')} className={screen === 'new-report' || screen === 'review' ? 'active' : ''} onClick={() => navigate('new-report')}><span aria-hidden="true">＋</span>{t('Report')}</button>
-      <button aria-current={navCurrent(screen === 'initiatives' || screen === 'new-initiative')} className={screen === 'initiatives' || screen === 'new-initiative' ? 'active' : ''} onClick={() => navigate('initiatives')}><span aria-hidden="true">◎</span>{t('Initiate')}</button>
+      <button aria-current={navCurrent(screen === 'initiatives')} className={screen === 'initiatives' ? 'active' : ''} onClick={() => navigate('initiatives')}><span aria-hidden="true">◎</span>{t('Community')}</button>
       <button aria-current={navCurrent(screen === 'reports' || screen === 'report-detail')} className={screen === 'reports' || screen === 'report-detail' ? 'active' : ''} onClick={() => navigate('reports')}><span aria-hidden="true">≡</span>{t('Actions')}</button>
       <button aria-current={navCurrent(screen === 'points')} className={screen === 'points' ? 'active' : ''} onClick={() => navigate('points')}><span aria-hidden="true">◆</span>{t('Civic Card')}</button>
     </nav>

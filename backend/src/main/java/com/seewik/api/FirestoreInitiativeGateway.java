@@ -100,6 +100,7 @@ public class FirestoreInitiativeGateway implements InitiativeGateway {
                     .get().get().getDocuments();
             List<CitizenInitiative> result = new ArrayList<>();
             for (QueryDocumentSnapshot participation : participations) {
+                if ("DECLINED".equals(participation.getString("role"))) continue;
                 String initiativeId = participation.getString("initiativeId");
                 if (initiativeId == null || initiativeId.isBlank()) continue;
                 DocumentSnapshot initiative = store
@@ -138,7 +139,18 @@ public class FirestoreInitiativeGateway implements InitiativeGateway {
                 }
                 Map<String, Object> initiative = new LinkedHashMap<>(initiativeSnapshot.getData());
                 DocumentSnapshot existing = transaction.get(participationRef).get();
-                if (existing.exists()) return new JoinResult(Map.copyOf(initiative), true);
+                if (existing.exists()) {
+                    if ("DECLINED".equals(existing.getString("role"))
+                            && "APPROVAL_REQUIRED".equals(String.valueOf(initiative.get("participationMode")))) {
+                        transaction.update(participationRef, Map.of(
+                                "role", "REQUESTED",
+                                "status", "PENDING",
+                                "requestedAt", occurredAt.toString()));
+                        return new JoinResult(Map.copyOf(initiative), false, true);
+                    }
+                    boolean requested = "REQUESTED".equals(existing.getString("role"));
+                    return new JoinResult(Map.copyOf(initiative), !requested, requested);
+                }
 
                 Instant startAt = requiredInstant(initiative.get("startAt"), "The activity date could not be verified");
                 Instant codeWindowEndsAt = startAt.plus(InitiativeService.CODE_WINDOW);
@@ -153,6 +165,25 @@ public class FirestoreInitiativeGateway implements InitiativeGateway {
                 }
 
                 int count = initiative.get("participantCount") instanceof Number number ? number.intValue() : 0;
+                int capacity = initiative.get("capacity") instanceof Number number ? number.intValue() : 0;
+                if (capacity > 0 && Math.max(0, count - 1) >= capacity) {
+                    throw new InitiativeService.InitiativeException(
+                            "INITIATIVE_NOT_JOINABLE", "This activity is full");
+                }
+                if ("APPROVAL_REQUIRED".equals(String.valueOf(initiative.get("participationMode")))) {
+                    String eventId = "evt_" + InitiativeService.hash(
+                            initiativeId + ":INITIATIVE_JOIN_REQUESTED:" + ownerUid);
+                    Map<String, Object> event = InitiativeService.event(
+                            eventId, initiativeId, "INITIATIVE_JOIN_REQUESTED", ownerUid, occurredAt);
+                    Map<String, Object> participation = InitiativeService.participation(
+                            participationId, initiativeId, ownerUid, "REQUESTED", occurredAt);
+                    participation.put("status", "PENDING");
+                    participation.put("requestedAt", occurredAt.toString());
+                    participation.remove("joinedAt");
+                    transaction.create(participationRef, participation);
+                    transaction.create(initiativeRef.collection("events").document(eventId), event);
+                    return new JoinResult(Map.copyOf(initiative), false, true);
+                }
                 int updatedCount = count + 1;
                 String eventId = "evt_" + InitiativeService.hash(
                         initiativeId + ":INITIATIVE_JOINED:" + ownerUid);
@@ -182,6 +213,108 @@ public class FirestoreInitiativeGateway implements InitiativeGateway {
             while (cause instanceof ExecutionException && cause.getCause() != null) cause = cause.getCause();
             if (cause instanceof InitiativeService.InitiativeException initiativeException) throw initiativeException;
             throw failure("INITIATIVE_STORE_FAILED", "The activity join could not be saved", cause);
+        }
+    }
+
+    @Override
+    public List<JoinRequest> listJoinRequests(String ownerUid, String initiativeId) {
+        Firestore store = firebase.firestore();
+        try {
+            DocumentSnapshot initiative = store.collection("initiatives").document(initiativeId).get().get();
+            if (!initiative.exists()) {
+                throw new InitiativeService.InitiativeException("INITIATIVE_NOT_FOUND", "Activity was not found");
+            }
+            if (!ownerUid.equals(initiative.getString("ownerUid"))) {
+                throw new InitiativeService.InitiativeException(
+                        "INITIATIVE_FORBIDDEN", "Only the organiser can view join requests");
+            }
+            List<JoinRequest> result = new ArrayList<>();
+            for (QueryDocumentSnapshot participation : store.collection("initiativeParticipations")
+                    .whereEqualTo("initiativeId", initiativeId).get().get().getDocuments()) {
+                if (!"REQUESTED".equals(participation.getString("role"))) continue;
+                result.add(new JoinRequest(participation.getId(), String.valueOf(participation.get("requestedAt"))));
+            }
+            return List.copyOf(result);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw failure("INITIATIVE_STORE_INTERRUPTED", "Join requests could not be loaded", exception);
+        } catch (ExecutionException exception) {
+            Throwable cause = unwrap(exception);
+            if (cause instanceof InitiativeService.InitiativeException initiativeException) throw initiativeException;
+            throw failure("INITIATIVE_STORE_FAILED", "Join requests could not be loaded", cause);
+        }
+    }
+
+    @Override
+    public ReviewJoinRequestResult reviewJoinRequest(
+            String ownerUid,
+            String initiativeId,
+            String requestId,
+            boolean approved,
+            Instant occurredAt) {
+        Firestore store = firebase.firestore();
+        DocumentReference initiativeRef = store.collection("initiatives").document(initiativeId);
+        DocumentReference requestRef = store.collection("initiativeParticipations").document(requestId);
+        try {
+            return store.runTransaction(transaction -> {
+                DocumentSnapshot initiativeSnapshot = transaction.get(initiativeRef).get();
+                DocumentSnapshot requestSnapshot = transaction.get(requestRef).get();
+                if (!initiativeSnapshot.exists() || !requestSnapshot.exists()) {
+                    throw new InitiativeService.InitiativeException("INITIATIVE_NOT_FOUND", "Join request was not found");
+                }
+                Map<String, Object> initiative = new LinkedHashMap<>(initiativeSnapshot.getData());
+                if (!ownerUid.equals(initiative.get("ownerUid"))) {
+                    throw new InitiativeService.InitiativeException(
+                            "INITIATIVE_FORBIDDEN", "Only the organiser can review join requests");
+                }
+                if (!initiativeId.equals(requestSnapshot.getString("initiativeId"))) {
+                    throw new InitiativeService.InitiativeException("INITIATIVE_NOT_FOUND", "Join request was not found");
+                }
+                String role = requestSnapshot.getString("role");
+                if (!"REQUESTED".equals(role)) {
+                    boolean alreadyApproved = "PARTICIPANT".equals(role);
+                    return new ReviewJoinRequestResult(
+                            integerValue(initiative.get("participantCount")), alreadyApproved, true);
+                }
+                int count = integerValue(initiative.get("participantCount"));
+                if (!approved) {
+                    transaction.update(requestRef, Map.of(
+                            "role", "DECLINED",
+                            "status", "DECLINED",
+                            "reviewedAt", occurredAt.toString()));
+                    return new ReviewJoinRequestResult(count, false, false);
+                }
+                int capacity = integerValue(initiative.get("capacity"));
+                if (capacity > 0 && Math.max(0, count - 1) >= capacity) {
+                    throw new InitiativeService.InitiativeException("INITIATIVE_NOT_JOINABLE", "This activity is full");
+                }
+                int updatedCount = count + 1;
+                String participantUid = requestSnapshot.getString("ownerUid");
+                String eventId = "evt_" + InitiativeService.hash(
+                        initiativeId + ":INITIATIVE_JOINED:" + participantUid);
+                String ledgerEntryId = "pts_" + InitiativeService.hash(
+                        initiativeId + ":INITIATIVE_JOINED:" + participantUid);
+                transaction.update(requestRef, Map.of(
+                        "role", "PARTICIPANT",
+                        "status", "JOINED",
+                        "joinedAt", occurredAt.toString(),
+                        "reviewedAt", occurredAt.toString()));
+                transaction.create(initiativeRef.collection("events").document(eventId), InitiativeService.event(
+                        eventId, initiativeId, "INITIATIVE_JOINED", participantUid, occurredAt));
+                transaction.create(store.collection("pointsLedger").document(ledgerEntryId), InitiativeService.ledger(
+                        ledgerEntryId, initiativeId, eventId, participantUid, "INITIATIVE_JOINED", occurredAt));
+                transaction.update(initiativeRef, Map.of(
+                        "participantCount", updatedCount,
+                        "updatedAt", occurredAt.toString()));
+                return new ReviewJoinRequestResult(updatedCount, true, false);
+            }).get();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw failure("INITIATIVE_STORE_INTERRUPTED", "The join request could not be reviewed", exception);
+        } catch (ExecutionException exception) {
+            Throwable cause = unwrap(exception);
+            if (cause instanceof InitiativeService.InitiativeException initiativeException) throw initiativeException;
+            throw failure("INITIATIVE_STORE_FAILED", "The join request could not be reviewed", cause);
         }
     }
 
@@ -220,11 +353,13 @@ public class FirestoreInitiativeGateway implements InitiativeGateway {
                 DocumentReference organiserLedgerRef = store.collection("pointsLedger").document(organiserLedgerId);
                 DocumentSnapshot organiserLedgerSnapshot = transaction.get(organiserLedgerRef).get();
                 if ("COMPLETED".equals(targetStatus)) {
-                    Instant startAt = requiredInstant(
-                            initiative.get("startAt"), "The activity date could not be verified");
-                    if (occurredAt.isBefore(startAt)) {
+                    Object completionTime = initiative.get("endAt") == null
+                            ? initiative.get("startAt")
+                            : initiative.get("endAt");
+                    Instant endAt = requiredInstant(completionTime, "The activity end time could not be verified");
+                    if (occurredAt.isBefore(endAt)) {
                         throw new InitiativeService.InitiativeException(
-                                "INITIATIVE_NOT_STARTED", "This activity can be completed after its scheduled time");
+                                "INITIATIVE_NOT_STARTED", "This activity can be completed after its scheduled end time");
                     }
                 } else if (summary.codeAttendance() > 0) {
                     throw new InitiativeService.InitiativeException(
@@ -634,6 +769,10 @@ public class FirestoreInitiativeGateway implements InitiativeGateway {
         } catch (DateTimeParseException exception) {
             throw new InitiativeService.InitiativeException("INITIATIVE_STORE_FAILED", message);
         }
+    }
+
+    private static int integerValue(Object value) {
+        return value instanceof Number number ? number.intValue() : 0;
     }
 
     private static Throwable unwrap(Throwable throwable) {

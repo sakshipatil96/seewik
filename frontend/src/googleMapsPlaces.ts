@@ -1,4 +1,4 @@
-type GoogleMapsRoot = {
+export type GoogleMapsRoot = {
   importLibrary: (library: string) => Promise<unknown>;
 };
 
@@ -96,4 +96,8 @@ async function loadMapsRoot(): Promise<GoogleMapsRoot> {
 export async function loadGooglePlaces(): Promise<GooglePlacesLibrary> {
   const maps = await loadMapsRoot();
   return await maps.importLibrary('places') as GooglePlacesLibrary;
+}
+
+export async function loadGoogleMaps(): Promise<GoogleMapsRoot> {
+  return await loadMapsRoot();
 }

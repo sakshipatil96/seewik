@@ -1,7 +1,8 @@
 import boundaryGeoJsonText from '../../data/prabhags/official-map-digitized-boundaries-v0.1.geojson?raw';
-import { useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { translate, type InterfaceLanguage } from './i18n';
 import GoogleMeetingPointSearch, { type GoogleMeetingPointSelection } from './GoogleMeetingPointSearch';
+import { googlePlaceSearchConfigured, loadGoogleMaps } from './googleMapsPlaces';
 import './InitiativeMeetingPointPicker.css';
 
 export type MeetingPointPosition = { latitude: number; longitude: number };
@@ -23,6 +24,23 @@ type Props = {
 const VIEW_WIDTH = 720;
 const VIEW_HEIGHT = 540;
 const PADDING = 28;
+
+type GoogleLatLng = { lat: () => number; lng: () => number };
+type GoogleMapEvent = { latLng?: GoogleLatLng };
+type GoogleMapInstance = {
+  addListener: (event: string, handler: (value: GoogleMapEvent) => void) => void;
+  panTo: (position: { lat: number; lng: number }) => void;
+};
+type GoogleMarkerInstance = {
+  position: { lat: number; lng: number };
+  addListener: (event: string, handler: (value: GoogleMapEvent) => void) => void;
+};
+type GoogleMapsLibrary = {
+  Map: new (element: HTMLElement, options: Record<string, unknown>) => GoogleMapInstance;
+};
+type GoogleMarkerLibrary = {
+  AdvancedMarkerElement: new (options: Record<string, unknown>) => GoogleMarkerInstance;
+};
 
 function collectionFromSource(): BoundaryCollection | null {
   try {
@@ -81,93 +99,80 @@ function geometry(features: BoundaryFeature[]) {
 
 const mapGeometry = collection ? geometry(collection.features) : null;
 
-function ringPath(ring: Coordinate[]) {
-  if (!mapGeometry) return '';
-  return ring.map((coordinate, index) => {
-    const [x, y] = mapGeometry.point(coordinate);
-    return `${index === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`;
-  }).join(' ') + ' Z';
-}
-
-function labelPoint(ring: Coordinate[]): Coordinate {
-  if (!mapGeometry) return [0, 0];
-  const points = ring.slice(0, -1).map(mapGeometry.point);
-  return [
-    points.reduce((total, [x]) => total + x, 0) / points.length,
-    points.reduce((total, [, y]) => total + y, 0) / points.length,
-  ];
-}
-
 export default function InitiativeMeetingPointPicker({ language, position, onChange, onGooglePlaceSelect }: Props) {
   const t = (source: string) => translate(language, source);
-  const [dragging, setDragging] = useState(false);
+  const [googleMapState, setGoogleMapState] = useState<'LOADING' | 'READY' | 'ERROR'>(
+    googlePlaceSearchConfigured() ? 'LOADING' : 'ERROR',
+  );
+  const googleMapElement = useRef<HTMLDivElement | null>(null);
+  const googleMap = useRef<GoogleMapInstance | null>(null);
+  const googleMarker = useRef<GoogleMarkerInstance | null>(null);
+  const onChangeRef = useRef(onChange);
 
-  function updatePosition(next: MeetingPointPosition) {
-    onChange({
-      latitude: Number(next.latitude.toFixed(6)),
-      longitude: Number(next.longitude.toFixed(6)),
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
+    let active = true;
+    if (!googleMapElement.current || !googlePlaceSearchConfigured()) return;
+    Promise.all([
+      loadGoogleMaps().then((root) => root.importLibrary('maps') as Promise<GoogleMapsLibrary>),
+      loadGoogleMaps().then((root) => root.importLibrary('marker') as Promise<GoogleMarkerLibrary>),
+    ]).then(([mapsLibrary, markerLibrary]) => {
+      if (!active || !googleMapElement.current) return;
+      const centre = position
+        ? { lat: position.latitude, lng: position.longitude }
+        : { lat: 21.3707, lng: 74.2403 };
+      const map = new mapsLibrary.Map(googleMapElement.current, {
+        center: centre,
+        zoom: position ? 17 : 13,
+        mapId: 'DEMO_MAP_ID',
+        streetViewControl: false,
+        mapTypeControl: false,
+        fullscreenControl: true,
+        restriction: mapGeometry ? {
+          latLngBounds: {
+            south: mapGeometry.bounds.minLatitude,
+            west: mapGeometry.bounds.minLongitude,
+            north: mapGeometry.bounds.maxLatitude,
+            east: mapGeometry.bounds.maxLongitude,
+          },
+          strictBounds: false,
+        } : undefined,
+      });
+      const marker = new markerLibrary.AdvancedMarkerElement({
+        map,
+        position: centre,
+        gmpDraggable: true,
+        title: t('Meeting point'),
+      });
+      map.addListener('click', (event) => {
+        if (!event.latLng) return;
+        const next = { latitude: event.latLng.lat(), longitude: event.latLng.lng() };
+        marker.position = { lat: next.latitude, lng: next.longitude };
+        onChangeRef.current(next);
+      });
+      marker.addListener('dragend', (event) => {
+        if (!event.latLng) return;
+        onChangeRef.current({ latitude: event.latLng.lat(), longitude: event.latLng.lng() });
+      });
+      googleMap.current = map;
+      googleMarker.current = marker;
+      setGoogleMapState('READY');
+    }).catch(() => {
+      if (active) setGoogleMapState('ERROR');
     });
-  }
+    return () => { active = false; };
+  }, []);
 
-  function positionFromPointer(event: PointerEvent<HTMLButtonElement>) {
-    if (!mapGeometry) return;
-    const rectangle = event.currentTarget.getBoundingClientRect();
-    const x = (event.clientX - rectangle.left) / rectangle.width * VIEW_WIDTH;
-    const y = (event.clientY - rectangle.top) / rectangle.height * VIEW_HEIGHT;
-    updatePosition(mapGeometry.position(x, y));
-  }
+  useEffect(() => {
+    if (!position || !googleMap.current || !googleMarker.current) return;
+    const next = { lat: position.latitude, lng: position.longitude };
+    googleMarker.current.position = next;
+    googleMap.current.panTo(next);
+  }, [position]);
 
-  function beginMove(event: PointerEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setDragging(true);
-    positionFromPointer(event);
-  }
-
-  function continueMove(event: PointerEvent<HTMLButtonElement>) {
-    if (dragging) positionFromPointer(event);
-  }
-
-  function finishMove(event: PointerEvent<HTMLButtonElement>) {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    setDragging(false);
-  }
-
-  function moveWithKeyboard(event: KeyboardEvent<HTMLButtonElement>) {
-    if (!mapGeometry) return;
-    if (event.key === 'Enter' || event.key === ' ') {
-      if (!position) {
-        event.preventDefault();
-        updatePosition({
-          latitude: (mapGeometry.bounds.minLatitude + mapGeometry.bounds.maxLatitude) / 2,
-          longitude: (mapGeometry.bounds.minLongitude + mapGeometry.bounds.maxLongitude) / 2,
-        });
-      }
-      return;
-    }
-    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
-    event.preventDefault();
-    const current = position ?? {
-      latitude: (mapGeometry.bounds.minLatitude + mapGeometry.bounds.maxLatitude) / 2,
-      longitude: (mapGeometry.bounds.minLongitude + mapGeometry.bounds.maxLongitude) / 2,
-    };
-    const latitudeStep = mapGeometry.latitudeSpan / 80;
-    const longitudeStep = mapGeometry.longitudeSpan / 80;
-    updatePosition({
-      latitude: Math.max(mapGeometry.bounds.minLatitude, Math.min(
-        mapGeometry.bounds.maxLatitude,
-        current.latitude + (event.key === 'ArrowUp' ? latitudeStep : event.key === 'ArrowDown' ? -latitudeStep : 0),
-      )),
-      longitude: Math.max(mapGeometry.bounds.minLongitude, Math.min(
-        mapGeometry.bounds.maxLongitude,
-        current.longitude + (event.key === 'ArrowRight' ? longitudeStep : event.key === 'ArrowLeft' ? -longitudeStep : 0),
-      )),
-    });
-  }
-
-  const marker = position && mapGeometry ? mapGeometry.point([position.longitude, position.latitude]) : null;
   const googleBounds = mapGeometry ? {
     south: mapGeometry.bounds.minLatitude,
     west: mapGeometry.bounds.minLongitude,
@@ -177,41 +182,16 @@ export default function InitiativeMeetingPointPicker({ language, position, onCha
 
   return <section className="meeting-point-picker" aria-labelledby="meeting-point-map-title">
     <div className="meeting-point-heading">
-      <div><h3 id="meeting-point-map-title">{t('Choose the meeting point')}</h3><p>{t('Tap or click to place the pin. Drag it or use the arrow keys to adjust it.')}</p></div>
+      <div><h3 id="meeting-point-map-title">{t('Choose the meeting point')}</h3><p>{t('Search above, tap the map or drag the pin to choose the exact meeting point.')}</p></div>
       <span aria-hidden="true">⌖</span>
     </div>
     <GoogleMeetingPointSearch language={language} bounds={googleBounds} onSelect={onGooglePlaceSelect} />
-    <div className="nandurbar-map-context"><strong>{t('Nandurbar municipal area')}</strong><span>{t('The numbered outlines show Nandurbar wards. Search above or place the pin, then open it in Google Maps to confirm.')}</span></div>
-    {collection && mapGeometry
-      ? <button
-          type="button"
-          className={`meeting-point-map${dragging ? ' is-dragging' : ''}`}
-          aria-label={t('Meeting-point map. Tap or click to place the pin. Use arrow keys to move it.')}
-          onPointerDown={beginMove}
-          onPointerMove={continueMove}
-          onPointerUp={finishMove}
-          onPointerCancel={finishMove}
-          onKeyDown={moveWithKeyboard}
-        >
-          <svg viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`} aria-hidden="true">
-            <rect className="meeting-point-map-background" width={VIEW_WIDTH} height={VIEW_HEIGHT} rx="24" />
-            {collection.features.map((feature) => {
-              const ring = feature.geometry.coordinates[0];
-              const [x, y] = labelPoint(ring);
-              return <g key={feature.properties.wardNumber}>
-                <path className="meeting-point-boundary" d={ringPath(ring)} />
-                <text className="meeting-point-ward-label" x={x} y={y}>{feature.properties.wardNumber}</text>
-              </g>;
-            })}
-            {marker && <g className="meeting-point-marker">
-              <circle className="meeting-point-marker-halo" cx={marker[0]} cy={marker[1]} r="22" />
-              <path d={`M${marker[0]},${marker[1] + 20} C${marker[0] - 3},${marker[1] + 12} ${marker[0] - 14},${marker[1] + 2} ${marker[0] - 14},${marker[1] - 8} A14,14 0 1,1 ${marker[0] + 14},${marker[1] - 8} C${marker[0] + 14},${marker[1] + 2} ${marker[0] + 3},${marker[1] + 12} ${marker[0]},${marker[1] + 20} Z`} />
-              <circle className="meeting-point-marker-centre" cx={marker[0]} cy={marker[1] - 8} r="4" />
-            </g>}
-          </svg>
-        </button>
-      : <div className="status-panel state-warning" role="status">{t('The meeting-point map is unavailable. Search for a public place above and try again.')}</div>}
-    <p className="meeting-point-map-note">{t('The outlines are an approximate local orientation guide, not official navigation data. Your confirmed pin supplies the meeting-point coordinates.')}</p>
+    <div className="nandurbar-map-context"><strong>{t('Nandurbar municipal area')}</strong><span>{t('The live map is centred on Nandurbar. Search above or move the pin, then confirm the public label below.')}</span></div>
+    {googlePlaceSearchConfigured()
+      ? <div ref={googleMapElement} className="meeting-point-google-map" aria-label={t('Interactive Google map for the meeting point')} />
+      : <div className="status-panel state-warning" role="status">{t('The Google map is unavailable. Search for a public place above and try again.')}</div>}
+    {googleMapState === 'LOADING' && <small role="status">{t('Loading Google map…')}</small>}
+    {googleMapState === 'ERROR' && googlePlaceSearchConfigured() && <div className="status-panel state-warning" role="status">{t('The Google map is temporarily unavailable. You can still use the selected search result.')}</div>}
     <div className={`meeting-point-pin-status${position ? ' is-set' : ''}`} role="status" aria-live="polite">
       {position ? `✓ ${t('Pin placed. Confirm it with the public label below.')}` : t('No meeting-point pin has been placed yet.')}
     </div>

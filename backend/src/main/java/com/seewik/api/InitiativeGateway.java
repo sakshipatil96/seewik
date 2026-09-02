@@ -19,6 +19,19 @@ public interface InitiativeGateway {
 
     JoinResult join(String ownerUid, String initiativeId, Instant occurredAt);
 
+    default List<JoinRequest> listJoinRequests(String ownerUid, String initiativeId) {
+        throw new UnsupportedOperationException("Join requests are not implemented by this gateway");
+    }
+
+    default ReviewJoinRequestResult reviewJoinRequest(
+            String ownerUid,
+            String initiativeId,
+            String requestId,
+            boolean approved,
+            Instant occurredAt) {
+        throw new UnsupportedOperationException("Join request review is not implemented by this gateway");
+    }
+
     TransitionResult transition(
             String ownerUid,
             String initiativeId,
@@ -43,7 +56,15 @@ public interface InitiativeGateway {
         throw new UnsupportedOperationException("Attendance is not implemented by this gateway");
     }
 
-    record JoinResult(Map<String, Object> initiative, boolean alreadyJoined) {}
+    record JoinResult(Map<String, Object> initiative, boolean alreadyJoined, boolean approvalRequested) {
+        JoinResult(Map<String, Object> initiative, boolean alreadyJoined) {
+            this(initiative, alreadyJoined, false);
+        }
+    }
+
+    record JoinRequest(String requestId, String requestedAt) {}
+
+    record ReviewJoinRequestResult(int participantCount, boolean approved, boolean idempotentReplay) {}
 
     record CitizenInitiative(
             Map<String, Object> initiative,
