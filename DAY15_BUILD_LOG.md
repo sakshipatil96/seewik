@@ -39,11 +39,12 @@ Day 15 remains focused on Touchpoint 2 and the 90-second demonstration. Before c
 
 ## Release evidence
 
-- Application commit: pending
-- Application Quality workflow: pending
-- Application Deploy workflow: pending
-- Cloud Run revision: pending
-- Production health: pending
+- Application commit: `a803c7a904ead7930517d7cdd53db9f922dfb414`
+- Application Quality workflow: `https://github.com/sakshipatil96/seewik/actions/runs/33696653544` - passed
+- Application Deploy workflow: `https://github.com/sakshipatil96/seewik/actions/runs/33696743438` - passed
+- Cloud Run revision: `seewik-api-00094-xum`
+- Image digest: `sha256:544030af60d02901d9445df0992ad7ca88f396a7ddcb04b44dda5c3fcfa2f823`
+- Production health: passed
 
 ## Day 15 impact
 
