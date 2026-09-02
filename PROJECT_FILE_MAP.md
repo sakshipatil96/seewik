@@ -12,15 +12,18 @@ This map is for handoffs and repository study. Generated directories such as `fr
 6. Day 13 rewards: `DAY13_CHECKLIST.md`
 7. Touchpoint 3 business case: `TOUCHPOINT3_BUSINESS_CASE.md`
 8. Day 13 release evidence: `DAY13_BUILD_LOG.md`
-9. Parent project guide: `../Seewik_what_we_built till now.md`
-10. Version history: `CHANGELOG.md`
-11. Identity contract: `data/contracts/day10-identity-migration-contract-v0.1.md`
-12. Language/boundary contract: `data/contracts/day9-language-boundary-contract-v0.1.md`
-13. Main frontend: `frontend/src/main.tsx`
-14. Initiative backend: `backend/src/main/java/com/seewik/api/InitiativeController.java`, `InitiativeService.java`, `InitiativeGateway.java`, `FirestoreInitiativeGateway.java` and `AttendanceCodeService.java`
-15. Security rules: `firestore.rules` and `storage.rules`
-16. Required gates: `.github/workflows/quality.yml` and `.github/workflows/deploy.yml`
-17. Credential-handling record: `SECURITY_FINDINGS.md`
+9. Day 14 plan: `DAY14_CHECKLIST.md`
+10. Day 14 local build evidence: `DAY14_BUILD_LOG.md`
+11. Day 14 meeting-point contracts: `data/contracts/day14-initiative-meeting-point-contract-v0.1.md` and the owner-approved Google search amendment `v0.2.md`
+12. Parent project guide: `../Seewik_what_we_built till now.md`
+13. Version history: `CHANGELOG.md`
+14. Identity contract: `data/contracts/day10-identity-migration-contract-v0.1.md`
+15. Language/boundary contract: `data/contracts/day9-language-boundary-contract-v0.1.md`
+16. Main frontend: `frontend/src/main.tsx`
+17. Initiative backend: `backend/src/main/java/com/seewik/api/InitiativeController.java`, `InitiativeService.java`, `InitiativeGateway.java`, `FirestoreInitiativeGateway.java` and `AttendanceCodeService.java`
+18. Security rules: `firestore.rules` and `storage.rules`
+19. Required gates: `.github/workflows/quality.yml` and `.github/workflows/deploy.yml`
+20. Credential-handling record: `SECURITY_FINDINGS.md`
 
 ## Project roots and handling rules
 
@@ -58,6 +61,10 @@ This map is for handoffs and repository study. Generated directories such as `fr
 - `DAY13_CHECKLIST.md` — contribution/reward/coupon contract, completed local checks and remaining release gates.
 - `DAY13_BUILD_LOG.md` — final Day 13 test, deployment, browser, log-safety, cleanup and legacy-audit evidence.
 - `TOUCHPOINT3_BUSINESS_CASE.md` — survey-grounded demand case, proposed revenue loop, illustrative unit economics, pilot requirements and explicit demonstration boundaries.
+- `DAY14_CHECKLIST.md` — Initiative meeting-point, publishing clarity, Android closeout and citizen-facing cleanup plan.
+- `DAY14_BUILD_LOG.md` — Day 14 local Set 5/6 implementation and regression evidence; production and physical-Android sections remain explicitly pending.
+- `data/contracts/day14-initiative-meeting-point-contract-v0.1.md` — frozen no-Places meeting-point, confirmation, storage, participant-link and legacy rules.
+- `data/contracts/day14-initiative-meeting-point-contract-v0.2.md` — owner-approved optional Google Places selection layer, restricted data fields, fallback, credential and cost controls; stored records remain v0.1.
 - `PROJECT_TODOS.md` — routing simplification, Initiative meeting-point redesign and UI-polish follow-ups.
 - `DESIGN_REFERENCE.md` — visual direction.
 - `CHANGELOG.md` — versioned implementation history.
@@ -72,6 +79,7 @@ Runtime and configuration:
 - `frontend/index.html`
 - `frontend/public/manifest.webmanifest`
 - `frontend/public/sw.js`
+- `frontend/.env.example` — placeholder for the restricted meeting-point browser key; the real ignored `.env.local` is never committed.
 
 Application code:
 
@@ -93,7 +101,12 @@ Application code:
 - `frontend/src/sourcedContent.ts` — source freshness and emergency-call validation.
 - `frontend/src/content/*.json` — versioned English awareness and emergency source records.
 - `frontend/src/reportNavigation.ts` — refresh-safe route parsing.
-- `frontend/src/PrabhagBoundaryMap.tsx` / `PrabhagBoundaryMap.css` — lazy-loaded approximate boundary guide.
+- `frontend/src/PrabhagBoundaryMap.tsx` / `PrabhagBoundaryMap.css` — small eagerly rendered approximate boundary guide with a manual-selection error fallback.
+- `frontend/src/InitiativeMeetingPointPicker.tsx` / `InitiativeMeetingPointPicker.css` — local movable pin, Google place-search container and manual coordinate fallback.
+- `frontend/src/GoogleMeetingPointSearch.tsx` — Seewik-controlled Autocomplete Data API list with Nandurbar restriction, active-language requests, loading/no-results/failure states, keyboard selection and Google attribution.
+- `frontend/src/googleMapsPlaces.ts` — restricted browser-key loader with privacy-safe errors and no routine key logging.
+- `frontend/src/meetingPointSearchSelection.ts` — deterministic validation of selected place names, coordinates and municipal bounds.
+- `frontend/src/uiErrors.ts` — shared citizen-safe network/timeout error normalization that prevents raw browser errors from reaching the interface.
 - `frontend/src/vite-env.d.ts`
 
 Frontend tests and production probes:
@@ -106,6 +119,7 @@ Frontend tests and production probes:
 - `frontend/scripts/evidence-reset.test.mjs`
 - `frontend/scripts/i18n-accessibility.test.mjs`
 - `frontend/scripts/image-evaluation-integrity.test.mjs`
+- `frontend/scripts/initiative-meeting-point.test.mjs`
 - `frontend/scripts/report-navigation.test.mjs`
 - `frontend/scripts/recognition.test.mjs`
 - `frontend/scripts/rewards.test.mjs`
@@ -212,7 +226,7 @@ Backend tests live under `backend/src/test/java/com/seewik/api`. The most releva
 - `CivicPackIntegrityTest.java`
 - `EvaluationCaseSetTest.java`
 
-The complete backend suite currently contains 215 passing tests. The frontend suite contains 58 passing tests.
+The complete backend suite currently contains 220 passing tests. The frontend suite contains 67 passing tests.
 
 ## Runtime schemas and packaged civic data
 

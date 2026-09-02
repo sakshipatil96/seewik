@@ -4,6 +4,10 @@ All notable changes to the versioned Civic Pack and its deterministic routing im
 
 ## Unreleased
 
+- Fixed localhost route lookup when Vite selects a port other than 5173 by using a same-origin development/preview API proxy; added the supported localhost origins to the backend allowlist for the next deployment and regression-tested Pothole routing at port 4174.
+- Added the Day 14 structured Initiative meeting point: organiser-confirmed public label and validated coordinates, movable local pin, manual fallback, generated Google Maps link, legacy-record compatibility and retry-safe transactional creation.
+- Added a restricted, Seewik-controlled Google Autocomplete Data API list with India/Nandurbar bounds, active-language requests, session tokens, minimal selected fields, Google attribution, loading/no-results/failure states, keyboard support, editable cleaned labels and no Google-only publishing dependency.
+- Completed the Day 14 trust and plain-language batch: normal-mode demo and API diagnostics removed, raw browser errors normalized and translated, citizen-facing Route/Pack metadata hidden, boundary guide made immediate, header made opaque, persistent translated 112 access added and technical/auditor wording simplified across English, Marathi and Hindi.
 - Added the Day 13 example reward loop to My Civic Card with permanent lifetime unlocks at 100, 150 and 250 points, backend-owned 30-day claims, owner-private single-use codes and a clearly labelled simulated-use ending that never deducts civic points or implies merchant verification.
 - Added three owner-approved `DEMO_ONLY` reward fixtures, persistent **Example local reward** labelling, locked/unlocked/claimed/used/expired states in English, Marathi and Hindi, direct Firestore write denial, Google-linked mutations, per-citizen rate limiting and production-isolated ownership/cleanup coverage.
 - Added the Touchpoint 3 business-case document with survey-grounded citizen demand, an honest time-to-tier assessment, illustrative merchant unit economics and the controls and signed pilot relationship required before any reward becomes real.

@@ -31,8 +31,8 @@ test('attendance UI remains usable on narrow screens and by keyboard', () => {
 
 test('Initiate is for creating or joining while personal initiatives live in My Actions', () => {
   assert.match(source, /Create or join an initiative/);
-  assert.match(source, /CREATE AN INITIATIVE/);
-  assert.match(source, /JOIN AN INITIATIVE/);
+  assert.match(source, /<h2>\{t\('Create an Initiative'\)\}<\/h2>/);
+  assert.match(source, /<h2>\{t\('Join an Initiative'\)\}<\/h2>/);
   assert.match(source, /My Reports/);
   assert.match(source, /My Initiatives/);
   assert.match(source, /initiative-role-chip/);

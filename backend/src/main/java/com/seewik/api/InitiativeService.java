@@ -23,6 +23,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class InitiativeService {
     static final String SCHEMA_VERSION = "initiative-v0.2";
+    static final String INITIATIVE_RECORD_SCHEMA_VERSION = "initiative-v0.3";
+    static final String MEETING_POINT_SCHEMA_VERSION = "initiative-meeting-point-v0.1";
     static final String ATTENDANCE_SCHEMA_VERSION = "initiative-attendance-v0.1";
     static final String LEDGER_SCHEMA_VERSION = "points-ledger-v0.3";
     static final String REWARD_POLICY_VERSION = "reward-policy-v0.2";
@@ -63,7 +65,9 @@ public class InitiativeService {
     public InitiativeView create(String ownerUid, CreateRequest request) {
         ValidatedCreate input = validateCreate(request);
         Instant now = clock.instant();
-        String initiativeId = "init_" + UUID.randomUUID().toString().replace("-", "");
+        String initiativeId = input.clientRequestId().isBlank()
+                ? "init_" + UUID.randomUUID().toString().replace("-", "")
+                : "init_" + hash(ownerUid + ":" + input.clientRequestId());
         String eventId = "evt_" + hash(initiativeId + ":INITIATIVE_CREATED");
         String participationId = participationId(initiativeId, ownerUid);
         String ledgerEntryId = "pts_" + hash(initiativeId + ":INITIATIVE_CREATED:" + ownerUid);
@@ -78,12 +82,18 @@ public class InitiativeService {
         initiative.put("placeName", input.placeName());
         initiative.put("latitude", input.latitude());
         initiative.put("longitude", input.longitude());
+        Map<String, Object> meetingPoint = new LinkedHashMap<>();
+        meetingPoint.put("label", input.placeName());
+        meetingPoint.put("latitude", input.latitude());
+        meetingPoint.put("longitude", input.longitude());
+        meetingPoint.put("schemaVersion", MEETING_POINT_SCHEMA_VERSION);
+        initiative.put("meetingPoint", meetingPoint);
         initiative.put("needs", input.needs());
         initiative.put("status", "PUBLISHED");
         initiative.put("participantCount", 1);
         initiative.put("createdAt", now.toString());
         initiative.put("updatedAt", now.toString());
-        initiative.put("schemaVersion", SCHEMA_VERSION);
+        initiative.put("schemaVersion", INITIATIVE_RECORD_SCHEMA_VERSION);
 
         Map<String, Object> event = event(eventId, initiativeId, "INITIATIVE_CREATED", ownerUid, now);
         Map<String, Object> participation = participation(
@@ -362,6 +372,7 @@ public class InitiativeService {
         String description = clean(request.description(), 1200, "INVALID_DESCRIPTION", "Describe the activity");
         String placeName = clean(request.placeName(), 200, "INVALID_PLACE", "Add a public meeting place");
         String needs = cleanOptional(request.needs(), 500);
+        String clientRequestId = cleanOptional(request.clientRequestId(), 100);
         Instant startAt;
         try {
             startAt = Instant.parse(request.startAt());
@@ -380,7 +391,8 @@ public class InitiativeService {
                 placeName,
                 validLatitude(request.latitude()),
                 validLongitude(request.longitude()),
-                needs);
+                needs,
+                clientRequestId);
     }
 
     private static String clean(String value, int max, String code, String message) {
@@ -454,13 +466,17 @@ public class InitiativeService {
                 && !now.isBefore(completedAt)
                 && !now.isAfter(completedAt.plus(SELF_ATTENDANCE_WINDOW));
         boolean showSelfAttendance = codeEndsAt != null && now.isAfter(codeEndsAt);
+        MeetingPoint meetingPoint = readMeetingPoint(data);
         return new InitiativeView(
                 String.valueOf(data.get("initiativeId")),
                 String.valueOf(data.get("title")),
                 String.valueOf(data.get("category")),
                 String.valueOf(data.get("description")),
                 String.valueOf(data.get("startAt")),
-                String.valueOf(data.get("placeName")),
+                meetingPoint.label(),
+                meetingPoint.mapsUrl(),
+                meetingPoint.schemaVersion(),
+                meetingPoint.legacy(),
                 String.valueOf(data.getOrDefault("needs", "")),
                 String.valueOf(data.get("status")),
                 String.valueOf(data.getOrDefault("cancellationReason", "")),
@@ -482,6 +498,48 @@ public class InitiativeService {
                 String.valueOf(data.get("schemaVersion")));
     }
 
+    private static MeetingPoint readMeetingPoint(Map<String, Object> data) {
+        Object stored = data.get("meetingPoint");
+        if (stored instanceof Map<?, ?> value) {
+            String label = text(value.get("label"));
+            double latitude = number(value.get("latitude"));
+            double longitude = number(value.get("longitude"));
+            String schemaVersion = text(value.get("schemaVersion"));
+            if (!label.isBlank() && validCoordinatePair(latitude, longitude)) {
+                return new MeetingPoint(label, mapsUrl(latitude, longitude), schemaVersion, false);
+            }
+        }
+        String label = text(data.get("placeName"));
+        double latitude = number(data.get("latitude"));
+        double longitude = number(data.get("longitude"));
+        return new MeetingPoint(
+                label,
+                validCoordinatePair(latitude, longitude) ? mapsUrl(latitude, longitude) : "",
+                "",
+                true);
+    }
+
+    private static boolean validCoordinatePair(double latitude, double longitude) {
+        return Double.isFinite(latitude)
+                && latitude >= -90
+                && latitude <= 90
+                && Double.isFinite(longitude)
+                && longitude >= -180
+                && longitude <= 180;
+    }
+
+    private static String mapsUrl(double latitude, double longitude) {
+        return String.format(
+                Locale.ROOT,
+                "https://www.google.com/maps/search/?api=1&query=%.6f%%2C%.6f",
+                latitude,
+                longitude);
+    }
+
+    private static String text(Object value) {
+        return value == null ? "" : value.toString();
+    }
+
     private static AttendanceWindow codeWindow(Map<String, Object> initiative) {
         Instant startAt = instant(initiative.get("startAt"));
         if (startAt == null) {
@@ -498,7 +556,8 @@ public class InitiativeService {
             String placeName,
             double latitude,
             double longitude,
-            String needs) {}
+            String needs,
+            String clientRequestId) {}
 
     public record CreateRequest(
             String title,
@@ -508,7 +567,20 @@ public class InitiativeService {
             String placeName,
             Double latitude,
             Double longitude,
-            String needs) {}
+            String needs,
+            String clientRequestId) {
+        public CreateRequest(
+                String title,
+                String category,
+                String description,
+                String startAt,
+                String placeName,
+                Double latitude,
+                Double longitude,
+                String needs) {
+            this(title, category, description, startAt, placeName, latitude, longitude, needs, null);
+        }
+    }
 
     public record DiscoveryRequest(String ownerUid, Double latitude, Double longitude, Double radiusKm) {
         public DiscoveryRequest(Double latitude, Double longitude, Double radiusKm) {
@@ -531,6 +603,9 @@ public class InitiativeService {
             String description,
             String startAt,
             String placeName,
+            String mapsUrl,
+            String meetingPointSchemaVersion,
+            boolean legacyMeetingPoint,
             String needs,
             String status,
             String cancellationReason,
@@ -550,6 +625,12 @@ public class InitiativeService {
             boolean canSelfAttend,
             boolean canViewAttendanceCode,
             String schemaVersion) {}
+
+    private record MeetingPoint(
+            String label,
+            String mapsUrl,
+            String schemaVersion,
+            boolean legacy) {}
 
     public record DiscoveryResponse(
             String status, double radiusKm, int count, List<InitiativeView> initiatives) {}

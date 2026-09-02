@@ -1,0 +1,79 @@
+.meeting-point-picker {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding: clamp(var(--space-4), 4vw, var(--space-5));
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+}
+
+.meeting-point-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
+.meeting-point-heading h3 { margin: 0 0 4px; color: var(--color-navy); font-size: 1rem; }
+.meeting-point-heading p { font-size: .78rem; line-height: 1.45; }
+.meeting-point-heading > span { display: grid; flex: none; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: var(--color-teal-soft); color: var(--color-teal-ink); font-size: 1.3rem; font-weight: 900; }
+
+.google-meeting-point-search { display: grid; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-surface); }
+.google-meeting-point-search h4 { margin: 0 0 4px; color: var(--color-navy); font-size: .9rem; }
+.google-meeting-point-search p { color: var(--color-muted); font-size: .76rem; line-height: 1.5; }
+.google-meeting-point-search small { color: var(--color-muted); font-size: .72rem; line-height: 1.45; }
+.google-place-search-control { position: relative; min-height: 48px; }
+.google-place-search-control input { width: 100%; margin: 0; }
+.google-place-suggestions { position: absolute; z-index: 15; top: calc(100% + 5px); right: 0; left: 0; display: grid; overflow: hidden; border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-surface); box-shadow: var(--shadow-card); }
+.google-place-suggestions button { display: grid; gap: 3px; width: 100%; min-height: 48px; margin: 0; padding: 10px 12px; border-radius: 0; border-bottom: 1px solid var(--color-line); background: var(--color-surface); color: var(--color-text); text-align: left; }
+.google-place-suggestions button:hover, .google-place-suggestions button.active { background: var(--color-surface-2); }
+.google-place-suggestions button strong { font-size: .82rem; line-height: 1.35; }
+.google-place-suggestions button small { color: var(--color-muted); }
+.google-attribution { justify-self: end; width: 120px; height: auto; margin: 8px 10px; }
+.google-place-selection { display: grid; gap: 3px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-teal-soft); color: var(--color-teal-ink); }
+.google-place-selection span { font-size: .68rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.google-place-selection b { font-size: .78rem; line-height: 1.4; overflow-wrap: anywhere; }
+.google-place-search-error { padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-warning-soft); color: var(--color-warning-ink) !important; }
+.google-place-search-divider { display: flex; align-items: center; gap: var(--space-3); color: var(--color-muted); font-size: .67rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.google-place-search-divider::before, .google-place-search-divider::after { content: ''; flex: 1; height: 1px; background: var(--color-line); }
+
+.meeting-point-map {
+  display: block;
+  overflow: hidden;
+  width: 100%;
+  min-height: 260px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid var(--color-line-strong);
+  border-radius: var(--radius-md);
+  background: #f4f0e7;
+  color: inherit;
+  box-shadow: none;
+  cursor: crosshair;
+  touch-action: none;
+}
+.meeting-point-map:hover { transform: none; box-shadow: none; }
+.meeting-point-map:focus-visible { outline: 4px solid color-mix(in srgb, var(--color-teal) 42%, transparent); outline-offset: 3px; }
+.meeting-point-map.is-dragging { cursor: grabbing; }
+.meeting-point-map svg { display: block; width: 100%; height: auto; min-height: 260px; pointer-events: none; }
+.meeting-point-map-background { fill: #f4f0e7; }
+.meeting-point-boundary { fill: #fffdf8; stroke: #75858b; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.meeting-point-ward-label { fill: #52636b; stroke: #fffdf8; stroke-width: 2.5px; paint-order: stroke; font-size: 15px; font-weight: 800; text-anchor: middle; dominant-baseline: middle; }
+.meeting-point-marker-halo { fill: color-mix(in srgb, var(--color-teal) 24%, transparent); stroke: #fff; stroke-width: 3; }
+.meeting-point-marker path { fill: var(--color-teal-ink); stroke: #fff; stroke-width: 3; }
+.meeting-point-marker-centre { fill: #fff; }
+.meeting-point-map-note { color: var(--color-muted); font-size: .73rem; line-height: 1.5; }
+
+.meeting-point-manual { padding: var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-surface); }
+.meeting-point-manual summary { cursor: pointer; color: var(--color-navy); font-size: .78rem; font-weight: 800; }
+.meeting-point-coordinate-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-3); }
+.meeting-point-coordinate-grid label { margin: 0; }
+.meeting-point-manual button { width: auto; margin-top: var(--space-3); }
+.meeting-point-manual small { display: block; margin-top: var(--space-2); color: var(--color-muted); }
+.meeting-point-pin-status { padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-warning-soft); color: var(--color-warning-ink); font-size: .78rem; font-weight: 750; }
+.meeting-point-pin-status.is-set { background: var(--color-teal-soft); color: var(--color-teal-ink); }
+
+@media (max-width: 520px) {
+  .meeting-point-map, .meeting-point-map svg { min-height: 220px; }
+  .meeting-point-coordinate-grid { grid-template-columns: 1fr; }
+  .meeting-point-manual button { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meeting-point-map { transition: none; }
+}

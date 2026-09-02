@@ -40,6 +40,38 @@ class InitiativeServiceTest {
         assertEquals("points-ledger-v0.3", gateway.ledger.get("schemaVersion"));
         assertEquals("reward-policy-v0.2", gateway.ledger.get("rewardPolicyVersion"));
         assertTrue(result.canManage());
+        assertEquals("initiative-v0.3", result.schemaVersion());
+        assertEquals("initiative-meeting-point-v0.1", result.meetingPointSchemaVersion());
+        assertEquals("https://www.google.com/maps/search/?api=1&query=21.360000%2C74.240000", result.mapsUrl());
+        assertFalse(result.legacyMeetingPoint());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> meetingPoint = (Map<String, Object>) gateway.byId
+                .get(result.initiativeId())
+                .get("meetingPoint");
+        assertEquals("Nehru Chowk", meetingPoint.get("label"));
+        assertEquals(21.36, meetingPoint.get("latitude"));
+        assertEquals(74.24, meetingPoint.get("longitude"));
+        assertEquals("initiative-meeting-point-v0.1", meetingPoint.get("schemaVersion"));
+    }
+
+    @Test
+    void creationRetryWithTheSameClientRequestIdReturnsOneInitiative() {
+        InitiativeService.CreateRequest request = new InitiativeService.CreateRequest(
+                "Neighbourhood clean-up",
+                "CLEANUP",
+                "Clean the public square together.",
+                "2026-08-28T08:00:00Z",
+                "Nehru Chowk",
+                21.36,
+                74.24,
+                "Bring gloves",
+                "create-request-1");
+
+        InitiativeService.InitiativeView first = service.create("owner-1", request);
+        InitiativeService.InitiativeView retry = service.create("owner-1", request);
+
+        assertEquals(first.initiativeId(), retry.initiativeId());
+        assertEquals(1, gateway.byId.size());
     }
 
     @Test
@@ -118,6 +150,35 @@ class InitiativeServiceTest {
     }
 
     @Test
+    void meetingPointCoordinateBoundariesAreAccepted() {
+        var boundary = new InitiativeService.CreateRequest(
+                "Boundary check", "OTHER_CIVIC_ACTIVITY", "Validate coordinate limits",
+                "2026-08-28T08:00:00Z", "Confirmed public point", -90.0, 180.0, "");
+
+        InitiativeService.InitiativeView result = service.create("owner-1", boundary);
+
+        assertEquals("https://www.google.com/maps/search/?api=1&query=-90.000000%2C180.000000", result.mapsUrl());
+        assertEquals("initiative-meeting-point-v0.1", result.meetingPointSchemaVersion());
+    }
+
+    @Test
+    void meetingPointRejectsMissingLabelAndNonFiniteCoordinates() {
+        var missingLabel = new InitiativeService.CreateRequest(
+                "Clean-up", "CLEANUP", "Clean the public square", "2026-08-28T08:00:00Z",
+                " ", 21.36, 74.24, "Gloves");
+        var nonFinite = new InitiativeService.CreateRequest(
+                "Clean-up", "CLEANUP", "Clean the public square", "2026-08-28T08:00:00Z",
+                "Public square", Double.NaN, 74.24, "Gloves");
+
+        assertEquals("INVALID_PLACE", assertThrows(
+                InitiativeService.InitiativeException.class,
+                () -> service.create("owner-1", missingLabel)).code());
+        assertEquals("INVALID_COORDINATES", assertThrows(
+                InitiativeService.InitiativeException.class,
+                () -> service.create("owner-1", nonFinite)).code());
+    }
+
+    @Test
     void organiserCanCancelOnceWithAReasonAndNoPoints() {
         gateway.byId.put("init-1", ownedActivity("init-1", "owner-1", "2026-08-28T08:00:00Z"));
 
@@ -186,6 +247,35 @@ class InitiativeServiceTest {
         assertFalse(result.initiatives().getFirst().canManage());
     }
 
+    @Test
+    void legacyMeetingPointStillRendersAndDerivesMapsLinkWithoutRewriting() {
+        Map<String, Object> legacy = activity("legacy", 21.375, 74.245, "2026-08-28T08:00:00Z");
+        gateway.byId.put("legacy", legacy);
+        gateway.roles.put("legacy:owner-2", "PARTICIPANT");
+
+        InitiativeService.InitiativeView result = service.mine("owner-2").initiatives().getFirst();
+
+        assertEquals("Public place", result.placeName());
+        assertEquals("https://www.google.com/maps/search/?api=1&query=21.375000%2C74.245000", result.mapsUrl());
+        assertEquals("", result.meetingPointSchemaVersion());
+        assertTrue(result.legacyMeetingPoint());
+        assertFalse(legacy.containsKey("meetingPoint"));
+    }
+
+    @Test
+    void legacyMeetingPointWithoutValidCoordinatesHasNoMapsLink() {
+        Map<String, Object> legacy = activity("legacy", 21.375, 74.245, "2026-08-28T08:00:00Z");
+        legacy.remove("latitude");
+        gateway.byId.put("legacy", legacy);
+        gateway.roles.put("legacy:owner-2", "PARTICIPANT");
+
+        InitiativeService.InitiativeView result = service.mine("owner-2").initiatives().getFirst();
+
+        assertEquals("Public place", result.placeName());
+        assertEquals("", result.mapsUrl());
+        assertTrue(result.legacyMeetingPoint());
+    }
+
     private static InitiativeService.CreateRequest request() {
         return new InitiativeService.CreateRequest(
                 "Neighbourhood clean-up",
@@ -240,6 +330,8 @@ class InitiativeServiceTest {
                 Map<String, Object> event,
                 Map<String, Object> participation,
                 Map<String, Object> ledgerEntry) {
+            Map<String, Object> existing = byId.get(initiativeId);
+            if (existing != null) return existing;
             this.event = event;
             this.participation = participation;
             this.ledger = ledgerEntry;

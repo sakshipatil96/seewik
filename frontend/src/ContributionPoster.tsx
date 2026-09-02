@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createContributionPoster, type ContributionPosterResult } from './civicCardImage';
+import { citizenSafeError } from './uiErrors';
 
 type Props = {
   defaultDisplayName: string;
@@ -46,7 +47,7 @@ export function ContributionPoster({ defaultDisplayName, lifetimePoints, current
       setPreviewUrl(URL.createObjectURL(created.blob));
       setStatus(t('Your Civic Card image is ready. It has not been uploaded.'));
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : t('The Civic Card image could not be created.'));
+      setStatus(t(citizenSafeError(error, 'The Civic Card image could not be created.')));
     } finally {
       setBusy(false);
     }

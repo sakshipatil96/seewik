@@ -88,7 +88,6 @@ test('all durable frontend mutations pass through the reusable link gate', async
     'copyReviewedDraft',
     'fileReviewedReport',
     'transitionReport',
-    'verifyFirebase',
   ];
   for (const action of guardedActions) {
     assert.match(source, new RegExp(`requestLinkedMutation\\(\\(\\) => ${action}\\(`), `${action} must be invoked through the link gate`);
@@ -146,7 +145,7 @@ test('an unlinked anonymous session receives an explicit device-only recovery wa
   const source = await readFile(new URL('../src/main.tsx', import.meta.url), 'utf8');
   assert.match(source, /accountState === 'GOOGLE_LINK_REQUIRED'/);
   assert.match(source, /Device-only access/);
-  assert.match(source, /clear this browser before connecting Google/);
+  assert.match(source, /saved only on this device until you connect Google/);
 });
 
 test('signed-out reports show recovery copy without raw codes or misleading controls', async () => {

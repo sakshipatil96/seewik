@@ -1,9 +1,8 @@
-import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import type { AuthCredential } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
-import { getBytes, ref, uploadBytes } from 'firebase/storage';
-import { db, storage } from './firebase';
+import { db } from './firebase';
 import { AccountControl, type AccountDialog } from './AccountControl';
 import {
   accountCredentialFromError,
@@ -26,6 +25,8 @@ import { ContributionPoster } from './ContributionPoster';
 import { CivicAwarenessPage } from './CivicAwarenessPage';
 import { EmergencyInformationPage } from './EmergencyInformationPage';
 import { RewardCatalogue } from './RewardCatalogue';
+import InitiativeMeetingPointPicker, { type MeetingPointPosition } from './InitiativeMeetingPointPicker';
+import PrabhagBoundaryMap from './PrabhagBoundaryMap';
 import {
   claimReward,
   fetchCurrentRecognition,
@@ -41,10 +42,11 @@ import {
   type RecognitionSettings as RecognitionSettingsState,
 } from './recognitionClient';
 import { canEditReport, canResumeReport, draftRouteIsCurrent, pathForScreen, reportIdFromPath, reportIdFromReviewSearch, screenFromPath, type AppScreen } from './reportNavigation';
+import { citizenSafeError } from './uiErrors';
 import './styles.css';
 
+const DEBUG_MODE = new URLSearchParams(window.location.search).get('debug') === '1';
 const PRABHAGS = Array.from({ length: 20 }, (_, index) => `PRABHAG-${String(index + 1).padStart(2, '0')}`);
-const LazyPrabhagBoundaryMap = lazy(() => import('./PrabhagBoundaryMap'));
 const ISSUE_TYPES = [
   ['GARBAGE_SOLID_WASTE', 'Garbage / solid waste'],
   ['ILLEGAL_DUMPING', 'Illegal dumping'],
@@ -209,6 +211,9 @@ type Initiative = {
   description: string;
   startAt: string;
   placeName: string;
+  mapsUrl?: string;
+  meetingPointSchemaVersion?: string;
+  legacyMeetingPoint?: boolean;
   needs: string;
   status: string;
   cancellationReason: string;
@@ -328,8 +333,6 @@ function App() {
   ));
   const [screen, setScreen] = useState<AppScreen>(() => screenFromPath(window.location.pathname));
   const [locationKey, setLocationKey] = useState(() => `${window.location.pathname}${window.location.search}`);
-  const [status, setStatus] = useState('Connecting…');
-  const [details, setDetails] = useState<string[]>([]);
   const [issueType, setIssueType] = useState(ISSUE_TYPES[0][0]);
   const [prabhagId, setPrabhagId] = useState('');
   const [routeResult, setRouteResult] = useState<RouteResult | null>(null);
@@ -380,6 +383,8 @@ function App() {
   const [initiativeDescription, setInitiativeDescription] = useState('');
   const [initiativeStartAt, setInitiativeStartAt] = useState('');
   const [initiativePlaceName, setInitiativePlaceName] = useState('');
+  const [initiativeMeetingPoint, setInitiativeMeetingPoint] = useState<MeetingPointPosition | null>(null);
+  const [initiativeMeetingPointConfirmed, setInitiativeMeetingPointConfirmed] = useState(false);
   const [initiativeNeeds, setInitiativeNeeds] = useState('');
   const [accountState, setAccountState] = useState<AccountIdentityState>('ANONYMOUS_SESSION');
   const [accountName, setAccountName] = useState<string | null>(null);
@@ -403,9 +408,18 @@ function App() {
   const [rewardUseConfirmation, setRewardUseConfirmation] = useState('');
   const pendingMutation = useRef<(() => Promise<void>) | null>(null);
   const syncedProfileUid = useRef<string | null>(null);
+  const initiativeCreateRequestId = useRef(crypto.randomUUID());
   const t = (source: string) => translate(language, source);
   const runtimeMessage = (message: string) => localizedRuntimeMessage(language, message);
   const classificationSourceLabel = (source: string) => source === 'CITIZEN_CONFIRMED_GEMINI' || source === 'GEMINI_SUGGESTED' ? t('Automatic suggestion confirmed') : t('Selected manually');
+  const initiativePublishRequirements = [
+    !initiativeTitle.trim() ? 'Add an activity title.' : '',
+    !initiativeDescription.trim() ? 'Add an activity description.' : '',
+    !initiativeStartAt || Date.parse(initiativeStartAt) <= Date.now() ? 'Choose a future date and time.' : '',
+    !initiativePlaceName.trim() ? 'Add a public meeting-point label.' : '',
+    !initiativeMeetingPoint ? 'Place the meeting-point pin.' : '',
+    !initiativeMeetingPointConfirmed ? 'Confirm the meeting-point label and pin.' : '',
+  ].filter(Boolean);
   const prabhagSelectionMade = manualPrabhagSelected || citizenConfirmed;
   const highlightedPrabhagId = manualPrabhagSelected || citizenConfirmed
     ? prabhagId
@@ -431,8 +445,6 @@ function App() {
     INITIATIVE_ORGANISER_COMPLETED_REWARDED: t('Eligible completed organiser activity'),
     FIX_VERIFIED: t('Verified civic fix'),
   }[reason] ?? reason);
-  const add = (line: string) => setDetails((old) => [...old, line]);
-
   useEffect(() => {
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
     document.documentElement.lang = language;
@@ -536,6 +548,8 @@ function App() {
     setInitiativeDescription('');
     setInitiativeStartAt('');
     setInitiativePlaceName('');
+    setInitiativeMeetingPoint(null);
+    setInitiativeMeetingPointConfirmed(false);
     setInitiativeNeeds('');
     setEvidenceText('');
     setEvidenceImage(null);
@@ -671,7 +685,7 @@ function App() {
       setPublicRecognition(await fetchCurrentRecognition());
     } catch (error) {
       setPublicRecognition(null);
-      setPublicRecognitionStatus(error instanceof Error ? error.message : 'Monthly recognition could not be loaded.');
+      setPublicRecognitionStatus(citizenSafeError(error, 'Monthly recognition could not be loaded.'));
     } finally {
       setPublicRecognitionLoading(false);
     }
@@ -688,7 +702,7 @@ function App() {
       setRecognitionSettings(await fetchRecognitionSettings(token));
       setRecognitionSettingsStatus('');
     } catch (error) {
-      setRecognitionSettingsStatus(error instanceof Error ? error.message : 'Recognition settings could not be loaded.');
+      setRecognitionSettingsStatus(citizenSafeError(error, 'Recognition settings could not be loaded.'));
     }
   }
 
@@ -704,7 +718,7 @@ function App() {
         : 'Your public recognition was withdrawn. Your points were not changed.');
       await loadPublicRecognition();
     } catch (error) {
-      setRecognitionSettingsStatus(error instanceof Error ? error.message : 'Recognition settings could not be saved.');
+      setRecognitionSettingsStatus(citizenSafeError(error, 'Recognition settings could not be saved.'));
     } finally {
       setRecognitionSettingsBusy(false);
     }
@@ -718,19 +732,12 @@ function App() {
         const result = await reportRecognitionName(token, position, targetDisplayName, reason, reportDetails);
         setPublicRecognitionStatus(result.message);
       } catch (error) {
-        setPublicRecognitionStatus(error instanceof Error ? error.message : 'The concern could not be sent.');
+        setPublicRecognitionStatus(citizenSafeError(error, 'The concern could not be sent.'));
       }
     };
     if (accountState === 'GOOGLE_LINKED') await send();
     else requestLinkedMutation(send);
   }
-
-  useEffect(() => {
-    fetch(`${API_URL}/health`).then((response) => response.json()).then((data) => {
-      setStatus(data.status === 'ok' ? 'Seewik systems online' : 'Backend returned an unexpected response');
-      add(`Cloud API: ${data.status}`);
-    }).catch((error) => setStatus(`API check failed: ${error.message}`));
-  }, []);
 
   useEffect(() => {
     void loadPublicRecognition();
@@ -752,8 +759,8 @@ function App() {
         setMyInitiatives([]);
         setReportsStatus('');
       } else {
-        loadMyReports().catch((error) => setReportsStatus(`Reports could not be loaded: ${error.message}`));
-        loadMyInitiatives().catch((error) => setInitiativeStatus(`Your initiatives could not be loaded: ${error.message}`));
+        loadMyReports().catch((error) => setReportsStatus(citizenSafeError(error, 'Your reports could not be loaded.')));
+        loadMyInitiatives().catch((error) => setInitiativeStatus(citizenSafeError(error, 'Your initiatives could not be loaded.')));
       }
     }
     if (screen === 'points') {
@@ -771,18 +778,18 @@ function App() {
     if (screen === 'report-detail' && accountState !== 'SIGNED_OUT') {
       const reportId = reportIdFromPath(window.location.pathname);
       if (reportId && selectedReport?.id !== reportId) {
-        loadReportById(reportId, false).catch((error) => setReportsStatus(`Report could not be loaded: ${error.message}`));
+        loadReportById(reportId, false).catch((error) => setReportsStatus(citizenSafeError(error, 'The report could not be loaded.')));
       }
     }
     if (screen === 'review') {
       const reportId = reportIdFromReviewSearch(window.location.search);
       if (reportId && selectedReport?.id !== reportId) {
-        loadReportById(reportId, true).catch((error) => setDraftStatus(`Draft could not be resumed: ${error.message}`));
+        loadReportById(reportId, true).catch((error) => setDraftStatus(citizenSafeError(error, 'The draft could not be resumed.')));
       }
     }
     if (screen === 'initiatives') {
       if (initiativeCoordinates) {
-        discoverInitiatives(false).catch((error) => setInitiativeStatus(`Activities could not be loaded: ${error.message}`));
+        discoverInitiatives(false).catch((error) => setInitiativeStatus(citizenSafeError(error, 'Nearby initiatives could not be loaded.')));
       }
     }
   }, [screen, locationKey, accountState]);
@@ -851,7 +858,7 @@ function App() {
     if (!background && result.count > 0) setInitiativeStatus(`${result.count} joined or organised ${result.count === 1 ? 'activity' : 'activities'} loaded.`);
   }
 
-  function locateForInitiatives(afterLocation: 'DISCOVER' | 'CREATE') {
+  function locateForInitiatives() {
     setInitiativeStatus('Checking your location…');
     if (!navigator.geolocation) {
       setInitiativeStatus('Location is unavailable in this browser.');
@@ -861,7 +868,7 @@ function App() {
       (position) => {
         const coordinates = { latitude: position.coords.latitude, longitude: position.coords.longitude };
         setInitiativeCoordinates(coordinates);
-        setInitiativeStatus(afterLocation === 'CREATE' ? 'Activity location captured. Confirm the public place name below.' : 'Location captured. Finding activities…');
+        setInitiativeStatus('Location captured. Finding activities…');
       },
       () => setInitiativeStatus('Location permission was not provided.'),
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
@@ -869,8 +876,8 @@ function App() {
   }
 
   async function createInitiative() {
-    if (!initiativeCoordinates) {
-      setInitiativeStatus('Capture the activity location before publishing.');
+    if (!initiativeMeetingPoint || !initiativeMeetingPointConfirmed) {
+      setInitiativeStatus('Confirm the meeting-point label and pin before publishing.');
       return;
     }
     if (!initiativeStartAt) {
@@ -888,8 +895,9 @@ function App() {
         description: initiativeDescription,
         startAt: new Date(initiativeStartAt).toISOString(),
         placeName: initiativePlaceName,
-        ...initiativeCoordinates,
+        ...initiativeMeetingPoint,
         needs: initiativeNeeds,
+        clientRequestId: initiativeCreateRequestId.current,
       }),
     });
     const result = await response.json();
@@ -898,7 +906,10 @@ function App() {
     setInitiativeDescription('');
     setInitiativeStartAt('');
     setInitiativePlaceName('');
+    setInitiativeMeetingPoint(null);
+    setInitiativeMeetingPointConfirmed(false);
     setInitiativeNeeds('');
+    initiativeCreateRequestId.current = crypto.randomUUID();
     setInitiativeStatus('Activity published. You are included as the organiser.');
     navigate('initiatives');
   }
@@ -1015,21 +1026,6 @@ function App() {
     if (!background) setInitiativeStatus('The organiser code is active. It rotates every 10 minutes.');
   }
 
-  async function verifyFirebase() {
-    setDetails([]);
-    const user = await ensureAnonymousSession();
-    add(`Firebase auth: ${user.uid.slice(0, 8)}…`);
-    const testRef = doc(db, 'day1_checks', user.uid);
-    await setDoc(testRef, { ok: true, checkedAt: serverTimestamp() });
-    const snapshot = await getDoc(testRef);
-    add(`Firestore write/read: ${snapshot.data()?.ok === true ? 'ok' : 'failed'}`);
-    const pixel = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='), (character) => character.charCodeAt(0));
-    const objectRef = ref(storage, `day1_checks/${user.uid}/pixel.png`);
-    await uploadBytes(objectRef, pixel, { contentType: 'image/png' });
-    await getBytes(objectRef, 1024 * 1024);
-    add('Storage upload/read: ok');
-  }
-
   async function resolveCoordinates(latitude: number, longitude: number) {
     const response = await fetch(`${API_URL}/api/civic/resolve-prabhag`, {
       method: 'POST',
@@ -1061,7 +1057,7 @@ function App() {
       (position) => {
         setCurrentCoordinates({ latitude: position.coords.latitude, longitude: position.coords.longitude });
         resolveCoordinates(position.coords.latitude, position.coords.longitude)
-          .catch((error) => setLocationStatus(error.message));
+      .catch((error) => setLocationStatus(citizenSafeError(error, 'Your location could not be used. Choose your Prabhag manually.')));
       },
       () => setLocationStatus('Location permission was not provided. Select your prabhag manually.'),
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
@@ -1353,7 +1349,7 @@ function App() {
       .map((item) => savedReport(item.id, item.data()))
       .sort((left, right) => timestampMillis(right.updatedAt) - timestampMillis(left.updatedAt));
     setSavedReports(reports);
-    setReportsStatus(reports.length ? `${reports.length} owner-protected report${reports.length === 1 ? '' : 's'}` : 'No saved reports yet.');
+    setReportsStatus(reports.length ? `${reports.length} saved report${reports.length === 1 ? '' : 's'}` : 'No saved reports yet.');
   }
 
   async function loadTimeline(report: SavedReport) {
@@ -1457,7 +1453,7 @@ function App() {
       setPointsTotal(summary.lifetimePoints);
       setPrivatePointsStatus('');
     } catch (error) {
-      setPrivatePointsStatus(error instanceof Error ? error.message : 'Your points could not be loaded.');
+      setPrivatePointsStatus(citizenSafeError(error, 'Your points could not be loaded.'));
       throw error;
     }
   }
@@ -1469,7 +1465,7 @@ function App() {
       setRewardOverview(await fetchRewards(token));
       setRewardStatus('');
     } catch (error) {
-      setRewardStatus(error instanceof Error ? error.message : 'Example rewards could not be loaded.');
+      setRewardStatus(citizenSafeError(error, 'Example rewards could not be loaded.'));
       throw error;
     }
   }
@@ -1483,7 +1479,7 @@ function App() {
       await Promise.all([refreshRewards(), refreshDerivedPoints()]);
       setRewardStatus('Example reward claimed. Your points did not decrease.');
     } catch (error) {
-      setRewardStatus(error instanceof Error ? error.message : 'The example reward could not be claimed.');
+      setRewardStatus(citizenSafeError(error, 'The example reward could not be claimed.'));
     } finally {
       setRewardBusyId('');
     }
@@ -1499,7 +1495,7 @@ function App() {
       await Promise.all([refreshRewards(), refreshDerivedPoints()]);
       setRewardStatus('Used in simulation. No shop verified or accepted this code, and your points did not decrease.');
     } catch (error) {
-      setRewardStatus(error instanceof Error ? error.message : 'The simulated use could not be recorded.');
+      setRewardStatus(citizenSafeError(error, 'The simulated use could not be recorded.'));
     } finally {
       setRewardBusyId('');
     }
@@ -1570,7 +1566,7 @@ function App() {
   const myInitiativesSection = <section className="actions-subsection initiative-memberships">
     <div className="actions-section-heading">
       <div><h2>{t('My Initiatives')}</h2><p>{t('Initiatives you organise or join stay here, including their final status.')}</p></div>
-      <button className="secondary" onClick={() => loadMyInitiatives().catch((error) => setInitiativeStatus(`Your initiatives could not be loaded: ${error.message}`))}>{t('Refresh')}</button>
+      <button className="secondary" onClick={() => loadMyInitiatives().catch((error) => setInitiativeStatus(citizenSafeError(error, 'Your initiatives could not be loaded.')))}>{t('Refresh')}</button>
     </div>
     {initiativeStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{runtimeMessage(initiativeStatus)}</div>}
     {!myInitiatives.length && <div className="empty-state"><b>{t('No joined initiatives yet.')}</b><p>{t('Create an initiative or join one nearby.')}</p><button onClick={() => navigate('initiatives')}>{t('Explore initiatives')}</button></div>}
@@ -1581,15 +1577,15 @@ function App() {
           <span className="initiative-card-status">{localizedStatus(language, initiative.status)} · {initiative.joinerCount} {t('joined')}</span>
         </div>
         <h3>{initiative.title}</h3>
-        <p>{timestampLabel(initiative.startAt, language)} · {initiative.placeName}</p>
+        <p className="my-action-meeting-point"><span>{timestampLabel(initiative.startAt, language)} · {initiative.placeName}</span>{initiative.mapsUrl && <a href={initiative.mapsUrl} target="_blank" rel="noreferrer">⌖ {t('Open in Google Maps')}</a>}</p>
         {initiative.status === 'CANCELLED' && initiative.cancellationReason && <p><b>{t('Cancellation reason')}:</b> {initiative.cancellationReason}</p>}
         {initiative.canManage && initiative.status === 'PUBLISHED' && <div className="initiative-manage">
           <label htmlFor={`cancel-reason-${initiative.initiativeId}`}>{t('Cancellation reason')}
             <input id={`cancel-reason-${initiative.initiativeId}`} maxLength={300} value={cancellationReasons[initiative.initiativeId] ?? ''} onChange={(event) => setCancellationReasons((values) => ({ ...values, [initiative.initiativeId]: event.target.value }))} placeholder={t('Required only when cancelling')} />
           </label>
           <div className="draft-actions">
-            <button className="secondary" disabled={!cancellationReasons[initiative.initiativeId]?.trim() || initiative.codeAttendanceCount > 0} title={initiative.codeAttendanceCount > 0 ? t('Cancellation is unavailable after code attendance is recorded') : undefined} onClick={() => requestLinkedMutation(() => changeInitiativeStatus(initiative.initiativeId, 'CANCELLED').catch((error) => setInitiativeStatus(error.message)))}>{t('Cancel activity')}</button>
-            <button disabled={Date.now() < Date.parse(initiative.startAt)} title={Date.now() < Date.parse(initiative.startAt) ? t('Available after the scheduled activity time') : undefined} onClick={() => requestLinkedMutation(() => changeInitiativeStatus(initiative.initiativeId, 'COMPLETED').catch((error) => setInitiativeStatus(error.message)))}>{t('Mark completed')}</button>
+            <button className="secondary" disabled={!cancellationReasons[initiative.initiativeId]?.trim() || initiative.codeAttendanceCount > 0} title={initiative.codeAttendanceCount > 0 ? t('Cancellation is unavailable after code attendance is recorded') : undefined} onClick={() => requestLinkedMutation(() => changeInitiativeStatus(initiative.initiativeId, 'CANCELLED').catch((error) => setInitiativeStatus(citizenSafeError(error, 'The initiative could not be updated.'))))}>{t('Cancel activity')}</button>
+            <button disabled={Date.now() < Date.parse(initiative.startAt)} title={Date.now() < Date.parse(initiative.startAt) ? t('Available after the scheduled activity time') : undefined} onClick={() => requestLinkedMutation(() => changeInitiativeStatus(initiative.initiativeId, 'COMPLETED').catch((error) => setInitiativeStatus(citizenSafeError(error, 'The initiative could not be updated.'))))}>{t('Mark completed')}</button>
           </div>
         </div>}
         <div className="attendance-summary" aria-label={t('Attendance summary')}>
@@ -1602,19 +1598,19 @@ function App() {
         {initiative.canViewAttendanceCode && <div className="attendance-code-panel">
           <div><b>{t('Organiser attendance code')}</b><span>{t('Share this six-digit code only with joined participants who attended.')}</span></div>
           {activeAttendanceCodes[initiative.initiativeId]
-            ? <><output aria-label={t('Current organiser attendance code')} className="attendance-code">{activeAttendanceCodes[initiative.initiativeId].code}</output><small>{t('Rotates at')} {timestampLabel(activeAttendanceCodes[initiative.initiativeId].rotatesAt, language)} · {t('Code window closes')} {timestampLabel(activeAttendanceCodes[initiative.initiativeId].codeWindowEndsAt, language)}</small><button className="secondary" onClick={() => requestLinkedMutation(() => loadAttendanceCode(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message)))}>{t('Refresh code')}</button></>
-            : <button onClick={() => requestLinkedMutation(() => loadAttendanceCode(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message)))}>{t('Show attendance code')}</button>}
+            ? <><output aria-label={t('Current organiser attendance code')} className="attendance-code">{activeAttendanceCodes[initiative.initiativeId].code}</output><small>{t('Rotates at')} {timestampLabel(activeAttendanceCodes[initiative.initiativeId].rotatesAt, language)} · {t('Code window closes')} {timestampLabel(activeAttendanceCodes[initiative.initiativeId].codeWindowEndsAt, language)}</small><button className="secondary" onClick={() => requestLinkedMutation(() => loadAttendanceCode(initiative.initiativeId).catch((error) => setInitiativeStatus(citizenSafeError(error, 'The attendance code could not be loaded.'))))}>{t('Refresh code')}</button></>
+            : <button onClick={() => requestLinkedMutation(() => loadAttendanceCode(initiative.initiativeId).catch((error) => setInitiativeStatus(citizenSafeError(error, 'The attendance code could not be loaded.'))))}>{t('Show attendance code')}</button>}
         </div>}
         {initiative.canUseOrganiserCode && !initiative.attendanceBasis && <div className="attendance-entry-panel">
           <label htmlFor={`attendance-code-${initiative.initiativeId}`}>{t('Enter organiser attendance code')}
             <input id={`attendance-code-${initiative.initiativeId}`} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]*" maxLength={6} value={attendanceCodeInputs[initiative.initiativeId] ?? ''} onChange={(event) => setAttendanceCodeInputs((values) => ({ ...values, [initiative.initiativeId]: event.target.value.replace(/\D/g, '').slice(0, 6) }))} />
           </label>
-          <button disabled={!/^\d{6}$/.test(attendanceCodeInputs[initiative.initiativeId] ?? '')} onClick={() => requestLinkedMutation(() => submitAttendanceCode(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message)))}>{t('Record code attendance · 20 points')}</button>
+          <button disabled={!/^\d{6}$/.test(attendanceCodeInputs[initiative.initiativeId] ?? '')} onClick={() => requestLinkedMutation(() => submitAttendanceCode(initiative.initiativeId).catch((error) => setInitiativeStatus(citizenSafeError(error, 'Attendance could not be recorded.'))))}>{t('Record code attendance · 20 points')}</button>
           <small>{t('The code rotates every 10 minutes. Five incorrect attempts are allowed per code period.')}</small>
         </div>}
         {initiative.canSelfAttend && !initiative.attendanceBasis && <div className="attendance-entry-panel">
           <p>{t('The organiser-code window has closed. You can report your own attendance for seven days after completion.')}</p>
-          <button className="secondary" onClick={() => requestLinkedMutation(() => recordSelfAttendance(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message)))}>{t('I attended · 0 points')}</button>
+          <button className="secondary" onClick={() => requestLinkedMutation(() => recordSelfAttendance(initiative.initiativeId).catch((error) => setInitiativeStatus(citizenSafeError(error, 'Attendance could not be recorded.'))))}>{t('I attended · 0 points')}</button>
           <small>{t('This is a self-report. Seewik does not verify it.')}</small>
         </div>}
         {initiative.role === 'PARTICIPANT' && !initiative.attendanceBasis && !initiative.canUseOrganiserCode && !initiative.canSelfAttend && <small>{initiative.status === 'CANCELLED' ? t('Attendance is unavailable because this activity was cancelled.') : initiative.status === 'COMPLETED' ? t('No attendance option is currently available.') : t('Code attendance opens at the scheduled start time.')}</small>}
@@ -1648,6 +1644,7 @@ function App() {
           <button aria-current={navCurrent(screen === 'points')} className={screen === 'points' ? 'active' : ''} onClick={() => navigate('points')}>{t('My Civic Card')}</button>
         </nav>
         <label className="language-switcher"><span>{t('Language')}</span><select aria-label={t('Language')} value={language} onChange={(event) => setLanguage(event.target.value as InterfaceLanguage)}>{LANGUAGE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        <button className="header-emergency" onClick={() => navigate('emergency')} aria-label={t('Open Emergency Information — 112')}><strong>112</strong><span>{t('Emergency')}</span></button>
         <AccountControl
           state={accountState}
           dialog={accountDialog}
@@ -1666,13 +1663,13 @@ function App() {
       </div>
     </header>
     {accountState === 'GOOGLE_LINK_REQUIRED' && <aside className="account-device-warning" role="status" aria-live="polite">
-      <div><strong>{t('Device-only access')}</strong><span>{t('This temporary account is not recoverable yet. If you clear this browser before connecting Google, you may permanently lose access to its reports, drafts, points and Initiative activity.')}</span></div>
+      <div><strong>{t('Device-only access')}</strong><span>{t('This work is saved only on this device until you connect Google.')}</span></div>
       <button className="secondary" onClick={openAccount}>{t('Connect Google')}</button>
     </aside>}
     {['new-report', 'review'].includes(screen) && <div className="page-tools"><span>{t('Saved reports are not deleted by Start over.')}</span><button className="secondary" onClick={startOver}>{t('Start over')}</button></div>}
 
     {screen === 'home' && <>
-      <section className="hero"><span className="eyebrow">{t('LOCAL CIVIC ACTION')}</span><h1>{t('A Civic Intelligence Platform')}</h1><p>{t('Identify a civic issue, find the confirmed route, prepare a complaint and track the outcome.')}</p></section>
+      <section className="hero"><span className="eyebrow">{t('LOCAL CIVIC ACTION')}</span><h1>{t('Report a problem. Get it to the right office.')}</h1><p>{t('Identify a civic issue, find the confirmed route, prepare a complaint and track the outcome.')}</p></section>
       <section className="home-actions" aria-label={t('Start using Seewik')}>
         <article className="home-primary-action improve-action">
           <h2>{t('Improve')}</h2>
@@ -1686,44 +1683,43 @@ function App() {
           <p className="home-action-examples">{t('Donation · Plantation · Cleanup · Fitness')}</p>
           <button onClick={() => navigate('initiatives')}>{t('Start a community activity')}</button>
         </article>
-        <article><span>03</span><h2>{t('My Actions')}</h2><p>{t('Resume drafts and inspect filed reports without rewriting their frozen facts.')}</p><button className="secondary" onClick={() => navigate('reports')}>{t('Open My Actions')}</button></article>
-        <article><span>04</span><h2>{t('My Civic Card')}</h2><p>{t('See your civic contribution record and how your points were earned.')}</p><button className="secondary" onClick={() => navigate('points')}>{t('Open my Civic Card')}</button></article>
+        <article><h2>{t('My Actions')}</h2><p>{t('Resume drafts and review filed reports. Filed reports can’t be edited.')}</p><button className="secondary" onClick={() => navigate('reports')}>{t('Open My Actions')}</button></article>
+        <article><h2>{t('My Civic Card')}</h2><p>{t('See your civic contribution record and how your points were earned.')}</p><button className="secondary" onClick={() => navigate('points')}>{t('Open my Civic Card')}</button></article>
       </section>
       <section className="home-utility-links" aria-label={t('Learn and get help')}>
         <button onClick={() => navigate('awareness')}><span aria-hidden="true">?</span><span><strong>{t('Civic Awareness')}</strong><small>{t('Did you know? Duties, municipal work and official programmes')}</small></span></button>
         <button className="emergency-link" onClick={() => navigate('emergency')}><span aria-hidden="true">＋</span><span><strong>{t('Emergency Information')}</strong><small>{t('112 and verified Nandurbar helplines')}</small></span></button>
       </section>
-      <RecognitionPanel panel={publicRecognition ? { ...publicRecognition, monthLabel: localizedMonthLabel(language, publicRecognition.monthLabel) } : null} loading={publicRecognitionLoading} status={publicRecognitionStatus} t={t} onReport={sendRecognitionReport} />
+      <RecognitionPanel panel={publicRecognition ? { ...publicRecognition, monthLabel: localizedMonthLabel(language, publicRecognition.monthLabel) } : null} loading={publicRecognitionLoading} status={publicRecognitionStatus} t={t} onReport={sendRecognitionReport} onRetry={loadPublicRecognition} />
     </>}
 
     {screen === 'initiatives' && <>
       <section className="hero page-hero initiative-hero"><span className="eyebrow">{t('LOCAL INITIATIVES')}</span><h1>{t('Create or join an initiative')}</h1><p>{t('Choose whether you want to start a useful local initiative or join one nearby.')}</p></section>
       <section className="initiative-choice-grid" aria-label={t('Initiative options')}>
         <article className="card initiative-choice">
-          <span className="eyebrow">{t('CREATE AN INITIATIVE')}</span>
           <h2>{t('Create an Initiative')}</h2>
           <p>{t('Start a useful community initiative with a real date and public meeting place.')}</p>
           <button onClick={() => navigate('new-initiative')}>{t('Create an Initiative')}</button>
         </article>
         <article className="card initiative-choice join-choice">
-          <span className="eyebrow">{t('JOIN AN INITIATIVE')}</span>
           <h2>{t('Join an Initiative')}</h2>
           <p>{t('Find upcoming initiatives near you and join the ones that suit you.')}</p>
-          <button className="secondary" onClick={() => initiativeCoordinates ? discoverInitiatives(false).catch((error) => setInitiativeStatus(error.message)) : locateForInitiatives('DISCOVER')}>{initiativeCoordinates ? t('Refresh nearby') : t('Find nearby initiatives')}</button>
+          <button className="secondary" onClick={() => initiativeCoordinates ? discoverInitiatives(false).catch((error) => setInitiativeStatus(citizenSafeError(error, 'Nearby initiatives could not be loaded.'))) : locateForInitiatives()}>{initiativeCoordinates ? t('Refresh nearby') : t('Find nearby initiatives')}</button>
         </article>
       </section>
       <section className="initiative-toolbar card">
         <div><h2>{t('Nearby activities')}</h2><p>{t('Distance is calculated from the location you choose to share. Your coordinates are used for this request and are not shown to other citizens.')}</p></div>
         <label>{t('Search radius')}<select value={initiativeRadiusKm} onChange={(event) => setInitiativeRadiusKm(Number(event.target.value))}><option value={2}>2 km</option><option value={5}>5 km</option><option value={10}>10 km</option><option value={25}>25 km</option></select></label>
-        <button className="secondary" onClick={() => initiativeCoordinates ? discoverInitiatives(false).catch((error) => setInitiativeStatus(error.message)) : locateForInitiatives('DISCOVER')}>{initiativeCoordinates ? t('Refresh nearby') : t('Use my location')}</button>
+        <button className="secondary" onClick={() => initiativeCoordinates ? discoverInitiatives(false).catch((error) => setInitiativeStatus(citizenSafeError(error, 'Nearby initiatives could not be loaded.'))) : locateForInitiatives()}>{initiativeCoordinates ? t('Refresh nearby') : t('Use my location')}</button>
         {initiativeStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{runtimeMessage(initiativeStatus)}</div>}
       </section>
       <section className="initiative-list" aria-live="polite">
+        {!initiatives.length && !initiativeCoordinates && !initiativeStatus && <div className="card empty-state"><b>{t('Share your location to find nearby initiatives.')}</b><p>{t('Your coordinates are used only for this search and are not shown to other citizens.')}</p><button onClick={locateForInitiatives}>{t('Find nearby initiatives')}</button></div>}
         {initiatives.map((initiative) => <article className="card initiative-card" key={initiative.initiativeId}>
           <div className="initiative-card-top"><span className="status-chip">{initiativeCategoryLabel(initiative.category)}</span><span className="live-count"><i aria-hidden="true" />{localizedStatus(language, initiative.status)} · {initiative.participantCount} {initiative.participantCount === 1 ? t('person') : t('people')}</span></div>
           <h2>{initiative.title}</h2><p>{initiative.description}</p>
-          <dl><div><dt>{t('When')}</dt><dd>{timestampLabel(initiative.startAt, language)}</dd></div><div><dt>{t('Where')}</dt><dd>{initiative.placeName}</dd></div><div><dt>{t('Distance')}</dt><dd>{initiative.distanceKm.toFixed(2)} km</dd></div><div><dt>{t('What is needed')}</dt><dd>{initiative.needs || t('Just bring yourself')}</dd></div></dl>
-          <button disabled={initiative.joined} onClick={() => requestLinkedMutation(() => joinInitiative(initiative.initiativeId).catch((error) => setInitiativeStatus(error.message)))}>{initiative.joined ? t('Joined') : t('Join this activity')}</button>
+          <dl><div><dt>{t('When')}</dt><dd>{timestampLabel(initiative.startAt, language)}</dd></div><div><dt>{t('Where')}</dt><dd className="meeting-point-display"><span>{initiative.placeName}</span>{initiative.mapsUrl && <a href={initiative.mapsUrl} target="_blank" rel="noreferrer">⌖ {t('Open in Google Maps')}</a>}</dd></div><div><dt>{t('Distance')}</dt><dd>{initiative.distanceKm.toFixed(2)} km</dd></div><div><dt>{t('What is needed')}</dt><dd>{initiative.needs || t('Just bring yourself')}</dd></div></dl>
+          <button disabled={initiative.joined} onClick={() => requestLinkedMutation(() => joinInitiative(initiative.initiativeId).catch((error) => setInitiativeStatus(citizenSafeError(error, 'The initiative could not be joined.'))))}>{initiative.joined ? t('Joined') : t('Join this activity')}</button>
           <small>{t('Creating or joining alone earns no points. Joined participants can record attendance during the organiser-code window.')}</small>
         </article>)}
         {!initiatives.length && initiativeCoordinates && !initiativeStatus.startsWith('Finding') && <div className="card empty-state"><b>{t('No nearby activity is listed yet.')}</b><p>{t('You can create the first one without inventing an impact claim.')}</p><button onClick={() => navigate('new-initiative')}>{t('Create an activity')}</button></div>}
@@ -1731,16 +1727,41 @@ function App() {
     </>}
 
     {screen === 'new-initiative' && <section className="card page-card initiative-form">
-      <span className="eyebrow">{t('CREATE AN INITIATIVE')}</span><h2>{t('Start something useful nearby')}</h2><p>{t('Publish the real date, public meeting place and what neighbours should bring. Seewik does not claim participation or impact until it happens.')}</p>
+      <span className="eyebrow">{t('CREATE AN INITIATIVE')}</span><h2>{t('Start something useful nearby')}</h2><p>{t('Publish the real date, a confirmed public meeting point and what neighbours should bring. Seewik does not claim participation or impact until it happens.')}</p>
       <label>{t('Activity type')}<select value={initiativeCategory} onChange={(event) => setInitiativeCategory(event.target.value)}><option value="CLEANUP">{t('Neighbourhood clean-up')}</option><option value="PLANTATION">{t('Plantation')}</option><option value="DONATION">{t('Donation activity')}</option><option value="COMMUNITY_FITNESS">{t('Community fitness')}</option><option value="OTHER_CIVIC_ACTIVITY">{t('Other civic activity')}</option></select></label>
-      <label>{t('Title')}<input maxLength={100} value={initiativeTitle} onChange={(event) => setInitiativeTitle(event.target.value)} /></label>
+      <label>{t('Title')}<input type="text" maxLength={100} value={initiativeTitle} onChange={(event) => setInitiativeTitle(event.target.value)} /></label>
       <label>{t('Description')}<textarea maxLength={1200} value={initiativeDescription} onChange={(event) => setInitiativeDescription(event.target.value)} /></label>
       <label>{t('Date and time')}<input type="datetime-local" value={initiativeStartAt} onChange={(event) => setInitiativeStartAt(event.target.value)} /></label>
-      <label>{t('Public meeting place')}<input maxLength={200} value={initiativePlaceName} onChange={(event) => setInitiativePlaceName(event.target.value)} /></label>
+      <InitiativeMeetingPointPicker language={language} position={initiativeMeetingPoint} onChange={(position) => {
+        setInitiativeMeetingPoint(position);
+        setInitiativeMeetingPointConfirmed(false);
+        setInitiativeStatus('');
+      }} onGooglePlaceSelect={({ position, label }) => {
+        setInitiativeMeetingPoint({
+          latitude: Number(position.latitude.toFixed(6)),
+          longitude: Number(position.longitude.toFixed(6)),
+        });
+        setInitiativePlaceName(label.slice(0, 200));
+        setInitiativeMeetingPointConfirmed(false);
+        setInitiativeStatus('');
+      }} />
+      <label>{t('Public meeting-point label')}<input type="text" maxLength={200} value={initiativePlaceName} onChange={(event) => {
+        setInitiativePlaceName(event.target.value);
+        setInitiativeMeetingPointConfirmed(false);
+        setInitiativeStatus('');
+      }} /><small>{t('Use a clear public landmark or meeting-place name. Participants will see this label.')}</small></label>
+      <button type="button" className="secondary" disabled={!initiativeMeetingPoint || !initiativePlaceName.trim()} onClick={() => {
+        setInitiativeMeetingPointConfirmed(true);
+        setInitiativeStatus('Meeting point confirmed.');
+      }}>{initiativeMeetingPointConfirmed ? `✓ ${t('Meeting point confirmed')}` : t('Confirm meeting point')}</button>
+      {initiativeMeetingPointConfirmed && initiativeMeetingPoint && <div className="confirmed-meeting-point" role="status" aria-live="polite"><div><b>{initiativePlaceName.trim()}</b><span>{t('Confirmed public meeting point')}</span></div><a href={`https://www.google.com/maps/search/?api=1&query=${initiativeMeetingPoint.latitude.toFixed(6)}%2C${initiativeMeetingPoint.longitude.toFixed(6)}`} target="_blank" rel="noreferrer">⌖ {t('Preview in Google Maps')}</a></div>}
       <label>{t('Supplies or volunteers needed (optional)')}<textarea maxLength={500} value={initiativeNeeds} onChange={(event) => setInitiativeNeeds(event.target.value)} /></label>
-      <button className="secondary" onClick={() => locateForInitiatives('CREATE')}>{initiativeCoordinates ? t('Activity location captured') : t('Use my location for discovery')}</button>
-      <small>{t('Coordinates support nearby discovery. Other citizens see the public place name and distance, not your raw coordinates.')}</small>
-      <div className="draft-actions"><button className="secondary" onClick={() => navigate('initiatives')}>{t('Cancel')}</button><button disabled={!initiativeCoordinates || !initiativeTitle.trim() || !initiativeDescription.trim() || !initiativePlaceName.trim() || !initiativeStartAt} onClick={() => requestLinkedMutation(() => createInitiative().catch((error) => setInitiativeStatus(error.message)))}>{t('Publish activity')}</button></div>
+      <div className={`publish-requirements${initiativePublishRequirements.length ? '' : ' is-complete'}`} role="status" aria-live="polite">
+        <b>{initiativePublishRequirements.length ? t('Before you can publish') : `✓ ${t('Ready to publish')}`}</b>
+        {initiativePublishRequirements.length > 0 && <ul>{initiativePublishRequirements.map((requirement) => <li key={requirement}>{t(requirement)}</li>)}</ul>}
+        {!initiativePublishRequirements.length && <span>{t('The meeting point and required activity details are confirmed.')}</span>}
+      </div>
+      <div className="draft-actions"><button className="secondary" onClick={() => navigate('initiatives')}>{t('Cancel')}</button><button disabled={initiativePublishRequirements.length > 0} onClick={() => requestLinkedMutation(() => createInitiative().catch((error) => setInitiativeStatus(citizenSafeError(error, 'The initiative could not be published.'))))}>{t('Publish activity')}</button></div>
       {initiativeStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{runtimeMessage(initiativeStatus)}</div>}
     </section>}
 
@@ -1748,7 +1769,7 @@ function App() {
     <section className="hero page-hero"><span className="eyebrow">{t('NEW REPORT')}</span><h1>{t('Find the right civic route')}</h1><p>{t('Automatic classification may suggest a category. You confirm it, and Civic Pack determines the route.')}</p></section>
     <section className="card report-flow-card">
       <div className="signal" aria-hidden="true" /><h2>{t('Find the civic route')}</h2>
-      <p>{t('Start with a photo or short description. Automatic classification may suggest an issue category, but you confirm it. Authority and department always come from Civic Pack v0.2.')}</p>
+      <p>{t('Start with a photo or short description. Seewik may suggest an issue category, but you confirm it before finding the right office.')}</p>
       <div className="flow-step"><span>1</span><b>{t('Describe the issue')}</b></div>
       <label>{t('Photo (optional)')}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => {
         setEvidenceImage(event.target.files?.[0] ?? null);
@@ -1773,7 +1794,8 @@ function App() {
       {classificationConfirmed && <div className="confirmed-line" role="status" aria-live="polite">✓ {issueLabel(issueType, language)} · {classificationSourceLabel(classificationSource)}</div>}
 
       <div className="flow-step"><span>2</span><b>{t('Confirm your prabhag')}</b></div>
-      <p>{t('Location can suggest a prabhag using development boundaries. The suggestion is not an official boundary determination and must be confirmed. Manual selection always overrides it.')}</p>
+      <p>{t('Use your location for a suggestion, or choose your Prabhag manually. You always confirm the result.')}</p>
+      <small className="field-help">{t('The approximate guide is for orientation and is not an official boundary determination.')}</small>
       <button className="secondary" onClick={useMyLocation}>{t('Suggest from my location')}</button>
       {locationStatus && <div role="status" aria-live="polite" className={`status-panel ${resolution?.status === 'CANDIDATE_PRABHAG' ? 'state-success' : resolution?.status === 'OUTSIDE_SUPPORTED_AREA' || resolution?.status === 'RESOLUTION_UNAVAILABLE' || resolution?.status === 'INVALID_COORDINATES' ? 'state-error' : 'state-warning'}`}>{runtimeMessage(locationStatus)}</div>}
       {resolution?.status === 'CANDIDATE_PRABHAG' && resolution.prabhagId && <div className="candidate"><strong>{resolution.prabhagName}</strong><span>{resolution.resolutionQuality} · {resolution.datasetVersion}</span><span>{resolution.resolutionMethod}: {resolution.queryLatencyMs} ms</span>{resolution.fallbackReason && <small>{resolution.fallbackReason}</small>}<button onClick={confirmCandidate}>{t('Confirm this suggested prabhag')}</button></div>}
@@ -1788,19 +1810,17 @@ function App() {
           {prabhagSelectionMade && <div className="confirmed-line" role="status" aria-live="polite">✓ {t('Prabhag')} {Number(prabhagId.slice(-2))} · {manualPrabhagSelected ? t('Selected manually') : t('Confirmed selection')}</div>}
         </div>
         <BoundaryMapErrorBoundary fallback={<div className="status-panel state-warning" role="status">{t('The boundary guide is unavailable. Choose Prabhag 1–20 manually.')}</div>}>
-          <Suspense fallback={<div className="status-panel state-warning" role="status">{t('Loading approximate boundary guide…')}</div>}>
-            <LazyPrabhagBoundaryMap
-              language={language}
-              highlightedPrabhagId={highlightedPrabhagId}
-              selectionKind={boundarySelectionKind}
-              currentPosition={currentCoordinates}
-              onManualSelect={selectManualPrabhag}
-            />
-          </Suspense>
+          <PrabhagBoundaryMap
+            language={language}
+            highlightedPrabhagId={highlightedPrabhagId}
+            selectionKind={boundarySelectionKind}
+            currentPosition={currentCoordinates}
+            onManualSelect={selectManualPrabhag}
+          />
         </BoundaryMapErrorBoundary>
       </div>
-      <div className="flow-step"><span>3</span><b>{t('Get the deterministic route')}</b></div>
-      <button disabled={!classificationConfirmed || !prabhagSelectionMade} onClick={() => findCivicRoute().catch((error) => setRouteResult({ status: `Routing failed: ${error.message}` }))}>{t('Find official route')}</button>
+      <div className="flow-step"><span>3</span><b>{t('Find the right office')}</b></div>
+      <button disabled={!classificationConfirmed || !prabhagSelectionMade} onClick={() => findCivicRoute().catch((error) => setRouteResult({ status: citizenSafeError(error, 'The right office could not be found. Try again.') }))}>{t('Find official route')}</button>
       {routeResult && <div aria-live="polite" className={`route-result ${routeResult.status === 'SUPPORTED_ROUTE' ? 'state-success' : 'state-error'}`}>
         <strong>{routeResult.status === 'SUPPORTED_ROUTE' ? routeResult.authority : routeResult.status === 'CATEGORY_CONFIRMATION_REQUIRED' ? t('Confirm the issue category first') : routeResult.status === 'PRABHAG_CONFIRMATION_REQUIRED' ? t('Choose and confirm a prabhag first') : routeResult.status}</strong>
         {routeResult.routeId && <>
@@ -1810,9 +1830,7 @@ function App() {
             <span>{routeResult.department.basis}</span>
             <span>{routeResult.department.status}</span>
           </div>}
-          <span>{routeResult.routeId}</span>
-          <span>{routeResult.prabhagId} · {routeResult.resolutionMethod}</span>
-          <span>{routeResult.sourceStatus} · {routeResult.reviewStatus} · {routeResult.packVersion}</span>
+          <span>{routeResult.prabhagId}</span>
           {(routeResult.knownLimitations?.length ?? 0) > 0 && <div className="route-limitations">
             <b>{t('Please check before filing')}</b>
             <ul>{routeResult.knownLimitations?.map((limitation) => <li key={limitation.code}>{limitation.citizenMessage}</li>)}</ul>
@@ -1852,13 +1870,13 @@ function App() {
           setDraftLanguage(event.target.value as 'MR' | 'EN');
           resetDraft();
         }}><option value="MR">मराठी</option><option value="EN">English</option></select><small className="field-help">{t('Drafts are currently available in Marathi and English.')}</small></label>
-        <button onClick={() => createComplaintDraft().catch((error) => setDraftStatus(`Drafting failed: ${error.message}`))}>{t('Create complaint draft')}</button>
+        <button onClick={() => createComplaintDraft().catch((error) => setDraftStatus(citizenSafeError(error, 'The complaint draft could not be created.')))}>{t('Create complaint draft')}</button>
         {draftStatus && <div role="status" aria-live="polite" className={`status-panel ${complaintDraft?.status === 'DRAFT_ERROR' || draftStatus.includes('could not') || draftStatus.includes('failed') ? 'state-error' : 'state-warning'}`}>{runtimeMessage(draftStatus)}</div>}
         {complaintDraft?.status === 'DRAFT_ERROR' && <div className="draft-panel">
           <div className="draft-heading"><div><small>{t('Confirmed recipient')}</small><strong>{routeResult.authority}</strong></div><span>{t('Manual fallback')}</span></div>
           <p>{t('Automatic drafting is unavailable. Write or edit your complaint below; the confirmed route above is unchanged.')}</p>
           <label>{t('Complaint body')}<textarea className="draft-body" maxLength={2500} value={manualComplaintBody} onChange={(event) => setManualComplaintBody(event.target.value)} /></label>
-          <button className="secondary" onClick={() => copyManualComplaint().catch((error) => setDraftStatus(`Copy failed: ${error.message}`))}>{t('Copy manual complaint')}</button>
+          <button className="secondary" onClick={() => copyManualComplaint().catch((error) => setDraftStatus(citizenSafeError(error, 'The complaint could not be copied.')))}>{t('Copy manual complaint')}</button>
         </div>}
         {complaintDraft?.status === 'DRAFT_READY' && <div className="draft-panel">
           <div className="draft-heading"><div><small>{t('Recipient')}</small><strong>{complaintDraft.authorityLocalName || complaintDraft.authority}</strong></div><span>{complaintDraft.language} · {complaintDraft.draftVersion}</span></div>
@@ -1873,8 +1891,8 @@ function App() {
           }} /></label>
           <label className="review-check"><input type="checkbox" checked={draftReviewed} onChange={(event) => setDraftReviewed(event.target.checked)} /><span>{t('I reviewed the facts, recipient and wording.')}</span></label>
           <div className="draft-actions">
-            <button className="secondary" disabled={!draftDocumentId} onClick={() => requestLinkedMutation(() => saveDraftEdits().then(() => undefined).catch((error) => setDraftStatus(`Draft save failed: ${error.message}`)))}>{t('Save changes')}</button>
-            <button disabled={!draftReviewed || !draftDocumentId} onClick={() => requestLinkedMutation(() => copyReviewedDraft().catch((error) => setDraftStatus(`Copy failed: ${error.message}`)))}>{t('Copy reviewed complaint')}</button>
+            <button className="secondary" disabled={!draftDocumentId} onClick={() => requestLinkedMutation(() => saveDraftEdits().then(() => undefined).catch((error) => setDraftStatus(citizenSafeError(error, 'The draft could not be saved.'))))}>{t('Save changes')}</button>
+            <button disabled={!draftReviewed || !draftDocumentId} onClick={() => requestLinkedMutation(() => copyReviewedDraft().catch((error) => setDraftStatus(citizenSafeError(error, 'The complaint could not be copied.'))))}>{t('Copy reviewed complaint')}</button>
           </div>
           <small>{t('No complaint is submitted automatically. The saved record remains a DRAFT owned by your recoverable profile.')}</small>
         </div>}
@@ -1890,23 +1908,23 @@ function App() {
               {routeResult.officialChannels?.map((channel) => <option key={channel.channelId} value={channel.channelId}>{channel.label}</option>)}
             </select></label>}
             <label>{t('Acknowledgement / tracking ID (optional)')}<input maxLength={200} value={acknowledgementId} onChange={(event) => setAcknowledgementId(event.target.value)} /></label>
-            <button onClick={() => requestLinkedMutation(() => transitionReport('FILED').catch((error) => setLifecycleStatus(error.message)))}>{t('I filed this complaint')}</button>
+            <button onClick={() => requestLinkedMutation(() => transitionReport('FILED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('I filed this complaint')}</button>
             {!currentCoordinates && <small>{t('Dedupe is not evaluated when location is unavailable.')}</small>}
           </>}
           {duplicateWarning && <div className="duplicate-warning">
             <b>{t('Possible duplicate')}</b>
             <span>A same-category report is {duplicateWarning.measuredDistanceMeters?.toFixed(1)} m away. The 75 m threshold is an MVP heuristic, not a civic boundary.</span>
-            <button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('FILED', true).catch((error) => setLifecycleStatus(error.message)))}>{t('This is a different issue — file with 0 points')}</button>
+            <button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('FILED', true).catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('This is a different issue — file with 0 points')}</button>
           </div>}
           {['FILED', 'OVERDUE', 'REOPENED'].includes(reportStatus) && <>
             {reportStatus === 'FILED' && <div className="overdue-unknown"><b>{t('Overdue: unknown')}</b><span>{t('No verified SLA exists, so Seewik will not invent a due date.')}</span></div>}
-            <button onClick={() => requestLinkedMutation(() => transitionReport('CLAIMED_FIXED').catch((error) => setLifecycleStatus(error.message)))}>{t('Record a repair claim')}</button>
+            <button onClick={() => requestLinkedMutation(() => transitionReport('CLAIMED_FIXED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Record a repair claim')}</button>
           </>}
           {reportStatus === 'CLAIMED_FIXED' && <div className="lifecycle-actions">
-            <button onClick={() => requestLinkedMutation(() => transitionReport('VERIFIED_FIXED').catch((error) => setLifecycleStatus(error.message)))}>{t('Verify fixed')}</button>
-            <button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message)))}>{t('Reject repair claim')}</button>
+            <button onClick={() => requestLinkedMutation(() => transitionReport('VERIFIED_FIXED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Verify fixed')}</button>
+            <button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Reject repair claim')}</button>
           </div>}
-          {reportStatus === 'VERIFIED_FIXED' && <button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message)))}>{t('Report recurrence')}</button>}
+          {reportStatus === 'VERIFIED_FIXED' && <button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Report recurrence')}</button>}
           {lifecycleStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(lifecycleStatus)}</div>}
           <ol className="timeline">
             {timeline.map((item, index) => <li key={`${item.occurredAt}-${index}`}>
@@ -1921,23 +1939,23 @@ function App() {
     {screen === 'review' && <section className="card page-card">
       <span className="eyebrow">{t('COMPLAINT REVIEW')}</span><h2>{t('Review your saved complaint')}</h2>
       {!draftDocumentId || complaintDraft?.status !== 'DRAFT_READY' ? <div className="empty-state"><b>{t('No draft is ready in this session.')}</b><p>{t('Create or open a saved draft before reviewing it.')}</p><button onClick={() => navigate('new-report')}>{t('Start a report')}</button></div> : <>
-        <div className={`report-status-banner ${canEditReport(reportStatus) ? 'editable' : 'immutable'}`}><b>{localizedStatus(language, reportStatus)}</b><span>{canEditReport(reportStatus) ? t('Editable draft') : t('Filed report — facts and wording are frozen')}</span></div>
-        <div className="locked-recipient"><small>{t('Locked recipient')}</small><strong>{complaintDraft.authorityLocalName || complaintDraft.authority}</strong><span>{complaintDraft.routeId} · {complaintDraft.prabhagId} · {complaintDraft.packVersion}</span></div>
+        <div className={`report-status-banner ${canEditReport(reportStatus) ? 'editable' : 'immutable'}`}><b>{localizedStatus(language, reportStatus)}</b><span>{canEditReport(reportStatus) ? t('Editable draft') : t('Filed report — it can’t be changed')}</span></div>
+        <div className="locked-recipient"><small>{t('Locked recipient')}</small><strong>{complaintDraft.authorityLocalName || complaintDraft.authority}</strong><span>{complaintDraft.prabhagId}</span></div>
         <label>{t('Subject')}<input type="text" maxLength={160} readOnly={!canEditReport(reportStatus)} value={draftSubject} onChange={(event) => { setDraftSubject(event.target.value); setDraftReviewed(false); }} /></label>
         <label>{t('Complaint body')}<textarea className="draft-body" maxLength={2500} readOnly={!canEditReport(reportStatus)} value={draftBody} onChange={(event) => { setDraftBody(event.target.value); setDraftReviewed(false); }} /></label>
         {canEditReport(reportStatus) ? <>
           <label className="review-check"><input type="checkbox" checked={draftReviewed} onChange={(event) => setDraftReviewed(event.target.checked)} /><span>{t('I reviewed the facts, recipient and wording.')}</span></label>
-          <div className="draft-actions"><button className="secondary" onClick={() => requestLinkedMutation(() => saveDraftEdits().then(() => undefined).catch((error) => setDraftStatus(`Draft save failed: ${error.message}`)))}>{t('Save changes')}</button><button disabled={!draftReviewed} onClick={() => requestLinkedMutation(() => copyReviewedDraft().catch((error) => setDraftStatus(`Copy failed: ${error.message}`)))}>{t('Copy reviewed complaint')}</button></div>
+          <div className="draft-actions"><button className="secondary" onClick={() => requestLinkedMutation(() => saveDraftEdits().then(() => undefined).catch((error) => setDraftStatus(citizenSafeError(error, 'The draft could not be saved.'))))}>{t('Save changes')}</button><button disabled={!draftReviewed} onClick={() => requestLinkedMutation(() => copyReviewedDraft().catch((error) => setDraftStatus(citizenSafeError(error, 'The complaint could not be copied.'))))}>{t('Copy reviewed complaint')}</button></div>
           <div className="lifecycle-panel filing-panel"><div className="lifecycle-heading"><div><small>{t('Record real-world filing')}</small><strong>{t('DRAFT')}</strong></div><div className="points-pill"><span>{t('Possible reward')}</span><b>+5</b></div></div><p>{t('Seewik never submits the complaint. Use this only after you file it yourself.')}</p>
             {(routeResult?.officialChannels?.length ?? 0) > 0 && <label>{t('Channel you used')}<select value={filingChannelId} onChange={(event) => setFilingChannelId(event.target.value)}><option value="">{t('Not recorded')}</option>{routeResult?.officialChannels?.map((channel) => <option key={channel.channelId} value={channel.channelId}>{channel.label}</option>)}</select></label>}
             <label>{t('Acknowledgement / tracking ID (optional)')}<input maxLength={200} value={acknowledgementId} onChange={(event) => setAcknowledgementId(event.target.value)} /></label>
-            <button disabled={!draftReviewed} onClick={() => requestLinkedMutation(() => fileReviewedReport().catch((error) => setLifecycleStatus(error.message)))}>{t('I filed this complaint')}</button>
+            <button disabled={!draftReviewed} onClick={() => requestLinkedMutation(() => fileReviewedReport().catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('I filed this complaint')}</button>
             {!currentCoordinates && <small>{t('Dedupe is not evaluated when location is unavailable.')}</small>}
-            {duplicateWarning && <div className="duplicate-warning"><b>{t('Possible duplicate')}</b><span>A same-category report is {duplicateWarning.measuredDistanceMeters?.toFixed(1)} m away.</span><button className="secondary" onClick={() => requestLinkedMutation(() => fileReviewedReport(true).catch((error) => setLifecycleStatus(error.message)))}>{t('This is a different issue — file with 0 points')}</button></div>}
+            {duplicateWarning && <div className="duplicate-warning"><b>{t('Possible duplicate')}</b><span>A same-category report is {duplicateWarning.measuredDistanceMeters?.toFixed(1)} m away.</span><button className="secondary" onClick={() => requestLinkedMutation(() => fileReviewedReport(true).catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('This is a different issue — file with 0 points')}</button></div>}
             {lifecycleStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(lifecycleStatus)}</div>}
           </div>
           <button className="text-action" onClick={() => navigate('new-report')}>{t('Return to report builder')}</button>
-        </> : <><div className="status-panel state-warning"><strong>{t('This report cannot be resumed')}</strong><span>{t('Once filed, the complaint wording and frozen route facts cannot be edited.')}</span></div><button onClick={() => navigate('report-detail', false, draftDocumentId)}>{t('View report timeline')}</button></>}
+        </> : <><div className="status-panel state-warning"><strong>{t('This report cannot be resumed')}</strong><span>{t('Filed reports can’t be edited.')}</span></div><button onClick={() => navigate('report-detail', false, draftDocumentId)}>{t('View report timeline')}</button></>}
         {draftStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(draftStatus)}</div>}
       </>}
     </section>}
@@ -1951,11 +1969,11 @@ function App() {
         <button onClick={openAccount}>{t('Continue with Google')}</button>
       </div> : <>
         <section className="actions-subsection reports-subsection">
-          <div className="actions-section-heading"><div><h2>{t('My Reports')}</h2><p>{t('Drafts can be resumed. Filed reports open as immutable records.')}</p></div><button className="secondary" onClick={() => loadMyReports().catch((error) => setReportsStatus(`Reports could not be loaded: ${error.message}`))}>{t('Refresh')}</button></div>
-          <div className="reports-toolbar"><span role="status" aria-live="polite">{runtimeMessage(reportsStatus)}</span></div>
-          {reportsView === 'LINKED_EMPTY' && <div className="empty-state"><b>{t('Signed in. No saved reports yet.')}</b><p>{t('Create a report to save an owner-protected draft.')}</p><button onClick={() => navigate('new-report')}>{t('Create a report')}</button></div>}
-          {reportsView === 'ANONYMOUS_EMPTY' && <div className="empty-state"><b>{t('No reports are saved for this anonymous account.')}</b><p>{t('Create a report to save an owner-protected draft.')}</p><button onClick={() => navigate('new-report')}>{t('Create a report')}</button></div>}
-          {reportsView === 'HAS_REPORTS' && <div className="report-list">{savedReports.map((report) => <article className="report-list-item" key={report.id}><div><span className={`status-chip status-${report.status.toLowerCase()}`}>{localizedStatus(language, report.status)}</span><h3>{issueLabel(report.confirmedIssueType, language)}</h3><p>{report.prabhagId} · {t('Updated')} {timestampLabel(report.updatedAt, language)}</p><small>{report.id.slice(0, 12)}… · {report.packVersion}</small></div>{canResumeReport(report.status) ? <button onClick={() => resumeSavedReport(report).catch((error) => setReportsStatus(`Draft could not be resumed: ${error.message}`))}>{t('Resume draft')}</button> : <button onClick={() => openSavedReport(report).catch((error) => setReportsStatus(`Report could not be opened: ${error.message}`))}>{t('View report')}</button>}</article>)}</div>}
+          <div className="actions-section-heading"><div><h2>{t('My Reports')}</h2><p>{t('Only you can see your drafts. Filed reports can’t be changed.')}</p></div><button className="secondary" onClick={() => loadMyReports().catch((error) => setReportsStatus(citizenSafeError(error, 'Your reports could not be loaded.'))) }>{t('Refresh')}</button></div>
+          {reportsView === 'HAS_REPORTS' && <div className="reports-toolbar"><span role="status" aria-live="polite">{runtimeMessage(reportsStatus)}</span></div>}
+          {reportsView === 'LINKED_EMPTY' && <div className="empty-state"><b>{t('Signed in. No saved reports yet.')}</b><p>{t('Create a report to keep a draft only you can see.')}</p><button onClick={() => navigate('new-report')}>{t('Create a report')}</button></div>}
+          {reportsView === 'ANONYMOUS_EMPTY' && <div className="empty-state"><b>{t('No reports are saved for this device-only account.')}</b><p>{t('Create a report to keep a draft only you can see.')}</p><button onClick={() => navigate('new-report')}>{t('Create a report')}</button></div>}
+          {reportsView === 'HAS_REPORTS' && <div className="report-list">{savedReports.map((report) => <article className="report-list-item" key={report.id}><div><span className={`status-chip status-${report.status.toLowerCase()}`}>{localizedStatus(language, report.status)}</span><h3>{issueLabel(report.confirmedIssueType, language)}</h3><p>{report.prabhagId} · {t('Updated')} {timestampLabel(report.updatedAt, language)}</p><small>{report.id.slice(0, 12)}…</small></div>{canResumeReport(report.status) ? <button onClick={() => resumeSavedReport(report).catch((error) => setReportsStatus(citizenSafeError(error, 'The draft could not be resumed.')))}>{t('Resume draft')}</button> : <button onClick={() => openSavedReport(report).catch((error) => setReportsStatus(citizenSafeError(error, 'The report could not be loaded.')))}>{t('View report')}</button>}</article>)}</div>}
         </section>
         {myInitiativesSection}
       </>}
@@ -1964,15 +1982,15 @@ function App() {
     {screen === 'report-detail' && <section className="card page-card">
       <span className="eyebrow">{t('REPORT DETAILS')}</span><h2>{selectedReport ? issueLabel(selectedReport.confirmedIssueType, language) : t('Loading report')}</h2>
       {accountState === 'SIGNED_OUT' ? <div className="empty-state account-recovery-state"><b>{t('Sign in to view your saved civic work.')}</b><p>{t('Your saved work stays attached to your Google account — sign in to see it.')}</p><button onClick={openAccount}>{t('Continue with Google')}</button></div> : !selectedReport ? <div className="empty-state"><p>{runtimeMessage(reportsStatus) || t('Choose a report from My Actions.')}</p><button onClick={() => navigate('reports')}>{t('Open My Actions')}</button></div> : <>
-        <div className="report-status-banner immutable"><b>{localizedStatus(language, reportStatus)}</b><span>{reportStatus === 'DRAFT' ? t('Open the review screen to edit this draft.') : t('Filed record — complaint and route facts are immutable')}</span></div>
-        <dl className="report-facts"><div><dt>{t('Prabhag')}</dt><dd>{selectedReport.prabhagId}</dd></div><div><dt>{t('Route')}</dt><dd>{selectedReport.routeSnapshot?.routeId || selectedReport.routeId}</dd></div><div><dt>{t('Pack')}</dt><dd>{selectedReport.routeSnapshot?.packVersion || selectedReport.packVersion}</dd></div><div><dt>{t('Authority')}</dt><dd>{selectedReport.routeSnapshot?.authority || selectedReport.authority}</dd></div><div><dt>{t('Acknowledgement')}</dt><dd>{selectedReport.acknowledgementId || t('Not provided')}</dd></div><div><dt>{t('Updated')}</dt><dd>{timestampLabel(selectedReport.updatedAt, language)}</dd></div></dl>
+        <div className="report-status-banner immutable"><b>{localizedStatus(language, reportStatus)}</b><span>{reportStatus === 'DRAFT' ? t('Open the review screen to edit this draft.') : t('Filed report — it can’t be changed')}</span></div>
+        <dl className="report-facts"><div><dt>{t('Prabhag')}</dt><dd>{selectedReport.prabhagId}</dd></div><div><dt>{t('Authority')}</dt><dd>{selectedReport.routeSnapshot?.authority || selectedReport.authority}</dd></div><div><dt>{t('Acknowledgement')}</dt><dd>{selectedReport.acknowledgementId || t('Not provided')}</dd></div><div><dt>{t('Updated')}</dt><dd>{timestampLabel(selectedReport.updatedAt, language)}</dd></div></dl>
         {selectedReport.routeSnapshot?.department && <div className="locked-recipient"><small>{t('Frozen route department')}</small><strong>{selectedReport.routeSnapshot.department.displayName}</strong><span>{selectedReport.routeSnapshot.department.status} · {selectedReport.routeSnapshot.sourceStatus} · {selectedReport.routeSnapshot.reviewStatus}</span></div>}
         {(selectedReport.routeSnapshot?.knownLimitations?.length ?? 0) > 0 && <div className="route-limitations"><b>{t('Please keep in mind')}</b><ul>{selectedReport.routeSnapshot?.knownLimitations?.map((limitation) => <li key={limitation.code}>{limitation.citizenMessage}</li>)}</ul></div>}
         <div className="points-summary"><span>{t('Derived points for this profile')}</span><b>{pointsTotal}</b></div>
-        {reportStatus === 'DRAFT' && <button onClick={() => resumeSavedReport(selectedReport).catch((error) => setReportsStatus(error.message))}>{t('Resume draft')}</button>}
-        {['FILED', 'OVERDUE', 'REOPENED'].includes(reportStatus) && <><div className="overdue-unknown"><b>{t('Overdue: unknown')}</b><span>{t('No verified SLA exists, so Seewik will not invent a due date.')}</span></div><button onClick={() => requestLinkedMutation(() => transitionReport('CLAIMED_FIXED').catch((error) => setLifecycleStatus(error.message)))}>{t('Record a repair claim')}</button></>}
-        {reportStatus === 'CLAIMED_FIXED' && <div className="lifecycle-actions"><button onClick={() => requestLinkedMutation(() => transitionReport('VERIFIED_FIXED').catch((error) => setLifecycleStatus(error.message)))}>{t('Verify fixed')}</button><button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message)))}>{t('Reject repair claim')}</button></div>}
-        {reportStatus === 'VERIFIED_FIXED' && <button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(error.message)))}>{t('Report recurrence')}</button>}
+        {reportStatus === 'DRAFT' && <button onClick={() => resumeSavedReport(selectedReport).catch((error) => setReportsStatus(citizenSafeError(error, 'The draft could not be resumed.')))}>{t('Resume draft')}</button>}
+        {['FILED', 'OVERDUE', 'REOPENED'].includes(reportStatus) && <><div className="overdue-unknown"><b>{t('Overdue: unknown')}</b><span>{t('No verified SLA exists, so Seewik will not invent a due date.')}</span></div><button onClick={() => requestLinkedMutation(() => transitionReport('CLAIMED_FIXED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Record a repair claim')}</button></>}
+        {reportStatus === 'CLAIMED_FIXED' && <div className="lifecycle-actions"><button onClick={() => requestLinkedMutation(() => transitionReport('VERIFIED_FIXED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Verify fixed')}</button><button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Reject repair claim')}</button></div>}
+        {reportStatus === 'VERIFIED_FIXED' && <button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Report recurrence')}</button>}
         {lifecycleStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(lifecycleStatus)}</div>}
         <ol className="timeline">{timeline.map((item, index) => <li key={`${item.occurredAt}-${index}`}><span>{index + 1}</span><div><b>{localizedStatus(language, item.toStatus)}</b><small>{item.eventType} · {item.verificationBasis}{item.pointsAwarded ? ` · +${item.pointsAwarded}` : ''}</small></div></li>)}</ol>
       </>}
@@ -1983,7 +2001,7 @@ function App() {
         <div className="civic-card-heading"><h1>{t('My Civic Card')}</h1><p>{t('A record of what you have actually done.')}</p></div>
         {accountState === 'SIGNED_OUT' ? <div className="empty-state account-recovery-state"><b>{t('Sign in to view your contribution record.')}</b><p>{t('Your points remain attached to your account and are never shown in the public recognition panel.')}</p><button onClick={openAccount}>{t('Continue with Google')}</button></div> : <>
           <h2>{privatePoints?.lifetimePoints ?? pointsTotal} {t('lifetime points')}</h2>
-          <p>{t('Totals are calculated from backend-owned ledger entries rather than stored as an editable score. Only you can see this detail.')}</p>
+          <p>{t('Points are earned only from verified actions. Only you can see this detail.')}</p>
           {privatePoints && <div className="private-month-points"><span>{localizedMonthLabel(language, privatePoints.monthLabel)}</span><strong>{privatePoints.currentMonthPoints} {t('points')}</strong></div>}
           {privatePoints?.breakdown.length ? <div className="points-breakdown">{privatePoints.breakdown.map((item) => <div key={item.contributionType}><span><b>{contributionTypeLabel(item.contributionType)}</b><small>{item.lifetimeAwards} {t('recorded awards')}</small></span><strong>{item.lifetimePoints}</strong></div>)}</div> : null}
           <div className="points-rules"><div><b>+5</b><span>{t('First accepted filing')}</span></div><div><b>+20</b><span>{t('Organiser-code attendance')}</span></div><div><b>+40</b><span>{t('Completed organiser with two code attendees')}</span></div><div><b>+60</b><span>{t('First verified fix')}</span></div><div><b>0</b><span>{t('Self-attendance, duplicate override, reopening or re-verification')}</span></div></div>
@@ -2014,7 +2032,7 @@ function App() {
         t={t}
       />}
       <RecognitionSettings connected={accountState === 'GOOGLE_LINKED'} settings={recognitionSettings} busy={recognitionSettingsBusy} status={recognitionSettingsStatus} t={t} onConnect={openAccount} onSave={updateRecognitionSettings} />
-      <RecognitionPanel panel={publicRecognition ? { ...publicRecognition, monthLabel: localizedMonthLabel(language, publicRecognition.monthLabel) } : null} loading={publicRecognitionLoading} status={publicRecognitionStatus} t={t} onReport={sendRecognitionReport} />
+      <RecognitionPanel panel={publicRecognition ? { ...publicRecognition, monthLabel: localizedMonthLabel(language, publicRecognition.monthLabel) } : null} loading={publicRecognitionLoading} status={publicRecognitionStatus} t={t} onReport={sendRecognitionReport} onRetry={loadPublicRecognition} />
     </>}
 
     {screen === 'awareness' && <CivicAwarenessPage
@@ -2025,7 +2043,7 @@ function App() {
 
     {screen === 'emergency' && <EmergencyInformationPage t={t} />}
 
-    {screen === 'home' && <>
+    {screen === 'home' && DEBUG_MODE && <>
     <section className="card demo-card">
       <div className="demo-banner">{t('DEMO DATA · SYNTHETIC CLOCK · EXCLUDED FROM ANALYTICS AND REWARDS')}</div>
       <h2>{t('90-second lifecycle demo')}</h2>
@@ -2039,7 +2057,6 @@ function App() {
         <button className="secondary" disabled={demoStep === 0} onClick={() => setDemoStep(0)}>{t('Reset demo')}</button>
       </div>
     </section>
-    <section className="card systems"><h2>{runtimeMessage(status)}</h2><p>{t('The secure service path remains available for technical validation.')}</p><button onClick={() => requestLinkedMutation(() => verifyFirebase().catch((error) => add(`Service check failed: ${error.message}`)))}>{t('Verify cloud services')}</button>{details.length > 0 && <ul>{details.map((detail, index) => <li key={`${index}-${detail}`}>{detail}</li>)}</ul>}</section>
     </>}
     <nav className="utility-nav" aria-label={t('Civic information')}>
       <button className={screen === 'awareness' ? 'active' : ''} onClick={() => navigate('awareness')}>{t('Civic Awareness')}</button>

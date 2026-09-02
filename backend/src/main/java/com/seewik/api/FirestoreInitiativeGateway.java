@@ -32,17 +32,23 @@ public class FirestoreInitiativeGateway implements InitiativeGateway {
             Map<String, Object> participation,
             Map<String, Object> ledgerEntry) {
         Firestore store = firebase.firestore();
+        DocumentReference initiativeRef = store.collection("initiatives").document(initiativeId);
+        DocumentReference eventRef = initiativeRef.collection("events")
+                .document(String.valueOf(event.get("eventId")));
+        DocumentReference participationRef = store.collection("initiativeParticipations")
+                .document(String.valueOf(participation.get("participationId")));
+        DocumentReference ledgerRef = store.collection("pointsLedger")
+                .document(String.valueOf(ledgerEntry.get("ledgerEntryId")));
         try {
-            var batch = store.batch();
-            batch.create(store.collection("initiatives").document(initiativeId), initiative);
-            batch.create(store.collection("initiatives").document(initiativeId)
-                    .collection("events").document(String.valueOf(event.get("eventId"))), event);
-            batch.create(store.collection("initiativeParticipations")
-                    .document(String.valueOf(participation.get("participationId"))), participation);
-            batch.create(store.collection("pointsLedger")
-                    .document(String.valueOf(ledgerEntry.get("ledgerEntryId"))), ledgerEntry);
-            batch.commit().get();
-            return Map.copyOf(initiative);
+            return store.runTransaction(transaction -> {
+                DocumentSnapshot existing = transaction.get(initiativeRef).get();
+                if (existing.exists()) return Map.copyOf(existing.getData());
+                transaction.set(initiativeRef, initiative);
+                transaction.set(eventRef, event);
+                transaction.set(participationRef, participation);
+                transaction.set(ledgerRef, ledgerEntry);
+                return Map.copyOf(initiative);
+            }).get();
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw failure("INITIATIVE_STORE_INTERRUPTED", "The activity could not be saved", exception);

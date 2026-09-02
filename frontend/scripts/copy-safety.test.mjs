@@ -41,3 +41,13 @@ test('the points destination is presented as My Civic Card without a redundant c
   assert.doesNotMatch(source, /MY CONTRIBUTION RECORD/);
   assert.match(source, /t\('Civic Card'\)/);
 });
+
+test('normal citizen screens hide diagnostic scaffolding and raw browser errors', async () => {
+  const source = await readFile(new URL('../src/main.tsx', import.meta.url), 'utf8');
+
+  assert.match(source, /screen === 'home' && DEBUG_MODE/);
+  assert.doesNotMatch(source, /set[A-Za-z]+Status\(error\.message\)/);
+  assert.doesNotMatch(source, /<button[^>]*>\{t\('Verify cloud services'\)\}<\/button>/);
+  assert.doesNotMatch(source, /<dt>\{t\('Route'\)\}<\/dt>/);
+  assert.doesNotMatch(source, /<dt>\{t\('Pack'\)\}<\/dt>/);
+});

@@ -7,9 +7,10 @@ type Props = {
   status: string;
   t: (source: string) => string;
   onReport: (position: number, targetDisplayName: string, reason: string, details: string) => Promise<void>;
+  onRetry: () => Promise<void>;
 };
 
-export function RecognitionPanel({ panel, loading, status, t, onReport }: Props) {
+export function RecognitionPanel({ panel, loading, status, t, onReport, onRetry }: Props) {
   const [reporting, setReporting] = useState<number | null>(null);
   const [reason, setReason] = useState('IMPERSONATION');
   const [details, setDetails] = useState('');
@@ -50,6 +51,6 @@ export function RecognitionPanel({ panel, loading, status, t, onReport }: Props)
       <label>{t('Details (optional)')}<textarea maxLength={300} value={details} onChange={(event) => setDetails(event.target.value)} /></label>
       <div className="recognition-form-actions"><button className="secondary" disabled={busy} onClick={() => setReporting(null)}>{t('Cancel')}</button><button disabled={busy} onClick={() => { void submit(); }}>{busy ? t('Sending…') : t('Send report')}</button></div>
     </div>}
-    {status && <div className="status-panel state-warning" role="status" aria-live="polite">{t(status)}</div>}
+    {status && <div className="status-panel state-warning recognition-error" role="status" aria-live="polite"><span>{t(status)}</span><button className="secondary" onClick={() => { void onRetry(); }}>{t('Try again')}</button></div>}
   </section>;
 }

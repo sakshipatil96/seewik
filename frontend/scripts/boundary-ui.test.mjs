@@ -6,8 +6,10 @@ const appSource = await readFile(new URL('../src/main.tsx', import.meta.url), 'u
 const mapSource = await readFile(new URL('../src/PrabhagBoundaryMap.tsx', import.meta.url), 'utf8');
 const mapStyles = await readFile(new URL('../src/PrabhagBoundaryMap.css', import.meta.url), 'utf8');
 
-test('boundary guide is lazy-loaded only by the report flow and preserves manual fallback', () => {
-  assert.match(appSource, /lazy\(\(\) => import\('\.\/PrabhagBoundaryMap'\)\)/);
+test('boundary guide renders immediately and preserves manual and error fallbacks', () => {
+  assert.match(appSource, /import PrabhagBoundaryMap from '\.\/PrabhagBoundaryMap'/);
+  assert.doesNotMatch(appSource, /lazy\(\(\) => import\('\.\/PrabhagBoundaryMap'\)\)/);
+  assert.doesNotMatch(appSource, /Loading approximate boundary guide/);
   assert.match(appSource, /BoundaryMapErrorBoundary/);
   assert.match(appSource, /Choose Prabhag 1–20/);
   assert.match(appSource, /disabled=\{!classificationConfirmed \|\| !prabhagSelectionMade\}/);
