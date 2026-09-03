@@ -540,7 +540,7 @@ function App() {
   useEffect(() => observeAccount(({ state, user }) => {
     setAccountState(state);
     setAccountUid(user?.uid ?? null);
-    setAccountName(user?.displayName ?? null);
+    setAccountName(user?.displayName ? user.displayName.trim() : null);
     setAccountEmail(user?.email ?? null);
     setAccountProfileLoading(state === 'GOOGLE_LINKED');
     if (state === 'GOOGLE_LINKED' && user) {
@@ -553,7 +553,7 @@ function App() {
     if (state === 'GOOGLE_LINKED' && user && syncedProfileUid.current !== user.uid) {
       syncedProfileUid.current = user.uid;
       void syncPrivateProfile(user).then((profile) => {
-        setAccountName(profile.privateGoogleName || user.displayName);
+        setAccountName((profile.privateGoogleName || user.displayName || '').trim() || null);
         setAccountEmail(profile.privateGoogleEmail || user.email);
       }).catch(() => {
         syncedProfileUid.current = null;
@@ -695,6 +695,7 @@ function App() {
     setEvidenceImage(null);
     setComplaintFacts('');
     setLocationDetails('');
+    syncedProfileUid.current = null;
     resetDraft();
   }
 
@@ -804,10 +805,12 @@ function App() {
     clearAccountError();
     try {
       await signOutWithoutStartingAnonymousWork();
+      if (accountUid) window.localStorage.removeItem(`${PRIVATE_POINTS_CACHE_PREFIX}${accountUid}`);
       clearAccountBoundState();
       setAccountState('SIGNED_OUT');
       setAccountName(null);
       setAccountEmail(null);
+      setAccountUid(null);
       setAccountDialog('CLOSED');
       navigate('home');
     } catch (error) {
@@ -1073,11 +1076,13 @@ function App() {
         endAt: new Date(initiativeEndAt).toISOString(),
         placeName: initiativePlaceName,
         ...initiativeMeetingPoint,
-        capacity: initiativeCapacity ? Number(initiativeCapacity) : null,
         neededItems: initiativeNeededItems,
         organiserMessage: initiativeOrganiserMessage,
         participationMode: initiativeParticipationMode,
         clientRequestId: initiativeCreateRequestId.current,
+        ...(initiativeParticipationMode === 'CAPPED' && initiativeCapacity
+          ? { capacity: Number(initiativeCapacity) }
+          : {}),
       }),
     });
     const result = await response.json();

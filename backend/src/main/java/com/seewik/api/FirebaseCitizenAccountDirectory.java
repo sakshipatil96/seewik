@@ -16,13 +16,27 @@ public class FirebaseCitizenAccountDirectory implements CitizenAccountDirectory 
     public GoogleIdentity googleIdentity(String ownerUid) {
         try {
             UserRecord user = firebase.auth().getUser(ownerUid);
-            return new GoogleIdentity(clean(user.getDisplayName()), clean(user.getEmail()));
+            return new GoogleIdentity(
+                    clean(preferredGoogleDisplayName(user)),
+                    clean(user.getEmail()));
         } catch (FirebaseAuthException exception) {
             throw new CitizenProfileService.ProfileException(
                     "PROFILE_IDENTITY_UNAVAILABLE",
                     "The private Google account details could not be verified",
                     exception);
         }
+    }
+
+    private static String preferredGoogleDisplayName(UserRecord user) {
+        if (user.getProviderData() != null) {
+            for (var provider : user.getProviderData()) {
+                if ("google.com".equals(provider.getProviderId())) {
+                    String googleName = provider.getDisplayName();
+                    if (!clean(googleName).isBlank()) return googleName;
+                }
+            }
+        }
+        return user.getDisplayName();
     }
 
     private static String clean(String value) {

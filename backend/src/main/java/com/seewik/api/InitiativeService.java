@@ -94,7 +94,7 @@ public class InitiativeService {
         meetingPoint.put("longitude", input.longitude());
         meetingPoint.put("schemaVersion", MEETING_POINT_SCHEMA_VERSION);
         initiative.put("meetingPoint", meetingPoint);
-        initiative.put("capacity", input.capacity());
+        if (input.capacity() != null) initiative.put("capacity", input.capacity());
         initiative.put("neededItems", input.neededItems());
         initiative.put("organiserMessage", input.organiserMessage());
         initiative.put("participationMode", input.participationMode());
