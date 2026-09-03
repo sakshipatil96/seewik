@@ -50,7 +50,7 @@ Day 15 remains focused on Touchpoint 2 and the 90-second demonstration. Before c
 
 These changes improve the screens used around the demonstration without changing the Touchpoint 2 evidence, evaluation results, BigQuery role or central trust-boundary message. Touchpoint 2 preparation and the 90-second demo remain the next priorities after production verification.
 
-## Set 3 and README follow-up — local, not yet released
+## Set 3 and README follow-up — released
 
 Completed after the application release:
 
@@ -73,4 +73,13 @@ Local verification after these changes:
 
 One signed-out simulated-mobile Lighthouse 13.4.1 run against `https://seewik.web.app/` recorded performance 54, accessibility 96, best practices 100 and SEO 82. Its key lab metrics were FCP 6.6 s, LCP 7.4 s, total blocking time 0 ms and CLS 0.148. This is one throttled lab measurement, not an SLA or a field-performance claim; no bundle refactor was started on Day 15.
 
-This follow-up has not been committed, pushed or deployed. The Day 15 Set 2 narration, rehearsals and backup video remain deferred to the owner-approved next work session.
+Release evidence:
+
+- Application commit: `ea8916a2c175d5b6f3230dc3ff1e958822370185`.
+- Quality workflow: `https://github.com/sakshipatil96/seewik/actions/runs/33700006514` — passed, including the new disposable-emulator rules suite and pushed-range artifact.
+- Deployment workflow: `https://github.com/sakshipatil96/seewik/actions/runs/33700153134` — passed in 4 minutes 49 seconds.
+- Cloud Run revision: `seewik-api-00097-qaj`, ready and serving the application commit.
+- Image digest: `sha256:a6bc049504b2063952da89495218be05a56fa5a68959039dcaebe4ffc7e18e4c`.
+- Production health, Hosting routes, Firestore/Storage rules publication and temporary-tag cleanup: passed.
+
+The Day 15 Set 2 narration, rehearsals and backup video remain deferred to the owner-approved next work session.
