@@ -123,11 +123,16 @@ test('anonymous callers cannot bypass report or technical write gates', async ()
 
 test('linking preserves the UID, refreshes the token, and deliberate sign-out suppresses anonymous recreation', async () => {
   const service = await readFile(new URL('../src/accountService.ts', import.meta.url), 'utf8');
+  const firebase = await readFile(new URL('../src/firebase.ts', import.meta.url), 'utf8');
   assert.match(service, /const beforeUid = user\.uid/);
   assert.match(service, /credential\.user\.uid !== beforeUid/);
   assert.match(service, /credential\.user\.getIdToken\(true\)/);
   assert.match(service, /localStorage\.setItem\(SIGNED_OUT_STORAGE_KEY, 'true'\)/);
   assert.match(service, /if \(signedOutDeliberately\(\)\) throw new Error\('ACCOUNT_SIGNED_OUT'\)/);
+  assert.match(firebase, /auth\.authStateReady\(\)/);
+  assert.match(firebase, /setPersistence\(auth, browserLocalPersistence\)/);
+  assert.match(service, /export async function ensureAnonymousSession\(\) \{\s+await authPersistenceReady;\s+if \(auth\.currentUser\)/);
+  assert.match(service, /void authPersistenceReady\.then\(\(\) => \{/);
 });
 
 test('existing-account collision never retries the losing session mutation', async () => {

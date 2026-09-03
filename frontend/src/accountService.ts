@@ -10,7 +10,7 @@ import {
   type User,
 } from 'firebase/auth';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { auth, authPersistenceReady, db } from './firebase';
 import { API_URL } from './apiConfig';
 import {
   SIGNED_OUT_STORAGE_KEY,
@@ -51,27 +51,39 @@ function snapshotFor(user: User | null): AccountSnapshot {
 }
 
 export function observeAccount(listener: (snapshot: AccountSnapshot) => void) {
-  return onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      window.localStorage.removeItem(SIGNED_OUT_STORAGE_KEY);
-      listener(snapshotFor(user));
-      return;
-    }
-    if (signedOutDeliberately()) {
-      listener(snapshotFor(null));
-      return;
-    }
-    listener({ state: 'ANONYMOUS_SESSION', user: null });
-    try {
-      const anonymousUser = await ensureAnonymousSession();
-      listener(snapshotFor(anonymousUser));
-    } catch {
+  let cancelled = false;
+  let unsubscribe: () => void = () => undefined;
+  void authPersistenceReady.then(() => {
+    if (cancelled) return;
+    unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        window.localStorage.removeItem(SIGNED_OUT_STORAGE_KEY);
+        listener(snapshotFor(user));
+        return;
+      }
+      if (signedOutDeliberately()) {
+        listener(snapshotFor(null));
+        return;
+      }
       listener({ state: 'ANONYMOUS_SESSION', user: null });
-    }
+      try {
+        const anonymousUser = await ensureAnonymousSession();
+        listener(snapshotFor(anonymousUser));
+      } catch {
+        listener({ state: 'ANONYMOUS_SESSION', user: null });
+      }
+    });
+  }).catch(() => {
+    if (!cancelled) listener({ state: 'SIGNED_OUT', user: null });
   });
+  return () => {
+    cancelled = true;
+    unsubscribe();
+  };
 }
 
 export async function ensureAnonymousSession() {
+  await authPersistenceReady;
   if (auth.currentUser) return auth.currentUser;
   if (signedOutDeliberately()) throw new Error('ACCOUNT_SIGNED_OUT');
   if (!anonymousSignIn) {
@@ -109,6 +121,7 @@ export async function linkCurrentSession(provider: AccountProvider) {
 }
 
 export async function signIntoAccount(provider: AccountProvider) {
+  await authPersistenceReady;
   const credential = await signInWithPopup(auth, providers[provider]);
   window.localStorage.removeItem(SIGNED_OUT_STORAGE_KEY);
   await credential.user.getIdToken(true);
@@ -117,6 +130,7 @@ export async function signIntoAccount(provider: AccountProvider) {
 }
 
 export async function continueWithExistingAccount(credential: AuthCredential) {
+  await authPersistenceReady;
   const result = await signInWithCredential(auth, credential);
   window.localStorage.removeItem(SIGNED_OUT_STORAGE_KEY);
   await result.user.getIdToken(true);
@@ -157,6 +171,7 @@ export async function syncPrivateProfile(user: User): Promise<PrivateProfile> {
 }
 
 export async function signOutWithoutStartingAnonymousWork() {
+  await authPersistenceReady;
   window.localStorage.setItem(SIGNED_OUT_STORAGE_KEY, 'true');
   await signOut(auth);
 }
