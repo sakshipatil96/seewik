@@ -6,6 +6,7 @@ on:
     types: [completed]
 
 permissions:
+  actions: read
   contents: read
   id-token: write
 
@@ -26,12 +27,39 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
-          fetch-depth: 2
+          fetch-depth: 0
+
+      - name: Download the complete pushed commit range
+        uses: actions/download-artifact@v8
+        with:
+          name: production-change-range
+          path: ${{ runner.temp }}/production-change-range
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
 
       - name: Detect production changes
         id: app
         run: |
-          if git diff --quiet HEAD^ HEAD -- backend frontend firebase.json .firebaserc firestore.rules storage.rules .github/workflows/deploy.yml; then
+          before_sha="$(tr -d '[:space:]' < "${{ runner.temp }}/production-change-range/before-sha")"
+          after_sha="$(tr -d '[:space:]' < "${{ runner.temp }}/production-change-range/after-sha")"
+          if ! [[ "$before_sha" =~ ^[0-9a-f]{40}$ && "$after_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "The recorded push range is invalid." >&2
+            exit 1
+          fi
+          if [[ "$after_sha" != "${{ github.event.workflow_run.head_sha }}" ]]; then
+            echo "The tested commit does not match the deployment candidate." >&2
+            exit 1
+          fi
+          if [[ "$before_sha" == "0000000000000000000000000000000000000000" ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! git cat-file -e "${before_sha}^{commit}"; then
+            echo "The beginning of the pushed range is unavailable; deploying conservatively." >&2
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --quiet "$before_sha..$after_sha" -- backend frontend data/prabhags firebase.json .firebaserc firestore.rules storage.rules .github/workflows/quality.yml .github/workflows/deploy.yml; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -114,7 +142,7 @@ jobs:
       - name: Verify production routes
         run: |
           curl --fail --silent --show-error https://seewik-api-528138216934.asia-south1.run.app/health
-          for route in / /report/new /reports /points /initiatives /initiatives/new; do
+          for route in / /report/new /reports /points /initiatives /initiatives/new /awareness /emergency; do
             curl --fail --silent --show-error --output /dev/null "https://seewik.web.app${route}"
           done
 

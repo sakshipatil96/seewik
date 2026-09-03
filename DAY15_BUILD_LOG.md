@@ -49,3 +49,28 @@ Day 15 remains focused on Touchpoint 2 and the 90-second demonstration. Before c
 ## Day 15 impact
 
 These changes improve the screens used around the demonstration without changing the Touchpoint 2 evidence, evaluation results, BigQuery role or central trust-boundary message. Touchpoint 2 preparation and the 90-second demo remain the next priorities after production verification.
+
+## Set 3 and README follow-up — local, not yet released
+
+Completed after the application release:
+
+- Replaced last-commit-only deployment detection with a Quality-produced artifact containing the complete pushed commit range. Deployment validates that the tested end SHA matches its candidate and conservatively deploys if the beginning SHA is unavailable.
+- Added `data/prabhags/`, both delivery workflows, Civic Awareness and Emergency Information to the applicable production-change and route-verification coverage.
+- Added three disposable-emulator Firestore/Storage protection tests. They cover owner reads, Google-linked draft writes, anonymous/cross-owner denial, backend-owned civic-record forgery denial, protected media access and the one-megabyte upload limit without touching production data.
+- Added and cross-linked a repository README covering the product, architecture, central trust boundary, local setup, verification, delivery controls and known limitations.
+
+Local verification after these changes:
+
+- Backend: 222 tests passed, 0 failures, 0 errors.
+- Frontend: 74 tests passed.
+- Firestore/Storage disposable-emulator suite: 3 tests passed.
+- Frontend production build: passed; the existing large-chunk advisory remains.
+- Frontend dependency audit: 0 vulnerabilities.
+- Secret-safe diagnostic policy: passed.
+- Prabhag boundary checksum: passed.
+- Workflow YAML parsing and source whitespace validation: passed.
+- Repository content scan passed for tracked files and the new Set 3 files. The full local workspace scan still identifies the two pre-existing untracked handoff documents because their local absolute paths contain a blocked tooling term; they were not edited, staged or included in this work.
+
+One signed-out simulated-mobile Lighthouse 13.4.1 run against `https://seewik.web.app/` recorded performance 54, accessibility 96, best practices 100 and SEO 82. Its key lab metrics were FCP 6.6 s, LCP 7.4 s, total blocking time 0 ms and CLS 0.148. This is one throttled lab measurement, not an SLA or a field-performance claim; no bundle refactor was started on Day 15.
+
+This follow-up has not been committed, pushed or deployed. The Day 15 Set 2 narration, rehearsals and backup video remain deferred to the owner-approved next work session.

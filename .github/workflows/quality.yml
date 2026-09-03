@@ -58,6 +58,10 @@ jobs:
           npm run build
           npm audit --audit-level=high
 
+      - name: Firestore and Storage rules protection tests
+        working-directory: frontend
+        run: npm run test:rules:emulator
+
       - name: High-severity dependency scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -68,3 +72,18 @@ jobs:
           ignore-unfixed: true
           exit-code: '1'
           format: table
+
+      - name: Record the complete pushed commit range
+        if: github.event_name == 'push'
+        run: |
+          mkdir -p "${{ runner.temp }}/production-change-range"
+          echo "${{ github.event.before }}" > "${{ runner.temp }}/production-change-range/before-sha"
+          echo "${{ github.sha }}" > "${{ runner.temp }}/production-change-range/after-sha"
+
+      - name: Preserve the pushed range for the green deployment workflow
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v7
+        with:
+          name: production-change-range
+          path: ${{ runner.temp }}/production-change-range
+          retention-days: 1

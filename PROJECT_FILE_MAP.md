@@ -4,26 +4,24 @@ This map is for handoffs and repository study. Generated directories such as `fr
 
 ## First-read order
 
-1. Current handoff: `SEEWIK_PROJECT_HANDOFF_START_DAY12.md`
-2. New work: `DAY12_CHECKLIST.md`
-3. Day 12 progress: `DAY12_BUILD_LOG.md`
-4. Day 12 contract: `data/contracts/day12-recognition-privacy-content-contract-v0.1.md`
-5. Product follow-ups: `PROJECT_TODOS.md`
-6. Day 13 rewards: `DAY13_CHECKLIST.md`
+1. Repository overview and local verification: `README.md`
+2. Current release evidence: `DAY15_BUILD_LOG.md`
+3. Current handoff: `SEEWIK_PROJECT_HANDOFF_START_DAY15.md`
+4. Product follow-ups: `PROJECT_TODOS.md`
+5. Day 14 plan and evidence: `DAY14_CHECKLIST.md` and `DAY14_BUILD_LOG.md`
+6. Day 14 meeting-point contracts: `data/contracts/day14-initiative-meeting-point-contract-v0.1.md` and the owner-approved Google search amendment `v0.2.md`
 7. Touchpoint 3 business case: `TOUCHPOINT3_BUSINESS_CASE.md`
-8. Day 13 release evidence: `DAY13_BUILD_LOG.md`
-9. Day 14 plan: `DAY14_CHECKLIST.md`
-10. Day 14 local build evidence: `DAY14_BUILD_LOG.md`
-11. Day 14 meeting-point contracts: `data/contracts/day14-initiative-meeting-point-contract-v0.1.md` and the owner-approved Google search amendment `v0.2.md`
-12. Parent project guide: `../Seewik_what_we_built till now.md`
-13. Version history: `CHANGELOG.md`
-14. Identity contract: `data/contracts/day10-identity-migration-contract-v0.1.md`
-15. Language/boundary contract: `data/contracts/day9-language-boundary-contract-v0.1.md`
-16. Main frontend: `frontend/src/main.tsx`
-17. Initiative backend: `backend/src/main/java/com/seewik/api/InitiativeController.java`, `InitiativeService.java`, `InitiativeGateway.java`, `FirestoreInitiativeGateway.java` and `AttendanceCodeService.java`
-18. Security rules: `firestore.rules` and `storage.rules`
-19. Required gates: `.github/workflows/quality.yml` and `.github/workflows/deploy.yml`
-20. Credential-handling record: `SECURITY_FINDINGS.md`
+8. Day 13 reward plan and evidence: `DAY13_CHECKLIST.md` and `DAY13_BUILD_LOG.md`
+9. Day 12 recognition/privacy plan and evidence: `DAY12_CHECKLIST.md`, `DAY12_BUILD_LOG.md` and `data/contracts/day12-recognition-privacy-content-contract-v0.1.md`
+10. Parent project guide: `../Seewik_what_we_built till now.md`
+11. Version history: `CHANGELOG.md`
+12. Identity contract: `data/contracts/day10-identity-migration-contract-v0.1.md`
+13. Language/boundary contract: `data/contracts/day9-language-boundary-contract-v0.1.md`
+14. Main frontend: `frontend/src/main.tsx`
+15. Initiative backend: `backend/src/main/java/com/seewik/api/InitiativeController.java`, `InitiativeService.java`, `InitiativeGateway.java`, `FirestoreInitiativeGateway.java` and `AttendanceCodeService.java`
+16. Security rules: `firestore.rules` and `storage.rules`
+17. Required gates: `.github/workflows/quality.yml` and `.github/workflows/deploy.yml`
+18. Credential-handling record: `SECURITY_FINDINGS.md`
 
 ## Project roots and handling rules
 
@@ -63,6 +61,7 @@ This map is for handoffs and repository study. Generated directories such as `fr
 - `TOUCHPOINT3_BUSINESS_CASE.md` — survey-grounded demand case, proposed revenue loop, illustrative unit economics, pilot requirements and explicit demonstration boundaries.
 - `DAY14_CHECKLIST.md` — Initiative meeting-point, publishing clarity, Android closeout and citizen-facing cleanup plan.
 - `DAY14_BUILD_LOG.md` — Day 14 local Set 5/6 implementation and regression evidence; production and physical-Android sections remain explicitly pending.
+- `DAY15_BUILD_LOG.md` — Day 15 interface release plus the local Set 3 CI, rules-emulator, README and Lighthouse follow-up.
 - `data/contracts/day14-initiative-meeting-point-contract-v0.1.md` — frozen no-Places meeting-point, confirmation, storage, participant-link and legacy rules.
 - `data/contracts/day14-initiative-meeting-point-contract-v0.2.md` — owner-approved optional Google Places selection layer, restricted data fields, fallback, credential and cost controls; stored records remain v0.1.
 - `PROJECT_TODOS.md` — routing simplification, Initiative meeting-point redesign and UI-polish follow-ups.
@@ -128,6 +127,7 @@ Frontend tests and production probes:
 - `frontend/scripts/test-firestore-initiative-protection.mjs`
 - `frontend/scripts/test-google-write-enforcement.mjs`
 - `frontend/scripts/test-production-ownership.mjs`
+- `frontend/scripts/test-security-rules-emulator.mjs`
 
 ## Backend application
 
@@ -226,7 +226,7 @@ Backend tests live under `backend/src/test/java/com/seewik/api`. The most releva
 - `CivicPackIntegrityTest.java`
 - `EvaluationCaseSetTest.java`
 
-The complete backend suite currently contains 220 passing tests. The frontend suite contains 67 passing tests.
+The complete backend suite currently contains 222 passing tests. The frontend suite contains 74 passing tests, plus three disposable-emulator Firestore/Storage protection tests.
 
 ## Runtime schemas and packaged civic data
 
@@ -259,7 +259,7 @@ Day 11 adds versioned attendance and Initiative points contracts without rewriti
 - `scripts/check_secret_safe_diagnostics.sh`
 - `scripts/describe_production_release.sh`
 
-Quality runs repository policy, secret-safe diagnostic policy, whitespace, boundary checksum, Java tests, frontend tests/build/audit and a high/critical vulnerability scan. Deployment starts only from a successful `main` Quality run, creates a no-traffic backend candidate, verifies health, moves traffic, deploys Hosting/Firestore/Storage rules, verifies routes and retains rollback behavior. Production release evidence must use `scripts/describe_production_release.sh`, which exposes only allow-listed non-secret metadata.
+Quality runs repository policy, secret-safe diagnostic policy, whitespace, boundary checksum, Java tests, frontend tests/build/audit, disposable-emulator Firestore/Storage protection tests and a high/critical vulnerability scan. A successful `main` run preserves the complete pushed commit range for deployment change detection. Deployment includes `data/prabhags/` in its production paths, creates a no-traffic backend candidate, verifies health, moves traffic, deploys Hosting/Firestore/Storage rules, verifies every public route and retains rollback behavior. Production release evidence must use `scripts/describe_production_release.sh`, which exposes only allow-listed non-secret metadata.
 
 ## Contracts
 

@@ -4,6 +4,9 @@ All notable changes to the versioned Civic Pack and its deterministic routing im
 
 ## Unreleased
 
+- Made green-main deployment change detection cover the complete pushed commit range, included `data/prabhags/` and both delivery workflows in production paths, and expanded deployed route checks to Civic Awareness and Emergency Information.
+- Added required disposable-emulator Firestore and Storage rule tests covering linked-owner draft access, anonymous and cross-owner denial, backend-owned record forgery denial, protected media access and the one-megabyte upload limit.
+- Added a repository README with the product pillars, trust boundary, architecture, current evidence, safe local setup, verification commands, delivery process and known limitations.
 - Fixed localhost route lookup when Vite selects a port other than 5173 by using a same-origin development/preview API proxy; added the supported localhost origins to the backend allowlist for the next deployment and regression-tested Pothole routing at port 4174.
 - Added the Day 14 structured Initiative meeting point: organiser-confirmed public label and validated coordinates, movable local pin, manual fallback, generated Google Maps link, legacy-record compatibility and retry-safe transactional creation.
 - Added a restricted, Seewik-controlled Google Autocomplete Data API list with India/Nandurbar bounds, active-language requests, session tokens, minimal selected fields, Google attribution, loading/no-results/failure states, keyboard support, editable cleaned labels and no Google-only publishing dependency.
