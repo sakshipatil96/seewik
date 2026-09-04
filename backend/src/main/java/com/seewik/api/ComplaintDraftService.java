@@ -97,6 +97,7 @@ public class ComplaintDraftService {
 
         String prompt = promptFactory.build(
                 input.draftLanguage(),
+                input.filingFormat(),
                 input.issueType(),
                 input.citizenDescription(),
                 input.locationDetails(),
@@ -164,6 +165,8 @@ public class ComplaintDraftService {
         String citizenDescription = clean(request.citizenDescription());
         String locationDetails = clean(request.locationDetails());
         String draftLanguage = clean(request.draftLanguage()).toUpperCase(java.util.Locale.ROOT);
+        String filingFormat = clean(request.filingFormat()).toUpperCase(java.util.Locale.ROOT);
+        if (filingFormat.isEmpty()) filingFormat = "PRINT";
         if (issueType.isEmpty() || prabhagId.isEmpty()) {
             throw new ComplaintDraftInputException(
                     "MISSING_ROUTE_INPUT", "Issue type and prabhag are required before drafting");
@@ -184,8 +187,12 @@ public class ComplaintDraftService {
             throw new ComplaintDraftInputException(
                     "INVALID_DRAFT_LANGUAGE", "Choose Marathi or English for the complaint draft");
         }
+        if (!java.util.Set.of("PRINT", "EMAIL", "DMA").contains(filingFormat)) {
+            throw new ComplaintDraftInputException(
+                    "INVALID_FILING_FORMAT", "Choose print, email, or DMA form drafting");
+        }
         return new ValidatedInput(
-                issueType, prabhagId, citizenDescription, locationDetails, !locationDetails.isEmpty(), draftLanguage);
+                issueType, prabhagId, citizenDescription, locationDetails, !locationDetails.isEmpty(), draftLanguage, filingFormat);
     }
 
     private static String clean(String value) {
@@ -206,7 +213,8 @@ public class ComplaintDraftService {
             String citizenDescription,
             String locationDetails,
             boolean locationProvided,
-            String draftLanguage) {}
+            String draftLanguage,
+            String filingFormat) {}
 
     public record ComplaintDraftRequest(
             String issueType,
@@ -217,7 +225,8 @@ public class ComplaintDraftService {
             Boolean classificationConfirmed,
             String citizenDescription,
             String locationDetails,
-            String draftLanguage) {}
+            String draftLanguage,
+            String filingFormat) {}
 
     public record ComplaintDraftResponse(
             String status,

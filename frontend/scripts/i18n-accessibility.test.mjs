@@ -50,9 +50,8 @@ test('language and navigation accessibility foundations are present', () => {
   assert.match(styles, /min-height: 44px/);
   assert.match(styles, /\.brand-button \{[^}]*white-space: nowrap;/);
   const baseNavigation = styles.slice(0, styles.indexOf('@media (max-width: 1080px)'));
-  const compactNavigation = styles.slice(styles.indexOf('@media (max-width: 1080px)'), styles.indexOf('@media (max-width: 760px)'));
   assert.match(baseNavigation, /\.mobile-nav \{[^}]*position: fixed;[^}]*display: grid;/);
   assert.doesNotMatch(baseNavigation, /\.mobile-nav \{ display: none; \}/);
   assert.match(baseNavigation, /calc\(92px \+ env\(safe-area-inset-bottom\)\)/);
-  assert.match(compactNavigation, /\.desktop-nav \{ display: none; \}/);
+  assert.match(styles, /@media \(max-width: 1080px\) \{\s*\.desktop-nav \{ display: none; \}/);
 });

@@ -110,6 +110,7 @@ type OfficialChannel = {
   channelId: string;
   type: 'EMAIL' | 'ONLINE_FORM' | 'IN_PERSON';
   value: string;
+  localizedValues?: Partial<Record<'MR' | 'EN', string>>;
   label: string;
   scopeNote: string;
 };
@@ -136,6 +137,7 @@ type RouteResult = {
   prabhagId?: string;
   resolutionMethod?: string;
   authority?: string;
+  authorityLocalName?: string;
   department?: DepartmentResult;
   officialChannels?: OfficialChannel[];
   informationalLinks?: InformationalLink[];
@@ -192,6 +194,14 @@ type ComplaintDraftResult = {
   latencyMs?: number;
   errorCode?: string;
   message?: string;
+};
+
+type FilingMethod = 'PRINT' | 'EMAIL' | 'DMA';
+
+type FilingDraftSnapshot = {
+  result: ComplaintDraftResult;
+  subject: string;
+  body: string;
 };
 
 type LifecycleResponse = {
@@ -401,11 +411,11 @@ function App() {
   const [classificationSource, setClassificationSource] = useState('SELF_REPORTED');
   const [complaintFacts, setComplaintFacts] = useState('');
   const [locationDetails, setLocationDetails] = useState('');
-  const [draftLanguage, setDraftLanguage] = useState<'MR' | 'EN'>('MR');
+  const [draftLanguage, setDraftLanguage] = useState<'MR' | 'EN'>(() => language === 'en' ? 'EN' : 'MR');
+  const [complaintLanguageManuallySelected, setComplaintLanguageManuallySelected] = useState(false);
   const [complaintDraft, setComplaintDraft] = useState<ComplaintDraftResult | null>(null);
   const [draftSubject, setDraftSubject] = useState('');
   const [draftBody, setDraftBody] = useState('');
-  const [manualComplaintBody, setManualComplaintBody] = useState('');
   const [draftStatus, setDraftStatus] = useState('');
   const [draftDocumentId, setDraftDocumentId] = useState<string | null>(null);
   const [draftReviewed, setDraftReviewed] = useState(false);
@@ -459,6 +469,15 @@ function App() {
   const [initiativeHighestStep, setInitiativeHighestStep] = useState(1);
   const [filingEmail, setFilingEmail] = useState('');
   const [filingActionStatus, setFilingActionStatus] = useState('');
+  const [selectedFilingMethod, setSelectedFilingMethod] = useState<FilingMethod | ''>('');
+  const [filingActionOpened, setFilingActionOpened] = useState(false);
+  const [complainantName, setComplainantName] = useState('');
+  const [complainantEmail, setComplainantEmail] = useState('');
+  const [complainantPhone, setComplainantPhone] = useState('');
+  const [complainantAddress, setComplainantAddress] = useState('');
+  const [complainantCity, setComplainantCity] = useState('Nandurbar');
+  const [complainantPincode, setComplainantPincode] = useState('425412');
+  const [complainantState, setComplainantState] = useState('Maharashtra');
   const [accountState, setAccountState] = useState<AccountIdentityState>('ANONYMOUS_SESSION');
   const [accountUid, setAccountUid] = useState<string | null>(null);
   const [accountName, setAccountName] = useState<string | null>(null);
@@ -489,6 +508,11 @@ function App() {
   const classificationRequestSequence = useRef(0);
   const reportLocationRequestSequence = useRef(0);
   const reportDeviceLocationAttempted = useRef(false);
+  const routeResultHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const filingPanelRef = useRef<HTMLDivElement | null>(null);
+  const filingDrafts = useRef<Record<string, FilingDraftSnapshot>>({});
+  const activeFilingMethod = useRef<FilingMethod | ''>('');
+  const filingDraftRequestSequence = useRef(0);
   const t = (source: string) => translate(language, source);
   const runtimeMessage = (message: string) => localizedRuntimeMessage(language, message);
   const initiativePublishRequirements = [
@@ -545,6 +569,16 @@ function App() {
     document.documentElement.lang = language;
     document.title = language === 'mr' ? 'सीविक · स्थानिक नागरी कृती' : language === 'hi' ? 'सीविक · स्थानीय नागरिक कार्रवाई' : 'Seewik · Local civic action';
   }, [language]);
+
+  useEffect(() => {
+    if (complaintLanguageManuallySelected) return;
+    setDraftLanguage(language === 'en' ? 'EN' : 'MR');
+  }, [language, complaintLanguageManuallySelected]);
+
+  useEffect(() => {
+    if (accountName?.trim()) setComplainantName((value) => value.trim() ? value : accountName.trim());
+    if (accountEmail?.trim()) setComplainantEmail((value) => value.trim() ? value : accountEmail.trim());
+  }, [accountName, accountEmail]);
 
   useEffect(() => {
     if (!evidenceImage) {
@@ -605,7 +639,6 @@ function App() {
     setComplaintDraft(null);
     setDraftSubject('');
     setDraftBody('');
-    setManualComplaintBody('');
     setDraftStatus('');
     setDraftDocumentId(null);
     setDraftReviewed(false);
@@ -616,6 +649,11 @@ function App() {
     setFilingChannelId('');
     setFilingEmail('');
     setFilingActionStatus('');
+    setSelectedFilingMethod('');
+    setFilingActionOpened(false);
+    activeFilingMethod.current = '';
+    filingDrafts.current = {};
+    filingDraftRequestSequence.current += 1;
     setAcknowledgementId('');
     setSelectedReport(null);
   }
@@ -652,7 +690,15 @@ function App() {
     setClassificationSource('SELF_REPORTED');
     setComplaintFacts('');
     setLocationDetails('');
-    setDraftLanguage('MR');
+    setDraftLanguage(language === 'en' ? 'EN' : 'MR');
+    setComplaintLanguageManuallySelected(false);
+    setComplainantName(accountName?.trim() || '');
+    setComplainantEmail(accountEmail?.trim() || '');
+    setComplainantPhone('');
+    setComplainantAddress('');
+    setComplainantCity('Nandurbar');
+    setComplainantPincode('425412');
+    setComplainantState('Maharashtra');
     setCurrentCoordinates(null);
     reportLocationRequestSequence.current += 1;
     reportDeviceLocationAttempted.current = false;
@@ -1478,8 +1524,14 @@ function App() {
   async function findCivicRoute() {
     setRouteResult(null);
     resetDraft();
+    const preparedComplaintFacts = complaintFacts.trim() || evidenceText.trim() || classification?.description?.trim() || '';
     if (!issueType) {
       setRouteResult({ status: 'CATEGORY_REQUIRED' });
+      return;
+    }
+    if (!preparedComplaintFacts) {
+      setRouteResult({ status: evidenceImage ? 'PHOTO_ANALYSIS_REQUIRED' : 'DETAILS_REQUIRED' });
+      window.setTimeout(() => document.getElementById('report-describe-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
       return;
     }
     if (!prabhagId) {
@@ -1496,10 +1548,13 @@ function App() {
     if (!response.ok) throw new Error(`Routing request failed (${response.status})`);
     const result: RouteResult = await response.json();
     setRouteResult(result);
-    setFilingChannelId(result.officialChannels?.[0]?.channelId ?? '');
+    setFilingChannelId('');
     setFilingEmail(result.officialChannels?.find((channel) => channel.type === 'EMAIL')?.value ?? '');
-    if (result.status === 'SUPPORTED_ROUTE' && !complaintFacts.trim()) {
-      setComplaintFacts(evidenceText.trim() || classification?.description || '');
+    if (result.status === 'SUPPORTED_ROUTE' && complaintFacts.trim() !== preparedComplaintFacts) {
+      setComplaintFacts(preparedComplaintFacts);
+    }
+    if (result.status === 'SUPPORTED_ROUTE') {
+      window.setTimeout(() => routeResultHeadingRef.current?.focus(), 0);
     }
   }
 
@@ -1508,6 +1563,18 @@ function App() {
       throw new Error('Draft metadata is incomplete and was not saved.');
     }
     const user = await ensureAnonymousSession();
+    if (draftDocumentId && reportStatus === 'DRAFT') {
+      await updateDoc(doc(db, 'reports', draftDocumentId), {
+        draftLanguage: result.language,
+        draftSubject: result.subject,
+        draftBody: result.body,
+        updatedAt: serverTimestamp(),
+      });
+      const updatedAt = new Date();
+      setSelectedReport((report) => report?.id === draftDocumentId ? { ...report, draftLanguage: result.language!, draftSubject: result.subject!, draftBody: result.body!, updatedAt } : report);
+      setSavedReports((reports) => reports.map((report) => report.id === draftDocumentId ? { ...report, draftLanguage: result.language!, draftSubject: result.subject!, draftBody: result.body!, updatedAt } : report));
+      return draftDocumentId;
+    }
     const reportRef = doc(collection(db, 'reports'));
     await setDoc(reportRef, {
       ownerUid: user.uid,
@@ -1558,7 +1625,7 @@ function App() {
     }
   }
 
-  async function createComplaintDraft() {
+  async function createComplaintDraft(languageToUse: 'MR' | 'EN', method: FilingMethod, requestSequence: number) {
     if (routeResult?.status !== 'SUPPORTED_ROUTE') {
       setDraftStatus('Get a supported civic route before drafting.');
       return;
@@ -1567,8 +1634,11 @@ function App() {
       setDraftStatus('Add the factual issue details before drafting.');
       return;
     }
-    resetDraft();
-    setDraftStatus(`Creating ${draftLanguage === 'MR' ? 'Marathi' : 'English'} complaint draft…`);
+    setComplaintDraft(null);
+    setDraftSubject('');
+    setDraftBody('');
+    setDraftReviewed(false);
+    setDraftStatus(`Creating ${languageToUse === 'MR' ? 'Marathi' : 'English'} complaint draft…`);
     const idToken = await sessionToken();
     const response = await fetch(`${API_URL}/api/civic/draft-complaint`, {
       method: 'POST',
@@ -1581,18 +1651,39 @@ function App() {
         boundaryDatasetVersion,
         citizenDescription: complaintFacts.trim(),
         locationDetails: locationDetails.trim() || null,
-        draftLanguage,
+        draftLanguage: languageToUse,
+        filingFormat: method,
       }),
     });
     const result: ComplaintDraftResult = await response.json();
-    setComplaintDraft(result);
+    if (requestSequence !== filingDraftRequestSequence.current || activeFilingMethod.current !== method) return;
     if (!response.ok || result.status !== 'DRAFT_READY' || !result.subject || !result.body) {
-      setManualComplaintBody(complaintFacts.trim());
-      setDraftStatus(result.message ?? 'The complaint draft could not be created. Your confirmed route is unchanged.');
+      const fallback: ComplaintDraftResult = {
+        status: 'DRAFT_READY',
+        draftVersion: 'manual-v0.1',
+        schemaVersion: 'complaint-draft-v0.1',
+        packVersion: routeResult.packVersion,
+        language: languageToUse,
+        routeId: routeResult.routeId,
+        prabhagId,
+        authority: routeResult.authority,
+        authorityLocalName: routeResult.authorityLocalName,
+        subject: languageToUse === 'MR' ? 'नागरी समस्येबाबत तक्रार' : 'Civic issue complaint',
+        body: complaintFacts.trim(),
+        citizenReviewRequired: true,
+      };
+      setComplaintDraft(fallback);
+      setDraftSubject(fallback.subject!);
+      setDraftBody(fallback.body!);
+      filingDrafts.current[`${method}:${languageToUse}`] = { result: fallback, subject: fallback.subject!, body: fallback.body! };
+      setDraftStatus(result.message ?? 'Automatic drafting is unavailable. Review and edit the manual draft before filing.');
+      requestLinkedMutation(() => saveGeneratedDraft(fallback));
       return;
     }
+    setComplaintDraft(result);
     setDraftSubject(result.subject);
     setDraftBody(result.body);
+    filingDrafts.current[`${method}:${languageToUse}`] = { result, subject: result.subject, body: result.body };
     setDraftReviewed(false);
     if (accountState !== 'GOOGLE_LINKED') {
       setDraftStatus('Draft ready. Connect Google to save it without losing this form.');
@@ -1600,14 +1691,60 @@ function App() {
     requestLinkedMutation(() => saveGeneratedDraft(result));
   }
 
-  async function copyManualComplaint() {
-    if (!manualComplaintBody.trim()) {
-      setDraftStatus('Write the complaint text before copying it.');
-      return;
+  function cacheCurrentFilingDraft() {
+    if (!selectedFilingMethod || complaintDraft?.status !== 'DRAFT_READY' || !draftSubject.trim() || !draftBody.trim()) return;
+    filingDrafts.current[`${selectedFilingMethod}:${draftLanguage}`] = {
+      result: { ...complaintDraft, language: draftLanguage, subject: draftSubject.trim(), body: draftBody.trim() },
+      subject: draftSubject,
+      body: draftBody,
+    };
+  }
+
+  function markFilingDraftEdited() {
+    setFilingActionOpened(false);
+  }
+
+  function filingChannelForMethod(method: FilingMethod) {
+    const type = method === 'EMAIL' ? 'EMAIL' : method === 'DMA' ? 'ONLINE_FORM' : 'IN_PERSON';
+    return routeResult?.officialChannels?.find((channel) => channel.type === type);
+  }
+
+  async function prepareFilingMethod(method: FilingMethod, languageToUse: 'MR' | 'EN' = draftLanguage) {
+    cacheCurrentFilingDraft();
+    activeFilingMethod.current = method;
+    setSelectedFilingMethod(method);
+    setFilingActionOpened(false);
+    setFilingActionStatus('');
+    setFilingChannelId(filingChannelForMethod(method)?.channelId ?? '');
+    setDraftLanguage(languageToUse);
+    const exactKey = `${method}:${languageToUse}`;
+    const cached = filingDrafts.current[exactKey]
+      ?? Object.entries(filingDrafts.current).find(([key]) => key.endsWith(`:${languageToUse}`))?.[1];
+    if (cached) {
+      const restored = { ...cached.result, language: languageToUse, subject: cached.subject, body: cached.body };
+      filingDrafts.current[exactKey] = { result: restored, subject: cached.subject, body: cached.body };
+      setComplaintDraft(restored);
+      setDraftSubject(cached.subject);
+      setDraftBody(cached.body);
+      setDraftStatus('Prepared complaint restored. Review and edit it before filing.');
+    } else {
+      const requestSequence = ++filingDraftRequestSequence.current;
+      await createComplaintDraft(languageToUse, method, requestSequence);
     }
-    const recipient = routeResult?.authority ?? 'Confirmed civic authority';
-    await navigator.clipboard.writeText(`${recipient}\n\n${manualComplaintBody.trim()}`);
-    setDraftStatus('Your manually written complaint and confirmed recipient were copied.');
+    window.setTimeout(() => filingPanelRef.current?.focus(), 0);
+  }
+
+  async function changeComplaintLanguage(languageToUse: 'MR' | 'EN') {
+    cacheCurrentFilingDraft();
+    setComplaintLanguageManuallySelected(true);
+    setDraftLanguage(languageToUse);
+    if (selectedFilingMethod) await prepareFilingMethod(selectedFilingMethod, languageToUse);
+  }
+
+  function editRoutedReport(sectionId: 'report-describe-section' | 'report-location-section') {
+    setRouteResult(null);
+    resetDraft();
+    window.setTimeout(() => document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
   }
 
   async function saveDraftEdits() {
@@ -1624,13 +1761,14 @@ function App() {
       return false;
     }
     await updateDoc(doc(db, 'reports', draftDocumentId), {
+      draftLanguage,
       draftSubject: draftSubject.trim(),
       draftBody: draftBody.trim(),
       updatedAt: serverTimestamp(),
     });
     const updatedAt = new Date();
-    setSelectedReport((report) => report?.id === draftDocumentId ? { ...report, draftSubject: draftSubject.trim(), draftBody: draftBody.trim(), updatedAt } : report);
-    setSavedReports((reports) => reports.map((report) => report.id === draftDocumentId ? { ...report, draftSubject: draftSubject.trim(), draftBody: draftBody.trim(), updatedAt } : report));
+    setSelectedReport((report) => report?.id === draftDocumentId ? { ...report, draftLanguage, draftSubject: draftSubject.trim(), draftBody: draftBody.trim(), updatedAt } : report);
+    setSavedReports((reports) => reports.map((report) => report.id === draftDocumentId ? { ...report, draftLanguage, draftSubject: draftSubject.trim(), draftBody: draftBody.trim(), updatedAt } : report));
     setDraftStatus(`Draft changes saved · ${draftDocumentId.slice(0, 8)}…`);
     return true;
   }
@@ -1648,30 +1786,122 @@ function App() {
   }
 
   function printableLetterText() {
-    return `${t('To')}\n${complaintDraft?.authorityLocalName || complaintDraft?.authority || routeResult?.authority || ''}\n\n${t('Subject')}: ${draftSubject.trim()}\n\n${draftBody.trim()}\n\n${t('Citizen name')}: ______________________________\n${t('Signature')}: ______________________________\n${t('Date')}: ______________________________`;
+    const marathi = draftLanguage === 'MR';
+    const blank = '______________________________';
+    const authority = complaintDraft?.authorityLocalName || complaintDraft?.authority || routeResult?.authority || '';
+    const senderCityLine = [complainantCity.trim(), complainantState.trim(), complainantPincode.trim()].filter(Boolean).join(', ');
+    const date = new Intl.DateTimeFormat(marathi ? 'mr-IN' : 'en-IN', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+    const copy = marathi ? {
+      address: 'पत्ता', phone: 'दूरध्वनी', email: 'ईमेल', date: 'दिनांक', to: 'प्रति',
+      designation: 'मुख्याधिकारी', subject: 'विषय', salutation: 'आदरणीय महोदय/महोदया,',
+      thanks: 'आपल्या सकारात्मक कार्यवाहीच्या अपेक्षेत धन्यवाद.', closing: 'आपला/आपली विश्वासू,',
+      signature: 'स्वाक्षरी', printedName: 'नाव', prepared: 'सीविकने तयार केलेले नागरी तक्रारपत्र',
+      footer: 'सीविकच्या मदतीने तयार केले आहे. हे पत्र तपासा, स्वाक्षरी करा आणि संबंधित कार्यालयात जमा करा.',
+    } : {
+      address: 'Address', phone: 'Phone', email: 'Email', date: 'Date', to: 'To',
+      designation: 'The Chief Officer', subject: 'Subject', salutation: 'Respected Sir/Madam,',
+      thanks: 'Thanking you in anticipation.', closing: 'Yours faithfully,',
+      signature: 'Signature', printedName: 'Printed name', prepared: 'Prepared civic complaint letter',
+      footer: 'Prepared with Seewik. Review, sign and submit this letter to the responsible office.',
+    };
+    return [
+      complainantName.trim() || blank,
+      `${copy.address}: ${complainantAddress.trim() || blank}`,
+      senderCityLine || blank,
+      `${copy.phone}: ${complainantPhone.trim() || blank}`,
+      `${copy.email}: ${complainantEmail.trim() || blank}`,
+      '',
+      `${copy.date}: ${date}`,
+      '',
+      `${copy.to},`,
+      `${copy.designation},`,
+      `${authority},`,
+      'Nandurbar, Maharashtra',
+      '',
+      `${copy.subject}: ${draftSubject.trim()}`,
+      '',
+      copy.salutation,
+      '',
+      draftBody.trim(),
+      '',
+      copy.thanks,
+      '',
+      copy.closing,
+      '',
+      `${copy.signature}: ${blank}`,
+      `${copy.printedName}: ${complainantName.trim() || blank}`,
+    ].join('\n');
   }
 
   function openEmailDraft() {
-    if (!/^\S+@\S+\.\S+$/.test(filingEmail.trim())) {
-      setFilingActionStatus('Enter a valid recipient email address.');
+    const channel = routeResult?.officialChannels?.find((item) => item.type === 'EMAIL');
+    const recipient = filingEmail.trim() || channel?.value || '';
+    if (!/^\S+@\S+\.\S+$/.test(recipient.trim())) {
+      setFilingActionStatus('No verified recipient email is available for this route.');
       return;
     }
-    const channel = routeResult?.officialChannels?.find((item) => item.type === 'EMAIL');
+    if (!draftSubject.trim() || !draftBody.trim()) {
+      setFilingActionStatus('Add both subject and complaint body before opening email.');
+      return;
+    }
     if (channel) setFilingChannelId(channel.channelId);
-    window.location.href = `mailto:${encodeURIComponent(filingEmail.trim())}?subject=${encodeURIComponent(draftSubject.trim())}&body=${encodeURIComponent(draftBody.trim())}`;
+    cacheCurrentFilingDraft();
+    const marathi = draftLanguage === 'MR';
+    const senderLocation = [complainantAddress.trim(), complainantCity.trim(), complainantState.trim(), complainantPincode.trim()].filter(Boolean).join(', ');
+    const contactLines = [
+      complainantName.trim(),
+      senderLocation,
+      complainantPhone.trim(),
+      complainantEmail.trim(),
+    ].filter(Boolean);
+    const emailBody = [
+      marathi ? 'आदरणीय महोदय/महोदया,' : 'Respected Sir/Madam,',
+      '',
+      draftBody.trim(),
+      ...(evidenceImage ? ['', marathi ? 'संदर्भासाठी सहाय्यक छायाचित्र उपलब्ध आहे.' : 'A supporting photograph is available for reference.'] : []),
+      '',
+      marathi ? 'आपल्या कार्यवाहीबद्दल धन्यवाद.' : 'Thank you for your attention to this matter.',
+      '',
+      marathi ? 'आपला/आपली विश्वासू,' : 'Yours sincerely,',
+      ...contactLines,
+    ].join('\n');
+    const mailtoUrl = `mailto:${recipient.trim()}?subject=${encodeURIComponent(draftSubject.trim())}&body=${encodeURIComponent(emailBody)}`;
+    try {
+      window.location.href = mailtoUrl;
+    } catch (error) {
+      void navigator.clipboard.writeText(`${t('Complaint subject')}: ${draftSubject.trim()}\n\n${draftBody.trim()}`);
+      setFilingActionStatus('Could not open email app. Complaint text copied so you can paste it manually.');
+      return;
+    }
+    setFilingActionOpened(true);
     setFilingActionStatus('Your email app was opened with an editable draft. Seewik did not send it.');
   }
 
-  async function copyComplaintAndOpenForm() {
+  function dmaFilingPackText() {
+    return `${t('Complaint subject')}: ${draftSubject.trim()}\n${t('Full name')}: ${complainantName.trim()}\n${t('Email address')}: ${complainantEmail.trim()}\n${t('Phone number (optional)')}: ${complainantPhone.trim()}\n${t('Correspondence address')}: ${complainantAddress.trim()}\n${t('City')}: ${complainantCity.trim()}\n${t('Pincode')}: ${complainantPincode.trim()}\n${t('State')}: ${complainantState.trim()}\n\n${t('Description of Complaint/Grievance')}:\n${draftBody.trim()}`;
+  }
+
+  async function copyDmaPack() {
+    await navigator.clipboard.writeText(dmaFilingPackText());
+    setFilingActionStatus('The editable DMA filing fields were copied.');
+  }
+
+  async function copyFilingField(label: string, value: string) {
+    await navigator.clipboard.writeText(value);
+    setFilingActionStatus(`${label} copied.`);
+  }
+
+  function openDmaForm() {
     const channel = routeResult?.officialChannels?.find((item) => item.type === 'ONLINE_FORM');
     if (!channel) {
       setFilingActionStatus('No verified official complaint form is available for this route.');
       return;
     }
-    window.open(channel.value, '_blank', 'noopener,noreferrer');
-    await navigator.clipboard.writeText(`${draftSubject.trim()}\n\n${draftBody.trim()}`);
+    cacheCurrentFilingDraft();
+    window.open(channel.localizedValues?.[draftLanguage] ?? channel.value, '_blank', 'noopener,noreferrer');
     setFilingChannelId(channel.channelId);
-    setFilingActionStatus('The complaint was copied and the official form was opened. Paste it there and add the personal details requested by the form.');
+    setFilingActionOpened(true);
+    setFilingActionStatus('The official DMA form was opened. Copy the prepared fields into it and attach the photo manually if needed.');
   }
 
   async function shareLetter() {
@@ -1681,6 +1911,7 @@ function App() {
     if (navigator.share) {
       try {
         await navigator.share({ title: draftSubject.trim(), text });
+        setFilingActionOpened(true);
         setFilingActionStatus('Your device share sheet was opened. Seewik did not submit the letter.');
         return;
       } catch (error) {
@@ -1688,14 +1919,60 @@ function App() {
       }
     }
     await navigator.clipboard.writeText(text);
+    setFilingActionOpened(true);
     setFilingActionStatus('The letter was copied because sharing is unavailable on this device.');
   }
 
   function printLetter() {
     const channel = routeResult?.officialChannels?.find((item) => item.type === 'IN_PERSON');
     if (channel) setFilingChannelId(channel.channelId);
+    cacheCurrentFilingDraft();
+    const printWindow = window.open('', '_blank', 'popup,width=860,height=1000');
+    if (!printWindow) {
+      setFilingActionStatus('The print window was blocked. Allow pop-ups for Seewik and try again.');
+      return;
+    }
+    printWindow.opener = null;
+    const printDocument = printWindow.document;
+    printDocument.title = `${draftSubject.trim() || 'Civic complaint'} - Seewik`;
+    printDocument.documentElement.lang = draftLanguage === 'MR' ? 'mr' : 'en';
+    const style = printDocument.createElement('style');
+    style.textContent = `
+      @page { size: A4; margin: 22mm 20mm; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #fff; color: #17202a; font-family: Georgia, 'Times New Roman', serif; font-size: 12pt; line-height: 1.6; }
+      main { max-width: 170mm; margin: 0 auto; }
+      header { margin-bottom: 28px; padding-bottom: 14px; border-bottom: 2px solid #173f67; }
+      header strong { display: block; color: #173f67; font-family: Arial, sans-serif; font-size: 18pt; letter-spacing: .08em; }
+      header span { color: #526273; font-family: Arial, sans-serif; font-size: 9.5pt; }
+      pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+      footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #ccd5df; color: #526273; font-family: Arial, sans-serif; font-size: 9pt; }
+      @media screen { body { padding: 32px; } main { padding: 28px 34px; border: 1px solid #d8e0e8; box-shadow: 0 12px 32px rgba(20, 48, 76, .12); } }
+      @media print { footer { color: #333; } }
+    `;
+    printDocument.head.appendChild(style);
+    const letter = printDocument.createElement('main');
+    const header = printDocument.createElement('header');
+    const brand = printDocument.createElement('strong');
+    brand.textContent = 'SEEWIK';
+    const descriptor = printDocument.createElement('span');
+    descriptor.textContent = draftLanguage === 'MR' ? 'सीविकने तयार केलेले नागरी तक्रारपत्र' : 'Prepared civic complaint letter';
+    header.append(brand, descriptor);
+    const content = printDocument.createElement('pre');
+    content.textContent = printableLetterText();
+    const footer = printDocument.createElement('footer');
+    footer.textContent = draftLanguage === 'MR'
+      ? 'सीविकच्या मदतीने तयार केले आहे. हे पत्र तपासा, स्वाक्षरी करा आणि संबंधित कार्यालयात जमा करा.'
+      : 'Prepared with Seewik. Review, sign and submit this letter to the responsible office.';
+    letter.append(header, content, footer);
+    printDocument.body.appendChild(letter);
+    printDocument.close();
+    setFilingActionOpened(true);
     setFilingActionStatus('The print window was opened. Write your name and sign the printed letter before submitting it.');
-    window.print();
+    window.setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 250);
   }
 
   function applyInitiativeTemplate(value: string) {
@@ -1805,9 +2082,13 @@ function App() {
     setInitiativeStatus('Activity link copied.');
   }
 
-  async function fileReviewedReport(dedupeOverride = false) {
-    if (!draftReviewed) {
-      setDraftStatus('Review the final draft before recording that it was filed.');
+  async function fileReviewedReport(dedupeOverride = false, requireActionConfirmation = true) {
+    if (requireActionConfirmation && (!selectedFilingMethod || !filingActionOpened)) {
+      setLifecycleStatus('Open or print the prepared complaint before confirming submission.');
+      return;
+    }
+    if (!draftSubject.trim() || !draftBody.trim()) {
+      setLifecycleStatus('Add a subject and complaint before confirming submission.');
       return;
     }
     const currentRouteId = routeResult?.routeId ?? complaintDraft?.routeId ?? '';
@@ -1862,6 +2143,7 @@ function App() {
     setCitizenConfirmed(false);
     setManualPrabhagSelected(true);
     setDraftLanguage(report.draftLanguage);
+    setComplaintLanguageManuallySelected(true);
     setDraftSubject(report.draftSubject);
     setDraftBody(report.draftBody);
     setDraftReviewed(false);
@@ -2142,6 +2424,21 @@ function App() {
   const emailChannel = routeResult?.officialChannels?.find((channel) => channel.type === 'EMAIL');
   const formChannel = routeResult?.officialChannels?.find((channel) => channel.type === 'ONLINE_FORM');
   const officeChannel = routeResult?.officialChannels?.find((channel) => channel.type === 'IN_PERSON');
+  const filingAuthority = complaintDraft?.authorityLocalName || complaintDraft?.authority || routeResult?.authority || '';
+  const filingRecipientEmail = filingEmail || emailChannel?.value || '';
+  const filingLanguageChoices = [
+    { value: 'EN' as const, label: 'English' },
+    { value: 'MR' as const, label: language === 'hi' ? 'मराठी' : t('मराठी') },
+  ];
+  const filingLanguageLabel = (value: 'MR' | 'EN') => filingLanguageChoices.find((item) => item.value === value)?.label || (value === 'EN' ? 'English' : 'मराठी');
+  const selectedFilingLabel = selectedFilingMethod === 'PRINT'
+    ? t('Print and submit')
+    : selectedFilingMethod === 'EMAIL'
+      ? t('Email Nagar Palika')
+      : selectedFilingMethod === 'DMA'
+        ? t('Directorate of Municipal Administration')
+        : '';
+  const canConfirmFilings = Boolean(selectedFilingMethod && complaintDraft?.status === 'DRAFT_READY' && draftDocumentId && draftSubject.trim() && draftBody.trim() && filingActionOpened);
 
   return <>
     <a className="skip-link" href="#main-content">{t('Skip to main content')}</a>
@@ -2388,6 +2685,11 @@ function App() {
     <header className="flow-page-heading report-page-heading"><h1 className="page-title">{t('New Report')}</h1><button type="button" className="secondary flow-start-over" onClick={startOver}>{t('Start over')}</button></header>
     <section className="card report-flow-card">
       <div className="report-purpose"><span className="signal" aria-hidden="true" /><p>{t("Let's find how to report this issue")}</p></div>
+      {routeResult?.status === 'SUPPORTED_ROUTE' ? <div className="report-collapsed-steps">
+        <article className="report-step-summary"><div><span>1</span><div><b>{t('Describe the issue')}</b><small>{issueLabel(issueType, language)} · {evidenceImage ? t('Photo added') : t('No photo')}</small></div></div><button type="button" className="secondary" onClick={() => editRoutedReport('report-describe-section')}>{t('Edit')}</button></article>
+        <article className="report-step-summary"><div><span>2</span><div><b>{t('Location')}</b><small>{locationDetails.trim() || `${t('Prabhag')} ${Number(prabhagId.slice(-2)) || ''}`} · {reportLocationSourceLabel || t('Selected manually')}</small></div></div><button type="button" className="secondary" onClick={() => editRoutedReport('report-location-section')}>{t('Edit')}</button></article>
+      </div> : <>
+      <div id="report-describe-section">
       <div className="flow-step"><span>1</span><b>{t('Describe the issue')}</b></div>
         <div className="photo-input-grid">
           <div className="photo-upload-field">
@@ -2415,7 +2717,9 @@ function App() {
           {classification?.detectedLanguage && <small>{t('Detected language')}: {classification.detectedLanguage}</small>}
         </div>}
         <TemplatePicker id="issue-category" label={t('Issue category')} placeholder={t('Choose an issue category')} searchPlaceholder={t('Filter categories')} emptyMessage={t('No categories match your search.')} clearSearchLabel={t('Clear search')} value={issueType} options={ISSUE_TYPES.map(([value]) => ({ value, icon: <AppIcon name={issueTypeIcon(value)} />, title: issueLabel(value, language) }))} onChange={(value) => chooseIssueType(value)} />
+      </div>
 
+      <div id="report-location-section">
       <div className="flow-step"><span>2</span><b>{t('Location')}</b></div>
       <div className="report-location-field">
         <span className="report-location-icon" aria-hidden="true"><AppIcon name="pin" /></span>
@@ -2435,123 +2739,142 @@ function App() {
           />
         </BoundaryMapErrorBoundary>
       </div>
+      </div>
+      </>}
+      {routeResult?.status !== 'SUPPORTED_ROUTE' && <>
       <div className="flow-step"><span>3</span><b>{t('Find the right route')}</b></div>
       <button onClick={() => findCivicRoute().catch((error) => setRouteResult({ status: citizenSafeError(error, 'The right route could not be found. Try again.') }))}>{t('Find official route')}</button>
-      {routeResult && <div aria-live="polite" className={`route-result ${routeResult.status === 'SUPPORTED_ROUTE' ? 'state-success' : 'state-error'}`}>
-        <strong>{routeResult.status === 'SUPPORTED_ROUTE' ? routeResult.authority : routeResult.status === 'CATEGORY_REQUIRED' ? t('Choose an issue category to continue.') : routeResult.status === 'PRABHAG_REQUIRED' ? t('Choose a Prabhag to continue.') : routeResult.status}</strong>
-        {routeResult.routeId && <>
-          {routeResult.department && <div className="department-result">
-            <b>{routeResult.department.status === 'TYPICAL_STRUCTURE_UNVERIFIED' ? t('Likely department') : t('Department')}: {routeResult.department.displayName}</b>
-            <span>{routeResult.department.localName}</span>
-          </div>}
-          <span>{routeResult.prabhagId}</span>
-          {(routeResult.officialChannels?.length ?? 0) > 0 && <div className="route-channels">
-            <b>{t('Official contact options')}</b>
-            <ul>{routeResult.officialChannels?.map((channel) => <li key={channel.channelId}><AppIcon name={officialChannelIcon(channel.type)} /><div>
-              {channel.type === 'EMAIL' && <a href={`mailto:${channel.value}`}>{channel.label}</a>}
-              {channel.type === 'ONLINE_FORM' && <a href={channel.value} target="_blank" rel="noreferrer">{channel.label}</a>}
-              {channel.type === 'IN_PERSON' && <span>{channel.label}: {channel.value}</span>}
-            </div></li>)}</ul>
-          </div>}
-          {(routeResult.informationalLinks?.length ?? 0) > 0 && <div className="informational-links">
-            <b>{t('Information only — not a verified filing channel')}</b>
-            <ul>{routeResult.informationalLinks?.map((link) => <li key={link.linkId}><AppIcon name="info" /><a href={link.value} target="_blank" rel="noreferrer">{link.label}</a></li>)}</ul>
+      </>}
+      {routeResult && routeResult.status !== 'SUPPORTED_ROUTE' && <div aria-live="polite" className="route-result state-error"><strong>{routeResult.status === 'CATEGORY_REQUIRED' ? t('Choose an issue category to continue.') : routeResult.status === 'DETAILS_REQUIRED' ? t('Add a photo or short description before finding the official route.') : routeResult.status === 'PHOTO_ANALYSIS_REQUIRED' ? t('Wait for the photo analysis to finish, or add a short description.') : routeResult.status === 'PRABHAG_REQUIRED' ? t('Choose a Prabhag to continue.') : routeResult.status}</strong></div>}
+      {routeResult?.status === 'SUPPORTED_ROUTE' && <>
+        <section className="civic-router-section" aria-labelledby="civic-router-title">
+          <span className="eyebrow">{t('CIVIC RESPONSIBILITY ROUTER')}</span>
+          <h2 id="civic-router-title" ref={routeResultHeadingRef} tabIndex={-1}>{t('Here is the responsible authority')}</h2>
+          <article className="responsible-authority-card">
+            <span className="authority-icon"><AppIcon name="building" /></span>
+            <small>{t('Responsible authority')}</small>
+            <h3>{routeResult.authority}</h3>
+            <dl>
+              {routeResult.department && <div><dt>{routeResult.department.status === 'TYPICAL_STRUCTURE_UNVERIFIED' ? t('Likely department') : t('Department')}</dt><dd>{routeResult.department.displayName}</dd></div>}
+              <div><dt>{t('Selected issue')}</dt><dd>{issueLabel(issueType, language)}</dd></div>
+              <div><dt>{t('Location')}</dt><dd>{locationDetails.trim() || `${t('Prabhag')} ${Number(prabhagId.slice(-2)) || ''}`}</dd></div>
+            </dl>
+            {(routeResult.knownLimitations?.length ?? 0) > 0 && <div className="route-limitations"><b>{t('Please check before filing')}</b>{routeResult.knownLimitations?.map((limitation) => <span key={limitation.code}>{limitation.citizenMessage}</span>)}</div>}
+          </article>
+        </section>
+        <section className="filing-choice-panel" aria-labelledby="filing-choice-title">
+          <h2 id="filing-choice-title">{t('Official filing routes')}</h2>
+          <p>{t('Review and edit the prepared content before filing. Seewik helps you prepare the complaint but does not submit it for you.')}</p>
+          <div className="filing-choice-grid">
+            <button type="button" className={`filing-choice-card ${selectedFilingMethod === 'PRINT' ? 'selected' : ''}`} aria-pressed={selectedFilingMethod === 'PRINT'} onClick={() => prepareFilingMethod('PRINT').catch((error) => setDraftStatus(citizenSafeError(error, 'The complaint draft could not be created.')))}><span className="filing-choice-number"><AppIcon name="building" /></span><span><strong>{t('Print and submit')}</strong><small>{t('Prepare a formal letter to print, save or share.')}</small></span></button>
+            <button type="button" className={`filing-choice-card ${selectedFilingMethod === 'EMAIL' ? 'selected' : ''}`} aria-pressed={selectedFilingMethod === 'EMAIL'} disabled={!emailChannel} onClick={() => prepareFilingMethod('EMAIL').catch((error) => setDraftStatus(citizenSafeError(error, 'The complaint draft could not be created.')))}><span className="filing-choice-number"><AppIcon name="mail" /></span><span><strong>{t('Email Nagar Palika')}</strong><small>{t('Open an editable email addressed to the council.')}</small></span></button>
+            <button type="button" className={`filing-choice-card ${selectedFilingMethod === 'DMA' ? 'selected' : ''}`} aria-pressed={selectedFilingMethod === 'DMA'} disabled={!formChannel} onClick={() => prepareFilingMethod('DMA').catch((error) => setDraftStatus(citizenSafeError(error, 'The complaint draft could not be created.')))}><span className="filing-choice-number"><AppIcon name="form" /></span><span><strong>{t('Directorate of Municipal Administration')}</strong><small>{t('Prepare copy-ready fields for the official form.')}</small></span></button>
+          </div>
+        </section>
+        {selectedFilingMethod && complaintDraft?.status !== 'DRAFT_READY' && draftStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(draftStatus)}</div>}
+        {selectedFilingMethod && complaintDraft?.status === 'DRAFT_READY' && <>
+          <section className="filing-prep-panel" ref={filingPanelRef} tabIndex={-1}>
+            <div className="lifecycle-heading filing-prep-heading"><div><small>{t('Prepare filing')}</small><strong>{selectedFilingLabel}</strong></div><div className="points-pill"><span>{t('Possible reward')}</span><b>+5</b></div></div>
+            <label>{t('Complaint language')}<select value={draftLanguage} onChange={(event) => { const nextLanguage = event.target.value as 'MR' | 'EN'; markFilingDraftEdited(); void changeComplaintLanguage(nextLanguage); }}>
+              {filingLanguageChoices.map((option) => <option key={option.value} value={option.value}>{filingLanguageLabel(option.value)}</option>)}
+            </select><small className="field-help">{t('Your complaint is prepared in Marathi or English. We save this choice so your manual edits are preserved.')}</small></label>
+            <label>{t('Recipient')}
+              <input type="text" maxLength={220} value={filingAuthority} readOnly disabled />
+            </label>
+            <label>{t('Subject')}<input type="text" maxLength={160} value={draftSubject} onChange={(event) => { setDraftSubject(event.target.value); markFilingDraftEdited(); }} /></label>
+            <label>{t(selectedFilingMethod === 'DMA' ? 'Description of Complaint/Grievance' : selectedFilingMethod === 'EMAIL' ? 'Email complaint content' : 'Complaint body')}<textarea className="draft-body" maxLength={2500} value={draftBody} onChange={(event) => { setDraftBody(event.target.value); markFilingDraftEdited(); }} /></label>
+
+            {selectedFilingMethod === 'PRINT' && <>
+              <div className="filing-info-note">{t('Use this letter for the office route; print, save, or share, then submit it in person.')}</div>
+              <label>{t('Citizen name')}<input type="text" maxLength={120} value={complainantName} onChange={(event) => { setComplainantName(event.target.value); markFilingDraftEdited(); }} /></label>
+              <label>{t('Correspondence address')}<input type="text" maxLength={220} value={complainantAddress} onChange={(event) => { setComplainantAddress(event.target.value); markFilingDraftEdited(); }} /></label>
+              <div className="filing-dual-fields">
+                <label>{t('City')}<input type="text" maxLength={90} value={complainantCity} onChange={(event) => { setComplainantCity(event.target.value); markFilingDraftEdited(); }} /></label>
+                <label>{t('State')}<input type="text" maxLength={90} value={complainantState} onChange={(event) => { setComplainantState(event.target.value); markFilingDraftEdited(); }} /></label>
+                <label>{t('Pincode')}<input type="text" maxLength={12} value={complainantPincode} onChange={(event) => { setComplainantPincode(event.target.value); markFilingDraftEdited(); }} /></label>
+              </div>
+              <label>{t('Email address')}<input type="email" maxLength={200} value={complainantEmail} onChange={(event) => { setComplainantEmail(event.target.value); markFilingDraftEdited(); }} /></label>
+              <label>{t('Phone number (optional)')}<input type="tel" maxLength={20} value={complainantPhone} onChange={(event) => { setComplainantPhone(event.target.value); markFilingDraftEdited(); }} /></label>
+              <div className="filing-method-actions">
+                <button className="secondary" onClick={() => shareLetter().catch((error) => setFilingActionStatus(citizenSafeError(error, 'The letter could not be shared.')))}>{t('Share letter')}</button>
+                <button onClick={printLetter}>{t('Print or save as PDF')}</button>
+              </div>
+            </>}
+
+            {selectedFilingMethod === 'EMAIL' && <>
+              <label>{t('Recipient email')}<input type="email" maxLength={200} value={filingRecipientEmail} onChange={(event) => {
+                setFilingEmail(event.target.value);
+                markFilingDraftEdited();
+              }} /></label>
+              <label>{t('Full name')}<input type="text" maxLength={120} value={complainantName} onChange={(event) => { setComplainantName(event.target.value); markFilingDraftEdited(); }} /></label>
+              <label>{t('Email address')}<input type="email" maxLength={200} value={complainantEmail} onChange={(event) => { setComplainantEmail(event.target.value); markFilingDraftEdited(); }} /></label>
+              <label>{t('Phone number (optional)')}<input type="tel" maxLength={20} value={complainantPhone} onChange={(event) => { setComplainantPhone(event.target.value); markFilingDraftEdited(); }} /></label>
+              <label>{t('Correspondence address')}<input type="text" maxLength={220} value={complainantAddress} onChange={(event) => { setComplainantAddress(event.target.value); markFilingDraftEdited(); }} /></label>
+              <div className="filing-dual-fields">
+                <label>{t('City')}<input type="text" maxLength={90} value={complainantCity} onChange={(event) => { setComplainantCity(event.target.value); markFilingDraftEdited(); }} /></label>
+                <label>{t('State')}<input type="text" maxLength={90} value={complainantState} onChange={(event) => { setComplainantState(event.target.value); markFilingDraftEdited(); }} /></label>
+                <label>{t('Pincode')}<input type="text" maxLength={12} value={complainantPincode} onChange={(event) => { setComplainantPincode(event.target.value); markFilingDraftEdited(); }} /></label>
+              </div>
+              {evidenceImage && <div className="filing-info-note">{t('Photo ready to attach. Your email app cannot receive attachments automatically, so attach the photo before sending.')}</div>}
+              <div className="filing-method-actions">
+                <button className="secondary" onClick={() => copyFilingField(t('Complaint subject'), draftSubject).catch((error) => setFilingActionStatus(citizenSafeError(error, 'Could not copy the subject.')))}>{t('Copy subject')}</button>
+                <button className="secondary" onClick={() => copyFilingField(t('Complaint body'), draftBody).catch((error) => setFilingActionStatus(citizenSafeError(error, 'Could not copy the body.')))}>{t('Copy complaint content')}</button>
+                <button onClick={() => openEmailDraft()}>{t('Open email app')}</button>
+              </div>
+            </>}
+
+            {selectedFilingMethod === 'DMA' && <>
+              <label>{t('Full name')}<input type="text" maxLength={120} value={complainantName} onChange={(event) => { setComplainantName(event.target.value); markFilingDraftEdited(); }} /></label>
+              <label>{t('Email address')}<input type="email" maxLength={200} value={complainantEmail} onChange={(event) => { setComplainantEmail(event.target.value); markFilingDraftEdited(); }} /></label>
+              <label>{t('Phone number (optional)')}<input type="tel" maxLength={20} value={complainantPhone} onChange={(event) => { setComplainantPhone(event.target.value); markFilingDraftEdited(); }} /></label>
+              <label>{t('Correspondence address')}<input type="text" maxLength={220} value={complainantAddress} onChange={(event) => { setComplainantAddress(event.target.value); markFilingDraftEdited(); }} /></label>
+              <div className="filing-dual-fields">
+                <label>{t('City')}<input type="text" maxLength={90} value={complainantCity} onChange={(event) => { setComplainantCity(event.target.value); markFilingDraftEdited(); }} /></label>
+                <label>{t('State')}<input type="text" maxLength={90} value={complainantState} onChange={(event) => { setComplainantState(event.target.value); markFilingDraftEdited(); }} /></label>
+                <label>{t('Pincode')}<input type="text" maxLength={12} value={complainantPincode} onChange={(event) => { setComplainantPincode(event.target.value); markFilingDraftEdited(); }} /></label>
+              </div>
+              {evidenceImage && <div className="filing-info-note">{t('A supporting photo is ready. Upload it manually in the official DMA form.')}</div>}
+              <div className="filing-method-actions">
+                <button className="secondary" onClick={() => copyFilingField(t('Complaint subject'), draftSubject).catch((error) => setFilingActionStatus(citizenSafeError(error, 'Could not copy the subject.')))}>{t('Copy subject')}</button>
+                <button className="secondary" onClick={() => copyFilingField(t('Description of Complaint/Grievance'), draftBody).catch((error) => setFilingActionStatus(citizenSafeError(error, 'Could not copy the body.')))}>{t('Copy complaint description')}</button>
+                <button className="secondary" onClick={() => copyDmaPack().catch((error) => setFilingActionStatus(citizenSafeError(error, 'The DMA fields could not be copied.')))}>{t('Copy all fields')}</button>
+                <button onClick={() => openDmaForm()}>{t('Open official DMA form')}</button>
+              </div>
+            </>}
+
+            {filingActionStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{runtimeMessage(filingActionStatus)}</div>}
+            <div className="filing-confirmation-panel">
+              <div className="lifecycle-heading filing-confirmation-heading"><div><small>{t('Did you submit this report?')}</small><strong>{t('Confirm real-world action')}</strong></div></div>
+              <div className="filing-method-actions filing-confirmation-actions">
+                <button onClick={() => requestLinkedMutation(() => fileReviewedReport(false).catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))} disabled={!canConfirmFilings}>{t('I filed this report')}</button>
+                <button className="secondary" onClick={() => { setFilingActionOpened(false); setLifecycleStatus('Continue filing and confirm once submitted.'); }}>{t('I have not filed it yet')}</button>
+              </div>
+              {!currentCoordinates && <small className="filing-dedupe-note">{t('Dedupe is not evaluated when location is unavailable.')}</small>}
+              <div className="filing-confirmation-fields">
+                {(routeResult?.officialChannels?.length ?? 0) > 0 && <label>{t('Channel you used')}<select value={filingChannelId} onChange={(event) => setFilingChannelId(event.target.value)}>
+                  <option value="">{t('Not recorded')}</option>
+                  {routeResult?.officialChannels?.map((channel) => <option key={channel.channelId} value={channel.channelId}>{channel.label}</option>)}
+                </select></label>}
+                <label>{t('Acknowledgement / tracking ID (optional)')}<input maxLength={200} value={acknowledgementId} onChange={(event) => setAcknowledgementId(event.target.value)} /></label>
+              </div>
+              {duplicateWarning && <div className="duplicate-warning"><b>{t('Possible duplicate')}</b><span>A same-category report is {duplicateWarning.measuredDistanceMeters?.toFixed(1)} m away.</span><button className="secondary" onClick={() => requestLinkedMutation(() => fileReviewedReport(true, false).catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('This is a different issue — file with 0 points')}</button></div>}
+            </div>
+          </section>
+
+          {lifecycleStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(lifecycleStatus)}</div>}
+
+          {['FILED', 'OVERDUE', 'REOPENED'].includes(reportStatus) && <div className="lifecycle-panel filing-status-panel">
+            {reportStatus === 'FILED' && <div className="overdue-unknown"><b>{t('Overdue: unknown')}</b><span>{t('No verified SLA exists, so Seewik will not invent a due date.')}</span></div>}
+            <div className="lifecycle-actions">
+              <button onClick={() => requestLinkedMutation(() => transitionReport('CLAIMED_FIXED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Record a repair claim')}</button>
+              {reportStatus === 'CLAIMED_FIXED' ? <button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Reject repair claim')}</button> : null}
+              {reportStatus === 'VERIFIED_FIXED' ? <button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Report recurrence')}</button> : null}
+            </div>
+            <ol className="timeline compact">
+              {timeline.map((item, index) => <li key={`${item.occurredAt}-${index}`}><span>{index + 1}</span><div><b>{localizedStatus(language, item.toStatus)}</b><small>{item.eventType} · {item.verificationBasis}{item.pointsAwarded ? ` · +${item.pointsAwarded}` : ''}</small></div></li>)}
+            </ol>
           </div>}
         </>}
-      </div>}
-      {routeResult?.status === 'SUPPORTED_ROUTE' && <>
-        <div className="flow-step"><span>4</span><b>{t('Create and review the complaint draft')}</b></div>
-        <p>{t('The recipient and route stay fixed from Civic Pack. Automatic drafting only prepares wording from the facts you confirm below.')}</p>
-        <div className="locked-recipient">
-          <small>{t('Locked recipient')}</small>
-          <strong>{routeResult.authority}</strong>
-          <span>{routeResult.routeId} · {routeResult.prabhagId}</span>
-        </div>
-        <label>{t('Confirmed complaint facts')}<textarea maxLength={2000} value={complaintFacts} onChange={(event) => {
-          setComplaintFacts(event.target.value);
-          resetDraft();
-        }} /></label>
-        <label>{t('Location or landmark (optional)')}<input type="text" maxLength={500} value={locationDetails} placeholder="उदा. बस स्थानकाजवळ" onChange={(event) => {
-          setLocationDetails(event.target.value);
-          resetDraft();
-        }} /></label>
-        <label>{t('Draft language')}<select value={draftLanguage} onChange={(event) => {
-          setDraftLanguage(event.target.value as 'MR' | 'EN');
-          resetDraft();
-        }}><option value="MR">मराठी</option><option value="EN">English</option></select><small className="field-help">{t('Drafts are currently available in Marathi and English.')}</small></label>
-        <button onClick={() => createComplaintDraft().catch((error) => setDraftStatus(citizenSafeError(error, 'The complaint draft could not be created.')))}>{t('Create complaint draft')}</button>
-        {draftStatus && <div role="status" aria-live="polite" className={`status-panel ${complaintDraft?.status === 'DRAFT_ERROR' || draftStatus.includes('could not') || draftStatus.includes('failed') ? 'state-error' : 'state-warning'}`}>{runtimeMessage(draftStatus)}</div>}
-        {complaintDraft?.status === 'DRAFT_ERROR' && <div className="draft-panel">
-          <div className="draft-heading"><div><small>{t('Confirmed recipient')}</small><strong>{routeResult.authority}</strong></div><span>{t('Manual fallback')}</span></div>
-          <p>{t('Automatic drafting is unavailable. Write or edit your complaint below; the confirmed route above is unchanged.')}</p>
-          <label>{t('Complaint body')}<textarea className="draft-body" maxLength={2500} value={manualComplaintBody} onChange={(event) => setManualComplaintBody(event.target.value)} /></label>
-          <button className="secondary" onClick={() => copyManualComplaint().catch((error) => setDraftStatus(citizenSafeError(error, 'The complaint could not be copied.')))}>{t('Copy manual complaint')}</button>
-        </div>}
-        {complaintDraft?.status === 'DRAFT_READY' && <div className="draft-panel">
-          <div className="draft-heading"><div><small>{t('Recipient')}</small><strong>{complaintDraft.authorityLocalName || complaintDraft.authority}</strong></div><span>{complaintDraft.language} · {complaintDraft.draftVersion}</span></div>
-          {(complaintDraft.missingDetails?.length ?? 0) > 0 && <div className="missing-facts"><b>{t('Missing fact')}</b><span>{t('Add a location or landmark before submitting if one is available. It was not invented in this draft.')}</span></div>}
-          <label>{t('Subject')}<input type="text" maxLength={160} value={draftSubject} onChange={(event) => {
-            setDraftSubject(event.target.value);
-            setDraftReviewed(false);
-          }} /></label>
-          <label>{t('Complaint body')}<textarea className="draft-body" maxLength={2500} value={draftBody} onChange={(event) => {
-            setDraftBody(event.target.value);
-            setDraftReviewed(false);
-          }} /></label>
-          <label className="review-check"><input type="checkbox" checked={draftReviewed} onChange={(event) => setDraftReviewed(event.target.checked)} /><span>{t('I reviewed the facts, recipient and wording.')}</span></label>
-          <div className="draft-actions">
-            <button className="secondary" disabled={!draftDocumentId} onClick={() => requestLinkedMutation(() => saveDraftEdits().then(() => undefined).catch((error) => setDraftStatus(citizenSafeError(error, 'The draft could not be saved.'))))}>{t('Save changes')}</button>
-            <button disabled={!draftReviewed || !draftDocumentId} onClick={() => requestLinkedMutation(() => copyReviewedDraft().catch((error) => setDraftStatus(citizenSafeError(error, 'The complaint could not be copied.'))))}>{t('Copy reviewed complaint')}</button>
-          </div>
-          <small>{t('No complaint is submitted automatically. The saved record remains a DRAFT owned by your recoverable profile.')}</small>
-        </div>}
-        {complaintDraft?.status === 'DRAFT_READY' && <section className="filing-choice-panel" aria-labelledby="filing-choice-title">
-          <div className="flow-step"><span>5</span><b id="filing-choice-title">{t('Choose how to file')}</b></div>
-          <p>{t('Select one option after reviewing the complaint. Seewik prepares the next step but never claims it was submitted.')}</p>
-          <div className="filing-choice-grid">
-            <article className="filing-choice-card"><span className="filing-choice-number"><AppIcon name="mail" /></span><h3>{t('Email')}</h3><p>{t('Open an editable email with the subject and complaint already added.')}</p><label>{t('Recipient email')}<input type="email" value={filingEmail} onChange={(event) => setFilingEmail(event.target.value)} /></label><button className="icon-button" disabled={!draftReviewed || !emailChannel} onClick={openEmailDraft}><AppIcon name="mail" />{t('Open email to send')}</button></article>
-            <article className="filing-choice-card"><span className="filing-choice-number"><AppIcon name="form" /></span><h3>{t('Official complaint form')}</h3><p>{t('Copy the prepared complaint and open the Maharashtra government form. Paste it there, then add the personal details requested by the form.')}</p><button className="icon-button" disabled={!draftReviewed || !formChannel} onClick={() => copyComplaintAndOpenForm().catch((error) => setFilingActionStatus(citizenSafeError(error, 'The official form could not be opened.')))}><AppIcon name="form" />{t('Copy complaint and open form')}</button></article>
-            <article className="filing-choice-card"><span className="filing-choice-number"><AppIcon name="building" /></span><h3>{t('Print a letter')}</h3><p>{officeChannel ? `${officeChannel.label}: ${officeChannel.value}` : t('Prepare a letter for the municipal office.')}</p><small>{t('Write your full name and sign the letter before submitting it to the Nagar Parishad.')}</small><div className="letter-actions"><button className="secondary icon-button" disabled={!draftReviewed} onClick={() => shareLetter().catch((error) => setFilingActionStatus(citizenSafeError(error, 'The letter could not be shared.')))}><AppIcon name="share" />{t('Share letter')}</button><button className="icon-button" disabled={!draftReviewed} onClick={printLetter}><AppIcon name="building" />{t('Print letter')}</button></div></article>
-          </div>
-          {filingActionStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{runtimeMessage(filingActionStatus)}</div>}
-          <article className="print-letter" aria-hidden="true"><p>{t('To')},</p><strong>{complaintDraft.authorityLocalName || complaintDraft.authority}</strong><h1>{draftSubject}</h1><p>{draftBody}</p><div><span>{t('Citizen name')}: ______________________________</span><span>{t('Signature')}: ______________________________</span><span>{t('Date')}: ______________________________</span></div></article>
-        </section>}
-        {draftDocumentId && <div className="lifecycle-panel">
-          <div className="lifecycle-heading">
-            <div><small>{t('Report lifecycle')}</small><strong>{localizedStatus(language, reportStatus)}</strong></div>
-            <div className="points-pill"><span>{t('Derived points')}</span><b>{pointsTotal}</b></div>
-          </div>
-          <p>{t('Confirm real-world actions here. Seewik records them but never files a complaint for you.')}</p>
-          {reportStatus === 'DRAFT' && <>
-            {(routeResult.officialChannels?.length ?? 0) > 0 && <label>{t('Channel you used')}<select value={filingChannelId} onChange={(event) => setFilingChannelId(event.target.value)}>
-              <option value="">{t('Not recorded')}</option>
-              {routeResult.officialChannels?.map((channel) => <option key={channel.channelId} value={channel.channelId}>{channel.label}</option>)}
-            </select></label>}
-            <label>{t('Acknowledgement / tracking ID (optional)')}<input maxLength={200} value={acknowledgementId} onChange={(event) => setAcknowledgementId(event.target.value)} /></label>
-            <button onClick={() => requestLinkedMutation(() => transitionReport('FILED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('I filed this complaint')}</button>
-            {!currentCoordinates && <small>{t('Dedupe is not evaluated when location is unavailable.')}</small>}
-          </>}
-          {duplicateWarning && <div className="duplicate-warning">
-            <b>{t('Possible duplicate')}</b>
-            <span>A same-category report is {duplicateWarning.measuredDistanceMeters?.toFixed(1)} m away. The 75 m threshold is an MVP heuristic, not a civic boundary.</span>
-            <button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('FILED', true).catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('This is a different issue — file with 0 points')}</button>
-          </div>}
-          {['FILED', 'OVERDUE', 'REOPENED'].includes(reportStatus) && <>
-            {reportStatus === 'FILED' && <div className="overdue-unknown"><b>{t('Overdue: unknown')}</b><span>{t('No verified SLA exists, so Seewik will not invent a due date.')}</span></div>}
-            <button onClick={() => requestLinkedMutation(() => transitionReport('CLAIMED_FIXED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Record a repair claim')}</button>
-          </>}
-          {reportStatus === 'CLAIMED_FIXED' && <div className="lifecycle-actions">
-            <button onClick={() => requestLinkedMutation(() => transitionReport('VERIFIED_FIXED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Verify fixed')}</button>
-            <button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Reject repair claim')}</button>
-          </div>}
-          {reportStatus === 'VERIFIED_FIXED' && <button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Report recurrence')}</button>}
-          {lifecycleStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(lifecycleStatus)}</div>}
-          <ol className="timeline">
-            {timeline.map((item, index) => <li key={`${item.occurredAt}-${index}`}>
-              <span>{index + 1}</span><div><b>{localizedStatus(language, item.toStatus)}</b><small>{item.eventType} · {item.verificationBasis}{item.pointsAwarded ? ` · +${item.pointsAwarded}` : ''}</small></div>
-            </li>)}
-          </ol>
-        </div>}
       </>}
     </section>
     </>}
@@ -2569,9 +2892,9 @@ function App() {
           <div className="lifecycle-panel filing-panel"><div className="lifecycle-heading"><div><small>{t('Record real-world filing')}</small><strong>{t('DRAFT')}</strong></div><div className="points-pill"><span>{t('Possible reward')}</span><b>+5</b></div></div><p>{t('Seewik never submits the complaint. Use this only after you file it yourself.')}</p>
             {(routeResult?.officialChannels?.length ?? 0) > 0 && <label>{t('Channel you used')}<select value={filingChannelId} onChange={(event) => setFilingChannelId(event.target.value)}><option value="">{t('Not recorded')}</option>{routeResult?.officialChannels?.map((channel) => <option key={channel.channelId} value={channel.channelId}>{channel.label}</option>)}</select></label>}
             <label>{t('Acknowledgement / tracking ID (optional)')}<input maxLength={200} value={acknowledgementId} onChange={(event) => setAcknowledgementId(event.target.value)} /></label>
-            <button disabled={!draftReviewed} onClick={() => requestLinkedMutation(() => fileReviewedReport().catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('I filed this complaint')}</button>
+            <button disabled={!draftReviewed} onClick={() => requestLinkedMutation(() => fileReviewedReport(false, false).catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('I filed this complaint')}</button>
             {!currentCoordinates && <small>{t('Dedupe is not evaluated when location is unavailable.')}</small>}
-            {duplicateWarning && <div className="duplicate-warning"><b>{t('Possible duplicate')}</b><span>A same-category report is {duplicateWarning.measuredDistanceMeters?.toFixed(1)} m away.</span><button className="secondary" onClick={() => requestLinkedMutation(() => fileReviewedReport(true).catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('This is a different issue — file with 0 points')}</button></div>}
+            {duplicateWarning && <div className="duplicate-warning"><b>{t('Possible duplicate')}</b><span>A same-category report is {duplicateWarning.measuredDistanceMeters?.toFixed(1)} m away.</span><button className="secondary" onClick={() => requestLinkedMutation(() => fileReviewedReport(true, false).catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('This is a different issue — file with 0 points')}</button></div>}
             {lifecycleStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(lifecycleStatus)}</div>}
           </div>
           <button className="text-action" onClick={() => navigate('new-report')}>{t('Return to report builder')}</button>

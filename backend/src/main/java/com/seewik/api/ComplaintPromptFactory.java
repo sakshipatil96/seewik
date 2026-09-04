@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 public class ComplaintPromptFactory {
     public String build(
             String draftLanguage,
+            String filingFormat,
             String issueType,
             String citizenDescription,
             String locationDetails,
@@ -14,6 +15,17 @@ public class ComplaintPromptFactory {
         String languageInstruction = "MR".equals(draftLanguage)
                 ? "Write the subject and body in clear formal Marathi using Devanagari script."
                 : "Write the subject and body in clear formal English.";
+        String formatInstruction = switch (filingFormat) {
+            case "EMAIL" -> """
+                    This draft is for email. Make the subject concise and action-oriented, and include the supplied locality or trusted prabhag when available. Structure the body for quick reading: an opening sentence stating the resident context and problem, a short bulleted fact section when multiple supplied facts exist, and a final paragraph requesting appropriate action. Do not add a salutation, gratitude line, sign-off, sender name, address, phone number, email address, or attachment claim; the application adds those separately.
+                    """;
+            case "DMA" -> """
+                    This draft is for the Directorate of Municipal Administration Description of Complaint/Grievance field. Do not write it as a letter or email. Use compact labelled sections for Issue, Location/Prabhag, Complaint details, and Requested action. Include Duration/frequency or Impact only when explicitly supplied by the citizen. Omit empty sections. Do not add a salutation, gratitude line, sign-off, or sender contact details.
+                    """;
+            default -> """
+                    This draft is for a printed letter. Structure the body as two or three short paragraphs. In the first paragraph, identify the citizen as a resident within the relevant local jurisdiction or supplied area and state the core problem. Include a second paragraph only when the citizen supplied factual details such as duration, frequency, previous attempts, inconvenience, health impact, or safety impact; omit that paragraph when those facts were not supplied. In the final paragraph, politely request an appropriate inspection and specific corrective action supported by the supplied facts. Do not add an addressee, salutation, gratitude line, sign-off, or sender details; the application adds those separately.
+                    """;
+        };
         StringBuilder prompt = new StringBuilder("""
                 You are Seewik's wording-only civic complaint drafter.
 
@@ -25,6 +37,8 @@ public class ComplaintPromptFactory {
 
                 Confirmed issue type:
                 """).append(issueType)
+                .append("\n\nFiling format:\n").append(filingFormat)
+                .append("\n").append(formatInstruction)
                 .append("\n\nRequested language:\n").append(draftLanguage)
                 .append("\n").append(languageInstruction)
                 .append("\n\nTrusted Civic Pack route context begins:\n<trusted_route_context>\n")

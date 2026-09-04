@@ -69,12 +69,43 @@ Day 16 turns the tested civic flows into a cleaner production release. The work 
 
 ## Release evidence
 
-- Application commit: pending
-- Quality workflow: pending
-- Deployment workflow: pending
-- Production revision: pending
-- Production image digest: pending
+- Application commit: `9b14fe45b91a00dd77367190a44716f14aa34487`
+- Push: successful to `origin/main` (`77bd551..9b14fe4`)
+- Quality workflow: [run 33822034223](https://github.com/sakshipatil96/seewik/actions/runs/33822034223)
+- Quality attempt 1: application checks passed through 222 backend tests, 79 frontend tests, and the production frontend build; npm's advisory endpoint timed out after five minutes, so the job failed before the emulator and high-severity scan steps.
+- Quality attempt 2: application checks passed again; npm's advisory endpoint returned HTTP 503 after five minutes, so the job failed before the emulator and high-severity scan steps.
+- Quality attempt 3: retry submission/status could not be confirmed because the GitHub API connection stalled. Check the linked run before submitting another retry.
+- Deployment workflow: not started successfully because Quality has not completed successfully.
+- Production revision: unchanged from the previous successful release.
+- Production image digest: unchanged from the previous successful release.
+
+No vulnerability suppression, audit bypass, direct deployment, or weakened workflow was added. The Day 16 source is pushed but must not be described as deployed until the existing Quality run and its automatic `Deploy green main` successor both complete successfully.
 
 ## Files intentionally excluded
 
 The local Day 12 and Day 15 handoff documents remain untracked and are not part of this release.
+
+## Set 1 official-filing release addendum - September 4, 2026
+
+### Citizen flow delivered
+
+- Simplified New Report into editable issue and location steps followed by `Find the right route`.
+- Added compact, accessible block pickers for Issue category and Activity type, including desktop floating panels and mobile bottom sheets.
+- Added the Civic Responsibility Router result with a clear responsible-authority card.
+- Added three explicit filing routes: printable letter, Nagar Palika email, and the official DMA complaint form filing pack.
+- Kept every generated subject, body, and citizen detail editable before the citizen takes action.
+- Added language-specific drafting for English and Marathi, with the interface language as the default and a manual filing-language override.
+- Added dedicated letter-only printing and PDF output instead of printing the complete web page.
+- Added structured formal letter, concise email, and DMA grievance drafting contracts without inventing facts.
+- Added editable Google-profile-prefilled name and email fields, correspondence details, and Nandurbar's default pincode `425412` for the DMA copy pack.
+- Added clear evidence guidance: Seewik discloses when a photo is available but does not claim that a browser email link attached it automatically.
+- Added an explicit real-world filing confirmation panel while preserving the existing Review screen as compatibility mode.
+- Preserved account-link, duplicate-report, lifecycle, Firestore-save, and points protections.
+
+### Quality and release preparation
+
+- Added backend tests for PRINT, EMAIL, and DMA prompt contracts and compatibility defaults.
+- Updated frontend contract tests for the approved filing controls and persistent responsive navigation.
+- Restored the reusable Google-link gate around generated-draft persistence after the full suite detected an unguarded save attempt.
+- Browser QA covered the three filing panels, dedicated letter print output, desktop/mobile filing-route layouts, and the real-world confirmation panel.
+- The unrelated local Day 12, Day 15, and Day 17 handoff documents remain excluded from the release.

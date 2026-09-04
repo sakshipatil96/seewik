@@ -71,6 +71,11 @@ class ComplaintDraftServiceTest {
         assertTrue(prompt.get().contains("Nandurbar Municipal Council"));
         assertTrue(prompt.get().contains("Treat it as immutable"));
         assertTrue(prompt.get().contains("departmentStatus: TYPICAL_STRUCTURE_UNVERIFIED"));
+        assertTrue(prompt.get().contains("Filing format:\nPRINT"));
+        assertTrue(prompt.get().contains("Structure the body as two or three short paragraphs"));
+        assertTrue(prompt.get().contains("omit that paragraph when those facts were not supplied"));
+        assertTrue(prompt.get().contains("specific corrective action supported by the supplied facts"));
+        assertTrue(prompt.get().contains("Do not include an addressee or sign-off"));
         assertFalse(schema.get().path("properties").has("authority"));
     }
 
@@ -78,17 +83,49 @@ class ComplaintDraftServiceTest {
     void supportsEnglishDraftingWithTheSameDeterministicRoute() {
         var request = new ComplaintDraftService.ComplaintDraftRequest(
                 "POTHOLE_ROAD_DAMAGE", "PRABHAG-03", "SELF_REPORTED", false, null,
-                true, "There is a large pothole on the road.", "Near the bus stand", "EN");
+                true, "There is a large pothole on the road.", "Near the bus stand", "EN", "EMAIL");
         var result = serviceReturning(ComplaintDraftValidatorTest.validEnglishDraft()).draft(request);
         assertEquals("EN", result.language());
         assertEquals("NMC-PW-POTHOLE-v0.2", result.routeId());
     }
 
     @Test
+    void emailDraftUsesTheChannelSpecificPromptWithoutChangingTheRoute() {
+        AtomicReference<String> prompt = new AtomicReference<>();
+        GeminiGateway gateway = (value, image, mime, schema) -> {
+            prompt.set(value);
+            return generated(ComplaintDraftValidatorTest.validEnglishDraft());
+        };
+        var request = new ComplaintDraftService.ComplaintDraftRequest(
+                "POTHOLE_ROAD_DAMAGE", "PRABHAG-03", "SELF_REPORTED", false, null,
+                true, "There is a large pothole on the road.", "Near the bus stand", "EN", "EMAIL");
+        service(gateway).draft(request);
+        assertTrue(prompt.get().contains("Filing format:\nEMAIL"));
+        assertTrue(prompt.get().contains("concise and action-oriented"));
+        assertTrue(prompt.get().contains("Do not add a salutation"));
+    }
+
+    @Test
+    void dmaDraftUsesAFormReadyComplaintDescriptionPrompt() {
+        AtomicReference<String> prompt = new AtomicReference<>();
+        GeminiGateway gateway = (value, image, mime, schema) -> {
+            prompt.set(value);
+            return generated(ComplaintDraftValidatorTest.validEnglishDraft());
+        };
+        var request = new ComplaintDraftService.ComplaintDraftRequest(
+                "POTHOLE_ROAD_DAMAGE", "PRABHAG-03", "SELF_REPORTED", false, null,
+                true, "There is a large pothole on the road.", "Near the bus stand", "EN", "DMA");
+        service(gateway).draft(request);
+        assertTrue(prompt.get().contains("Filing format:\nDMA"));
+        assertTrue(prompt.get().contains("Description of Complaint/Grievance"));
+        assertTrue(prompt.get().contains("Omit empty sections"));
+    }
+
+    @Test
     void categoryDoesNotRequireASeparateConfirmation() {
         var request = new ComplaintDraftService.ComplaintDraftRequest(
                 "POTHOLE_ROAD_DAMAGE", "PRABHAG-03", "SELF_REPORTED", false, null,
-                false, "रस्त्यावर खड्डा आहे", "बस स्थानकाजवळ", "MR");
+                false, "रस्त्यावर खड्डा आहे", "बस स्थानकाजवळ", "MR", "PRINT");
         var result = serviceReturning(ComplaintDraftValidatorTest.validDraft()).draft(request);
         assertEquals("DRAFT_READY", result.status());
     }
@@ -100,7 +137,7 @@ class ComplaintDraftServiceTest {
         };
         var request = new ComplaintDraftService.ComplaintDraftRequest(
                 "ALIEN_INVASION", "PRABHAG-03", "SELF_REPORTED", false, null,
-                true, "काहीतरी घडले आहे", null, "MR");
+                true, "काहीतरी घडले आहे", null, "MR", "PRINT");
         assertInputCode(() -> service(forbidden).draft(request), "UNSUPPORTED_ROUTE");
     }
 
@@ -108,7 +145,7 @@ class ComplaintDraftServiceTest {
     void unconfirmedSyntheticCandidateCannotDraft() {
         var request = new ComplaintDraftService.ComplaintDraftRequest(
                 "STREETLIGHT", "PRABHAG-11", "BIGQUERY_ST_COVERS", false, "synthetic-v0.1",
-                true, "स्ट्रीट लाईट बंद आहे", "मुख्य रस्त्यावर", "MR");
+                true, "स्ट्रीट लाईट बंद आहे", "मुख्य रस्त्यावर", "MR", "PRINT");
         assertInputCode(() -> serviceReturning(ComplaintDraftValidatorTest.validDraft()).draft(request),
                 "ROUTE_CONFIRMATION_REQUIRED");
     }
@@ -117,7 +154,7 @@ class ComplaintDraftServiceTest {
     void confirmedSnapshotCandidateCanDraftWithoutChangingTheDeterministicRoute() {
         var request = new ComplaintDraftService.ComplaintDraftRequest(
                 "STREETLIGHT", "PRABHAG-11", "SNAPSHOT_POINT_IN_POLYGON", true, "synthetic-v0.1",
-                true, "स्ट्रीट लाईट बंद आहे", "मुख्य रस्त्यावर", "MR");
+                true, "स्ट्रीट लाईट बंद आहे", "मुख्य रस्त्यावर", "MR", "PRINT");
         var result = serviceReturning(ComplaintDraftValidatorTest.validDraft()).draft(request);
         assertEquals("NMC-PW-STREETLIGHT-v0.2", result.routeId());
         assertEquals("Nandurbar Municipal Council", result.authority());
@@ -200,7 +237,7 @@ class ComplaintDraftServiceTest {
     private static ComplaintDraftService.ComplaintDraftRequest manualRequest(String description, String location) {
         return new ComplaintDraftService.ComplaintDraftRequest(
                 "POTHOLE_ROAD_DAMAGE", "PRABHAG-03", "SELF_REPORTED", false, null,
-                true, description, location, "MR");
+                true, description, location, "MR", "PRINT");
     }
 
     private static void assertInputCode(Runnable call, String expectedCode) {

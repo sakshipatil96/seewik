@@ -199,6 +199,7 @@ public class CivicRouterService {
             String channelId,
             String type,
             String value,
+            Map<String, String> localizedValues,
             String label,
             String scopeNote,
             String sourceStatus,

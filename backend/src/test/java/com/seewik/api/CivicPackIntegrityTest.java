@@ -51,6 +51,10 @@ class CivicPackIntegrityTest {
                 assertTrue(channel.path("sourceReference").path("url").asText().startsWith("https://"));
                 assertFalse(channel.path("value").asText().contains("facebook.com"));
             }
+            JsonNode dma = pack.path("officialChannels").get(1);
+            assertEquals("FORM_DMA", dma.path("channelId").asText());
+            assertTrue(dma.path("localizedValues").path("EN").asText().contains("/en/complaint-2/"));
+            assertTrue(dma.path("localizedValues").path("MR").asText().contains("/complaint/"));
             assertEquals(1, pack.path("informationalLinks").size());
             assertTrue(pack.path("informationalLinks").get(0).path("value").asText().contains("facebook.com"));
 

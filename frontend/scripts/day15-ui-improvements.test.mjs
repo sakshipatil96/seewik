@@ -50,9 +50,9 @@ test('report flow provides camera, editable confirmation, and three honest filin
   assert.doesNotMatch(app, /Prefill report details/);
   assert.match(app, /Recipient email/);
   assert.match(app, /mailto:/);
-  assert.match(app, /Copy complaint and open form/);
+  assert.match(app, /Open official DMA form/);
   assert.match(app, /Share letter/);
-  assert.match(app, /Print letter/);
+  assert.match(app, /Print or save as PDF/);
   assert.match(app, /Seewik did not send it/);
   assert.match(civicPack, /complaint-2\/\?dma_tab=regional/);
   assert.doesNotMatch(app, /Saved reports are not deleted by Start over\./);
