@@ -85,12 +85,12 @@ class ComplaintDraftServiceTest {
     }
 
     @Test
-    void categoryMustBeCitizenConfirmed() {
+    void categoryDoesNotRequireASeparateConfirmation() {
         var request = new ComplaintDraftService.ComplaintDraftRequest(
                 "POTHOLE_ROAD_DAMAGE", "PRABHAG-03", "SELF_REPORTED", false, null,
                 false, "रस्त्यावर खड्डा आहे", "बस स्थानकाजवळ", "MR");
-        assertInputCode(() -> serviceReturning(ComplaintDraftValidatorTest.validDraft()).draft(request),
-                "CATEGORY_CONFIRMATION_REQUIRED");
+        var result = serviceReturning(ComplaintDraftValidatorTest.validDraft()).draft(request);
+        assertEquals("DRAFT_READY", result.status());
     }
 
     @Test

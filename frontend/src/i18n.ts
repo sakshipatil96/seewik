@@ -68,7 +68,7 @@ const COPY: Record<string, LocalizedCopy> = {
   'NEW INITIATIVE': { mr: 'नवीन उपक्रम', hi: 'नई पहल' },
   'New Initiative': { mr: 'नवीन उपक्रम', hi: 'नई पहल' },
   'What are you organising?': { mr: 'तुम्ही काय आयोजित करत आहात?', hi: 'आप क्या आयोजित कर रहे हैं?' },
-  'Pick the closest one. You can add details next.': { mr: 'सर्वात जवळचा प्रकार निवडा. पुढे तपशील जोडता येतील.', hi: 'सबसे उपयुक्त प्रकार चुनें। आगे विवरण जोड़ सकते हैं।' },
+  'Pick the closest one. You can edit details next.': { mr: 'सर्वात जवळचा प्रकार निवडा. पुढे तपशील बदलता येतील.', hi: 'सबसे उपयुक्त प्रकार चुनें। आगे विवरण बदल सकते हैं।' },
   'Plantation': { mr: 'वृक्षारोपण', hi: 'वृक्षारोपण' },
   'Planting and caring for saplings': { mr: 'रोपे लावणे आणि त्यांची काळजी घेणे', hi: 'पौधे लगाना और उनकी देखभाल करना' },
   'Food donation': { mr: 'अन्नदान', hi: 'भोजन दान' },
@@ -357,6 +357,9 @@ const COPY: Record<string, LocalizedCopy> = {
   'Publish the real date, a confirmed public meeting point and what neighbours should bring. Seewik does not claim participation or impact until it happens.': { mr: 'खरी तारीख, निश्चित केलेले सार्वजनिक भेटीचे ठिकाण आणि आवश्यक वस्तू नमूद करा. प्रत्यक्ष घडेपर्यंत सहभाग किंवा परिणामाचा दावा केला जात नाही.', hi: 'वास्तविक तारीख, पुष्टि किया गया सार्वजनिक मिलने का स्थान और जरूरी वस्तुएँ बताएँ। होने से पहले भागीदारी या प्रभाव का दावा नहीं किया जाता।' },
   'Activity type': { mr: 'उपक्रमाचा प्रकार', hi: 'गतिविधि का प्रकार' },
   'Choose an activity type': { mr: 'उपक्रमाचा प्रकार निवडा', hi: 'गतिविधि का प्रकार चुनें' },
+  'Filter activities': { mr: 'उपक्रम शोधा', hi: 'गतिविधियाँ खोजें' },
+  'No activities match your search.': { mr: 'तुमच्या शोधाशी कोणतेही उपक्रम जुळत नाहीत.', hi: 'आपकी खोज से कोई गतिविधि मेल नहीं खाती।' },
+  'Close activity picker': { mr: 'उपक्रम निवड बंद करा', hi: 'गतिविधि चयन बंद करें' },
   'Choose an activity type.': { mr: 'उपक्रमाचा प्रकार निवडा.', hi: 'गतिविधि का प्रकार चुनें।' },
   'Choosing a type prefills editable suggestions. Confirm the real date, place, and details yourself.': { mr: 'प्रकार निवडल्यानंतर संपादित करता येणाऱ्या सूचना भरल्या जातात. खरी तारीख, ठिकाण आणि तपशील स्वतः निश्चित करा.', hi: 'प्रकार चुनने पर संपादन योग्य सुझाव भर जाते हैं। वास्तविक तारीख, स्थान और विवरण की पुष्टि स्वयं करें।' },
   'Birthday Donations': { mr: 'वाढदिवस दान', hi: 'जन्मदिन दान' },
@@ -489,13 +492,23 @@ const COPY: Record<string, LocalizedCopy> = {
   'Start with a photo or short description. Seewik may suggest an issue category, but you confirm it before finding the right office.': { mr: 'फोटो किंवा छोट्या वर्णनाने सुरुवात करा. सीविक समस्येचा प्रकार सुचवू शकते, पण योग्य कार्यालय शोधण्यापूर्वी तुम्ही त्याची पुष्टी करता.', hi: 'फोटो या छोटे विवरण से शुरू करें। सीविक समस्या की श्रेणी सुझा सकता है, लेकिन सही दफ़्तर खोजने से पहले आप उसकी पुष्टि करते हैं।' },
   'Describe the issue': { mr: 'समस्या सांगा', hi: 'समस्या बताएँ' },
   'Photo (optional)': { mr: 'फोटो (ऐच्छिक)', hi: 'फोटो (वैकल्पिक)' },
+  'Take or add a photo': { mr: 'फोटो काढा किंवा जोडा', hi: 'फ़ोटो लें या जोड़ें' },
+  'Camera or photo library': { mr: 'कॅमेरा किंवा फोटो लायब्ररी', hi: 'कैमरा या फ़ोटो लाइब्रेरी' },
+  'Replace photo': { mr: 'फोटो बदला', hi: 'फ़ोटो बदलें' },
+  'Remove photo': { mr: 'फोटो काढून टाका', hi: 'फ़ोटो हटाएँ' },
   'Short description (optional)': { mr: 'छोटे वर्णन (ऐच्छिक)', hi: 'छोटा विवरण (वैकल्पिक)' },
   'Suggest issue category': { mr: 'समस्येचा प्रकार सुचवा', hi: 'समस्या की श्रेणी सुझाएँ' },
   'Category suggestion ready': { mr: 'प्रकाराची सूचना तयार आहे', hi: 'श्रेणी सुझाव तैयार है' },
+  'Category suggestion': { mr: 'प्रकाराची सूचना', hi: 'श्रेणी सुझाव' },
   'Please clarify': { mr: 'कृपया अधिक स्पष्ट करा', hi: 'कृपया स्पष्ट करें' },
   'Category confirmation': { mr: 'प्रकाराची पुष्टी', hi: 'श्रेणी की पुष्टि' },
   'Detected language': { mr: 'ओळखलेली भाषा', hi: 'पहचानी गई भाषा' },
   'Issue category': { mr: 'समस्येचा प्रकार', hi: 'समस्या की श्रेणी' },
+  'Choose an issue category': { mr: 'समस्येचा प्रकार निवडा', hi: 'समस्या की श्रेणी चुनें' },
+  'Filter categories': { mr: 'प्रकार शोधा', hi: 'श्रेणियाँ खोजें' },
+  'No categories match your search.': { mr: 'तुमच्या शोधाशी कोणतेही प्रकार जुळत नाहीत.', hi: 'आपकी खोज से कोई श्रेणी मेल नहीं खाती।' },
+  'Close category picker': { mr: 'प्रकार निवड बंद करा', hi: 'श्रेणी चयन बंद करें' },
+  'Clear search': { mr: 'शोध साफ करा', hi: 'खोज साफ करें' },
   'Category confirmed': { mr: 'प्रकार निश्चित केला', hi: 'श्रेणी की पुष्टि हुई' },
   'Automatic suggestion confirmed': { mr: 'स्वयंचलित सूचना निश्चित केली', hi: 'स्वचालित सुझाव की पुष्टि हुई' },
   'Selected manually': { mr: 'हाताने निवडले', hi: 'हाथ से चुना गया' },
@@ -526,6 +539,12 @@ const COPY: Record<string, LocalizedCopy> = {
   'Loading approximate boundary guide…': { mr: 'अंदाजे सीमा मार्गदर्शक लोड होत आहे…', hi: 'अनुमानित सीमा मार्गदर्शिका लोड हो रही है…' },
   'Get the deterministic route': { mr: 'नियमाधारित मार्ग मिळवा', hi: 'नियम-आधारित मार्ग पाएँ' },
   'Find the right office': { mr: 'योग्य कार्यालय शोधा', hi: 'सही दफ़्तर खोजें' },
+  'Find the right route': { mr: 'योग्य मार्ग शोधा', hi: 'सही मार्ग खोजें' },
+  'Location': { mr: 'स्थान', hi: 'स्थान' },
+  'Suggested from photo location': { mr: 'फोटोच्या स्थानावरून सुचवले', hi: 'फ़ोटो के स्थान से सुझाया गया' },
+  'Suggested from current location': { mr: 'सध्याच्या स्थानावरून सुचवले', hi: 'वर्तमान स्थान से सुझाया गया' },
+  'Choose an issue category to continue.': { mr: 'पुढे जाण्यासाठी समस्येचा प्रकार निवडा.', hi: 'आगे बढ़ने के लिए समस्या की श्रेणी चुनें।' },
+  'Choose a Prabhag to continue.': { mr: 'पुढे जाण्यासाठी प्रभाग निवडा.', hi: 'आगे बढ़ने के लिए प्रभाग चुनें।' },
   'Use your location for a suggestion, or choose your Prabhag manually. You always confirm the result.': { mr: 'सूचनेसाठी तुमचे स्थान वापरा किंवा प्रभाग स्वतः निवडा. अंतिम निवडीची पुष्टी नेहमी तुम्ही करता.', hi: 'सुझाव के लिए अपना स्थान उपयोग करें या प्रभाग खुद चुनें। अंतिम चुनाव की पुष्टि हमेशा आप करते हैं।' },
   'The approximate guide is for orientation and is not an official boundary determination.': { mr: 'अंदाजे मार्गदर्शक फक्त दिशा समजण्यासाठी आहे; ते अधिकृत हद्द निश्चित करत नाही.', hi: 'अनुमानित मार्गदर्शक केवल दिशा समझने के लिए है; यह आधिकारिक सीमा निर्धारण नहीं है।' },
   'Find official route': { mr: 'अधिकृत मार्ग शोधा', hi: 'आधिकारिक मार्ग खोजें' },
@@ -948,21 +967,9 @@ export function localizedRuntimeMessage(language: InterfaceLanguage, message: st
 }
 
 export function classificationSuggestionMessage(language: InterfaceLanguage, issue: string): string {
-  if (language === 'mr') return `सुचवलेला प्रकार: ${issue}. कृपया पुष्टी करा किंवा बदला.`;
-  if (language === 'hi') return `सुझाई गई श्रेणी: ${issue}। कृपया पुष्टि करें या बदलें।`;
-  return `Suggested category: ${issue}. Please confirm or correct it.`;
-}
-
-export function classificationConfirmedMessage(language: InterfaceLanguage, issue: string): string {
-  if (language === 'mr') return `${issue} निश्चित केला. स्वयंचलित वर्गीकरण प्राधिकरण किंवा विभाग निवडत नाही.`;
-  if (language === 'hi') return `${issue} की पुष्टि हुई। स्वचालित वर्गीकरण प्राधिकरण या विभाग नहीं चुनता।`;
-  return `${issue} confirmed. Automatic classification does not choose the authority or department.`;
-}
-
-export function prabhagConfirmedMessage(language: InterfaceLanguage, prabhagName: string): string {
-  if (language === 'mr') return `${prabhagName} ची पुष्टी झाली. तुम्ही अजूनही वेगळा प्रभाग हाताने निवडू शकता.`;
-  if (language === 'hi') return `${prabhagName} की पुष्टि हुई। आप अब भी हाथ से अलग प्रभाग चुन सकते हैं।`;
-  return `${prabhagName} confirmed. You can still choose a different prabhag manually.`;
+  if (language === 'mr') return `सुचवलेला प्रकार: ${issue}. गरज असल्यास तो बदला.`;
+  if (language === 'hi') return `सुझाई गई श्रेणी: ${issue}। जरूरत हो तो इसे बदलें।`;
+  return `Suggested category: ${issue}. Change it if needed.`;
 }
 
 export function translationCoverage(): { keyCount: number; missingMarathi: string[]; missingHindi: string[] } {

@@ -12,7 +12,10 @@ test('boundary guide renders immediately and preserves manual and error fallback
   assert.doesNotMatch(appSource, /Loading approximate boundary guide/);
   assert.match(appSource, /BoundaryMapErrorBoundary/);
   assert.match(appSource, /Choose Prabhag 1–20/);
-  assert.match(appSource, /disabled=\{!classificationConfirmed \|\| !prabhagSelectionMade\}/);
+  assert.doesNotMatch(appSource, /classificationConfirmed|confirmIssueType/);
+  assert.match(appSource, /<b>\{t\('Location'\)\}<\/b>/);
+  assert.match(appSource, /highlightedPrabhagId=\{highlightedPrabhagId\}/);
+  assert.match(appSource, /extractPhotoCoordinates/);
   assert.match(appSource, /onManualSelect=\{selectManualPrabhag\}/);
 });
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AccountIdentityState } from './accountIdentity';
+import { AppIcon } from './AppIcon';
 
 export type AccountDialog = 'CLOSED' | 'LINK' | 'PROFILE' | 'COLLISION';
 
@@ -74,8 +75,10 @@ export function AccountControl({
       onClick={onOpen}
       aria-haspopup="dialog"
       aria-label={linked ? t('Open recoverable profile') : t('Connect a Google account')}
+      aria-busy={busy}
     >
-      <span aria-hidden="true">{linked ? '✓' : '○'}</span>{buttonLabel}
+      <AppIcon name="user" className="account-button-icon" />
+      <span className="account-button-label">{buttonLabel}</span>
     </button>
 
     {dialog !== 'CLOSED' && createPortal(<div className="account-overlay" role="presentation">

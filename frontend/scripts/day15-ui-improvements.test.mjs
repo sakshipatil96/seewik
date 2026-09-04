@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const app = await readFile(new URL('../src/main.tsx', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
+const accountControl = await readFile(new URL('../src/AccountControl.tsx', import.meta.url), 'utf8');
 const backend = await readFile(new URL('../../backend/src/main/java/com/seewik/api/InitiativeService.java', import.meta.url), 'utf8');
 const civicPack = await readFile(new URL('../../backend/src/main/resources/civic-pack-v0.2.json', import.meta.url), 'utf8');
 
@@ -17,6 +18,19 @@ test('desktop header controls share a stable height and emergency copy cannot wr
   assert.match(styles, /@media \(max-width: 1080px\)/);
 });
 
+test('compact header keeps language, emergency, and profile controls on the Seewik row', () => {
+  const compactHeader = styles.slice(styles.indexOf('@media (max-width: 760px)'), styles.indexOf('@media (max-width: 520px)'));
+  assert.match(app, /compactLabel: 'E'/);
+  assert.match(app, /compactLabel: 'म'/);
+  assert.match(app, /compactLabel: 'ह'/);
+  assert.match(app, /AppIcon name="phone" className="header-emergency-icon"/);
+  assert.match(accountControl, /AppIcon name="user" className="account-button-icon"/);
+  assert.match(compactHeader, /\.app-header \{ flex-wrap: nowrap;/);
+  assert.match(compactHeader, /\.header-actions \{[^}]*flex-wrap: nowrap;/);
+  assert.match(compactHeader, /\.language-switcher \{ height: 40px;/);
+  assert.match(compactHeader, /\.header-emergency, \.account-button \{[^}]*width: 40px;[^}]*height: 40px;/);
+});
+
 test('home removes the large report title while retaining concise civic guidance', () => {
   assert.doesNotMatch(app, /<h1>\{t\('Report a problem\. Get it to the right office\.'\)\}<\/h1>/);
   assert.match(app, /home-greeting/);
@@ -24,11 +38,16 @@ test('home removes the large report title while retaining concise civic guidance
 
 test('report flow provides camera, editable confirmation, and three honest filing choices', () => {
   assert.match(app, /photo-upload-label.*AppIcon name="camera"/s);
-  assert.match(app, /Add photo/);
+  assert.match(app, /Take or add a photo/);
+  assert.match(app, /Camera or photo library/);
+  assert.match(app, /evidencePreviewUrl/);
   assert.doesNotMatch(app, /Take a photo|Choose a photo/);
-  assert.match(app, /issue-category-grid/);
-  assert.match(app, /aria-pressed=\{issueType === value\}/);
-  assert.match(app, /Prefill report details/);
+  assert.match(app, /<TemplatePicker id="issue-category"/);
+  assert.match(app, /ISSUE_TYPES\.map\(\(\[value\]\) => \(\{ value, icon:/);
+  assert.match(app, /scheduleEvidenceClassification\(evidenceImage, nextText, 650\)/);
+  assert.doesNotMatch(app, /Confirm this category|Suggest from my location|Find the right office/);
+  assert.match(app, /Find the right route/);
+  assert.doesNotMatch(app, /Prefill report details/);
   assert.match(app, /Recipient email/);
   assert.match(app, /mailto:/);
   assert.match(app, /Copy complaint and open form/);
@@ -53,8 +72,12 @@ test('initiative templates and backend categories stay aligned', () => {
   assert.match(app, /Message from the organiser \(optional\)/);
   assert.match(app, /Your name, as the city will see it/);
   assert.match(app, /setInitiativePublicOrganiserName\(\(currentName\)/);
-  assert.match(app, /activity-type-grid/);
-  assert.match(app, /aria-pressed=\{initiativeCategory === template\.value\}/);
+  assert.match(app, /<TemplatePicker id="initiative-type"/);
+  assert.match(app, /INITIATIVE_TEMPLATES\.map\(\(template\) => \(\{ value: template\.value, icon:/);
+  assert.match(app, /onChange=\{applyInitiativeTemplate\}/);
+  assert.match(styles, /\.template-picker-panel[^}]*position: absolute/);
+  assert.match(styles, /\.template-picker-backdrop[^}]*background:/);
+  assert.match(styles, /\.report-flow-card button:not\(\.secondary\):not\(\.icon-choice-card\):not\(\.template-picker-trigger\):not\(\.template-picker-option\):not\(\.template-picker-clear\)/);
   assert.match(app, /initiative-page-heading[^>]*><h1[^>]*>.*New Initiative.*startInitiativeOver/s);
   assert.match(app, /APPROVAL_REQUIRED/);
   assert.match(app, /Review activity/);

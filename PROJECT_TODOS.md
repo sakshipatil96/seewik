@@ -13,12 +13,14 @@
 
 ## Routing simplicity review — owner follow-up
 
-- [ ] Test the complete production routing experience properly from a citizen's perspective.
-- [ ] Evaluate a simpler guided flow: take or upload a photograph → pre-fill a suggested problem → explicitly request and pre-fill a location/prabhag suggestion → show the deterministic civic route → generate the corresponding complaint.
-- [ ] Verify the flow on a real Nandurbar case in English, Marathi and Hindi and on a narrow/mobile screen.
-- [ ] Preserve the existing trust boundaries during any simplification: no silent location capture, no assumption that a photograph contains usable location, citizen confirmation of category and prabhag, manual overrides, deterministic Civic Pack routing and no invented complaint facts.
+- [x] Replace the separate category-confirmation button with an editable AI-prefilled category.
+- [x] Use local photo EXIF coordinates first, a one-time browser-location request second, and manual Prabhag selection as the durable fallback.
+- [x] Keep the compact Location field and Prabhag map permanently visible with the current selection highlighted.
+- [x] Let `Find official route` use the category and location currently visible while preserving deterministic Civic Pack routing.
+- [ ] Repeat the complete report-flow acceptance test on physical Android and Safari after the Day 16 production deployment.
+- [ ] Verify the deployed flow on a real Nandurbar case in English, Marathi and Hindi and on a narrow/mobile screen.
 
-This is a later usability review, not a statement that the current application automatically extracts location from an uploaded photograph. Today, photograph classification and the separate **Suggest from my location** action remain explicit citizen actions.
+Photo EXIF is an optional convenience, not an assumption: many shared or edited images contain no GPS metadata. Citizens can always override a suggestion or choose a Prabhag manually before route lookup.
 
 ## Preferred Initiative sample content — owner-approved direction
 

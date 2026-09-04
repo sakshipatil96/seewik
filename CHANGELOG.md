@@ -4,6 +4,13 @@ All notable changes to the versioned Civic Pack and its deterministic routing im
 
 ## Unreleased
 
+- Fixed Google-linked profile-name fallback, sign-in persistence, and open-capacity initiative publishing across the tested Android and Safari flows.
+- Kept bottom navigation available at every width and introduced compact mobile header controls without changing the wider layout's established visual language.
+- Replaced permanently expanded report and initiative template grids with accessible, searchable block pickers that close immediately on selection and remain scrollable on desktop and mobile.
+- Simplified New Report to editable AI category and location suggestions, local JPEG EXIF location extraction with browser-location fallback, an always-visible highlighted Prabhag map, and a single `Find official route` action.
+- Removed the redundant category-confirmation gate while preserving deterministic Civic Pack routing and citizen editing before route lookup.
+- Added focused EXIF parser, picker interaction, and backend no-confirmation regression coverage.
+
 - Made green-main deployment change detection cover the complete pushed commit range, included `data/prabhags/` and both delivery workflows in production paths, and expanded deployed route checks to Civic Awareness and Emergency Information.
 - Added required disposable-emulator Firestore and Storage rule tests covering linked-owner draft access, anonymous and cross-owner denial, backend-owned record forgery denial, protected media access and the one-megabyte upload limit.
 - Added a repository README with the product pillars, trust boundary, architecture, current evidence, safe local setup, verification commands, delivery process and known limitations.

@@ -31,14 +31,13 @@ class ComplaintDraftControllerTest {
     }
 
     @Test
-    void unconfirmedCategoryReturnsControlledClientError() throws Exception {
+    void categoryDoesNotRequireASeparateConfirmation() throws Exception {
         mvcReturning(ComplaintDraftValidatorTest.validDraft()).perform(post("/api/civic/draft-complaint")
                         .header("Authorization", AUTHORIZATION)
                         .contentType("application/json")
                         .content(validRequest().replace("\"classificationConfirmed\":true", "\"classificationConfirmed\":false")))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value("DRAFT_ERROR"))
-                .andExpect(jsonPath("$.errorCode").value("CATEGORY_CONFIRMATION_REQUIRED"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("DRAFT_READY"));
     }
 
     @Test

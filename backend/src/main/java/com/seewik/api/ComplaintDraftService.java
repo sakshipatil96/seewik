@@ -159,10 +159,6 @@ public class ComplaintDraftService {
         if (request == null) {
             throw new ComplaintDraftInputException("EMPTY_REQUEST", "Complaint draft request is required");
         }
-        if (!Boolean.TRUE.equals(request.classificationConfirmed())) {
-            throw new ComplaintDraftInputException(
-                    "CATEGORY_CONFIRMATION_REQUIRED", "Confirm the issue category before drafting");
-        }
         String issueType = clean(request.issueType());
         String prabhagId = clean(request.prabhagId());
         String citizenDescription = clean(request.citizenDescription());

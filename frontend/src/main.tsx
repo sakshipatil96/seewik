@@ -18,7 +18,7 @@ import {
 } from './accountService';
 import { accountErrorMessage, isCredentialCollisionCode, reportsViewState, safeAccountErrorCode, type AccountIdentityState } from './accountIdentity';
 import { API_URL } from './apiConfig';
-import { LANGUAGE_STORAGE_KEY, classificationConfirmedMessage, classificationSuggestionMessage, formatDateTime, initialLanguage, localizedMonthLabel, localizedRuntimeMessage, localizedStatus, prabhagConfirmedMessage, translate, type InterfaceLanguage } from './i18n';
+import { LANGUAGE_STORAGE_KEY, classificationSuggestionMessage, formatDateTime, initialLanguage, localizedMonthLabel, localizedRuntimeMessage, localizedStatus, translate, type InterfaceLanguage } from './i18n';
 import { RecognitionPanel } from './RecognitionPanel';
 import { RecognitionSettings } from './RecognitionSettings';
 import { ContributionPoster } from './ContributionPoster';
@@ -26,6 +26,8 @@ import { CivicAwarenessPage } from './CivicAwarenessPage';
 import { EmergencyInformationPage } from './EmergencyInformationPage';
 import { RewardCatalogue } from './RewardCatalogue';
 import { AppIcon, type AppIconName } from './AppIcon';
+import { TemplatePicker } from './TemplatePicker';
+import { extractPhotoCoordinates } from './photoLocation';
 import InitiativeMeetingPointPicker, { type MeetingPointPosition } from './InitiativeMeetingPointPicker';
 import PrabhagBoundaryMap from './PrabhagBoundaryMap';
 import {
@@ -382,20 +384,20 @@ function App() {
   ));
   const [screen, setScreen] = useState<AppScreen>(() => screenFromPath(window.location.pathname));
   const [locationKey, setLocationKey] = useState(() => `${window.location.pathname}${window.location.search}`);
-  const [issueType, setIssueType] = useState(ISSUE_TYPES[0][0]);
+  const [issueType, setIssueType] = useState<(typeof ISSUE_TYPES)[number][0] | ''>('');
   const [prabhagId, setPrabhagId] = useState('');
   const [routeResult, setRouteResult] = useState<RouteResult | null>(null);
   const [resolution, setResolution] = useState<PrabhagResolution | null>(null);
-  const [locationStatus, setLocationStatus] = useState('');
   const [selectionMethod, setSelectionMethod] = useState('SELF_REPORTED');
   const [citizenConfirmed, setCitizenConfirmed] = useState(false);
   const [manualPrabhagSelected, setManualPrabhagSelected] = useState(false);
+  const [reportLocationSource, setReportLocationSource] = useState<'PHOTO' | 'DEVICE' | 'MANUAL' | ''>('');
   const [boundaryDatasetVersion, setBoundaryDatasetVersion] = useState<string | undefined>();
   const [evidenceText, setEvidenceText] = useState('');
   const [evidenceImage, setEvidenceImage] = useState<File | null>(null);
+  const [evidencePreviewUrl, setEvidencePreviewUrl] = useState('');
   const [classification, setClassification] = useState<ClassificationResult | null>(null);
   const [classificationStatus, setClassificationStatus] = useState('');
-  const [classificationConfirmed, setClassificationConfirmed] = useState(false);
   const [classificationSource, setClassificationSource] = useState('SELF_REPORTED');
   const [complaintFacts, setComplaintFacts] = useState('');
   const [locationDetails, setLocationDetails] = useState('');
@@ -483,9 +485,12 @@ function App() {
   const pendingMutation = useRef<(() => Promise<void>) | null>(null);
   const syncedProfileUid = useRef<string | null>(null);
   const initiativeCreateRequestId = useRef(crypto.randomUUID());
+  const classificationTimer = useRef<number | null>(null);
+  const classificationRequestSequence = useRef(0);
+  const reportLocationRequestSequence = useRef(0);
+  const reportDeviceLocationAttempted = useRef(false);
   const t = (source: string) => translate(language, source);
   const runtimeMessage = (message: string) => localizedRuntimeMessage(language, message);
-  const classificationSourceLabel = (source: string) => source === 'CITIZEN_CONFIRMED_GEMINI' || source === 'GEMINI_SUGGESTED' ? t('Automatic suggestion confirmed') : t('Selected manually');
   const initiativePublishRequirements = [
     !initiativeCategory ? 'Choose an activity type.' : '',
     !initiativeTitle.trim() ? 'Add an activity title.' : '',
@@ -499,10 +504,7 @@ function App() {
     !initiativeMeetingPoint ? 'Place the meeting-point pin.' : '',
     !initiativeMeetingPointConfirmed ? 'Confirm the meeting-point label and pin.' : '',
   ].filter(Boolean);
-  const prabhagSelectionMade = manualPrabhagSelected || citizenConfirmed;
-  const highlightedPrabhagId = manualPrabhagSelected || citizenConfirmed
-    ? prabhagId
-    : resolution?.status === 'CANDIDATE_PRABHAG' ? resolution.prabhagId : undefined;
+  const highlightedPrabhagId = prabhagId || (resolution?.status === 'CANDIDATE_PRABHAG' ? resolution.prabhagId : undefined);
   const boundarySelectionKind = manualPrabhagSelected
     ? 'MANUAL' as const
     : citizenConfirmed
@@ -510,6 +512,13 @@ function App() {
       : resolution?.status === 'CANDIDATE_PRABHAG'
         ? 'AUTOMATIC_CANDIDATE' as const
         : undefined;
+  const reportLocationSourceLabel = reportLocationSource === 'PHOTO'
+    ? t('Suggested from photo location')
+    : reportLocationSource === 'DEVICE'
+      ? t('Suggested from current location')
+      : reportLocationSource === 'MANUAL'
+        ? t('Selected manually')
+        : '';
   const reportsView = reportsViewState(accountState, savedReports.length, reportsStatus.startsWith('Loading'));
   const initiativeCategoryLabel = (category: string) => ({
     PLANTATION: t('Plantation'),
@@ -536,6 +545,16 @@ function App() {
     document.documentElement.lang = language;
     document.title = language === 'mr' ? 'सीविक · स्थानिक नागरी कृती' : language === 'hi' ? 'सीविक · स्थानीय नागरिक कार्रवाई' : 'Seewik · Local civic action';
   }, [language]);
+
+  useEffect(() => {
+    if (!evidenceImage) {
+      setEvidencePreviewUrl('');
+      return;
+    }
+    const previewUrl = URL.createObjectURL(evidenceImage);
+    setEvidencePreviewUrl(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [evidenceImage]);
 
   useEffect(() => observeAccount(({ state, user }) => {
     setAccountState(state);
@@ -602,9 +621,11 @@ function App() {
   }
 
   function resetEvidenceDerivedState() {
+    if (classificationTimer.current !== null) window.clearTimeout(classificationTimer.current);
+    classificationTimer.current = null;
+    classificationRequestSequence.current += 1;
     setClassification(null);
     setClassificationStatus('');
-    setClassificationConfirmed(false);
     setClassificationSource('SELF_REPORTED');
     setComplaintFacts('');
     setRouteResult(null);
@@ -612,25 +633,29 @@ function App() {
   }
 
   function startOver() {
-    setIssueType(ISSUE_TYPES[0][0]);
+    if (classificationTimer.current !== null) window.clearTimeout(classificationTimer.current);
+    classificationTimer.current = null;
+    classificationRequestSequence.current += 1;
+    setIssueType('');
     setPrabhagId('');
     setRouteResult(null);
     setResolution(null);
-    setLocationStatus('');
     setSelectionMethod('SELF_REPORTED');
     setCitizenConfirmed(false);
     setManualPrabhagSelected(false);
+    setReportLocationSource('');
     setBoundaryDatasetVersion(undefined);
     setEvidenceText('');
     setEvidenceImage(null);
     setClassification(null);
     setClassificationStatus('');
-    setClassificationConfirmed(false);
     setClassificationSource('SELF_REPORTED');
     setComplaintFacts('');
     setLocationDetails('');
     setDraftLanguage('MR');
     setCurrentCoordinates(null);
+    reportLocationRequestSequence.current += 1;
+    reportDeviceLocationAttempted.current = false;
     resetDraft();
     navigate('new-report');
   }
@@ -1277,7 +1302,7 @@ function App() {
     if (!background) setInitiativeStatus('The organiser code is active. It rotates every 10 minutes.');
   }
 
-  async function resolveCoordinates(latitude: number, longitude: number) {
+  async function resolveCoordinates(latitude: number, longitude: number, source: 'PHOTO' | 'DEVICE', requestSequence = ++reportLocationRequestSequence.current) {
     const response = await fetch(`${API_URL}/api/civic/resolve-prabhag`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1285,70 +1310,77 @@ function App() {
     });
     if (!response.ok) throw new Error(`Location request failed (${response.status})`);
     const result: PrabhagResolution = await response.json();
+    if (requestSequence !== reportLocationRequestSequence.current) return null;
     setResolution(result);
-    setLocationStatus(result.message);
-    if (result.status === 'MANUAL_SELECTION_REQUIRED') {
+    if (result.status === 'CANDIDATE_PRABHAG' && result.prabhagId && result.datasetVersion) {
+      setPrabhagId(result.prabhagId);
+      setSelectionMethod(result.resolutionMethod ?? 'BIGQUERY_ST_COVERS');
+      setCitizenConfirmed(false);
+      setManualPrabhagSelected(false);
+      setReportLocationSource(source);
+      setBoundaryDatasetVersion(result.datasetVersion);
+      setCurrentCoordinates({ latitude, longitude });
+      setRouteResult(null);
+      resetDraft();
+    } else {
+      setPrabhagId('');
       setSelectionMethod('SELF_REPORTED');
       setCitizenConfirmed(false);
+      setManualPrabhagSelected(false);
+      setReportLocationSource('');
       setBoundaryDatasetVersion(undefined);
+      setCurrentCoordinates(null);
       setRouteResult(null);
       resetDraft();
     }
+    return result;
   }
 
-  function useMyLocation() {
-    setRouteResult(null);
-    setResolution(null);
-    setLocationStatus('Checking your location…');
-    if (!navigator.geolocation) {
-      setLocationStatus('Location is unavailable in this browser. Select your prabhag manually.');
-      return;
-    }
+  function requestDeviceReportLocation() {
+    if (reportDeviceLocationAttempted.current || !navigator.geolocation) return;
+    reportDeviceLocationAttempted.current = true;
+    const requestSequence = ++reportLocationRequestSequence.current;
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setCurrentCoordinates({ latitude: position.coords.latitude, longitude: position.coords.longitude });
-        resolveCoordinates(position.coords.latitude, position.coords.longitude)
-      .catch((error) => setLocationStatus(citizenSafeError(error, 'Your location could not be used. Choose your Prabhag manually.')));
+        void resolveCoordinates(position.coords.latitude, position.coords.longitude, 'DEVICE', requestSequence).catch(() => undefined);
       },
-      () => setLocationStatus('Location permission was not provided. Select your prabhag manually.'),
+      () => undefined,
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
     );
   }
 
-  async function prefillReportDetails() {
-    useMyLocation();
-    await classifyEvidence();
-  }
-
-  function confirmCandidate() {
-    if (!resolution?.prabhagId || !resolution.datasetVersion) return;
-    const confirmedPrabhagName = resolution.prabhagName ?? `Prabhag ${Number(resolution.prabhagId.slice(-2))}`;
-    setPrabhagId(resolution.prabhagId);
-    setSelectionMethod(resolution.resolutionMethod ?? 'BIGQUERY_ST_COVERS');
-    setCitizenConfirmed(true);
-    setManualPrabhagSelected(false);
-    setBoundaryDatasetVersion(resolution.datasetVersion);
-    setLocationStatus(prabhagConfirmedMessage(language, confirmedPrabhagName));
-    setRouteResult(null);
-    resetDraft();
+  async function prefillReportLocation(file: File) {
+    const extractionSequence = ++reportLocationRequestSequence.current;
+    const coordinates = await extractPhotoCoordinates(file).catch(() => null);
+    if (extractionSequence !== reportLocationRequestSequence.current) return;
+    if (coordinates) {
+      const result = await resolveCoordinates(coordinates.latitude, coordinates.longitude, 'PHOTO', extractionSequence).catch(() => null);
+      if (result?.status === 'CANDIDATE_PRABHAG') return;
+    }
+    requestDeviceReportLocation();
   }
 
   function selectManualPrabhag(value: string) {
     if (!PRABHAGS.includes(value)) return;
+    reportLocationRequestSequence.current += 1;
+    reportDeviceLocationAttempted.current = true;
     setPrabhagId(value);
     setSelectionMethod('SELF_REPORTED');
     setCitizenConfirmed(false);
     setManualPrabhagSelected(true);
+    setReportLocationSource('MANUAL');
     setBoundaryDatasetVersion(undefined);
     setResolution(null);
-    setLocationStatus('Manual prabhag selection will override any location suggestion.');
+    setCurrentCoordinates(null);
     setRouteResult(null);
     resetDraft();
   }
 
   function chooseIssueType(value: string) {
+    if (classificationTimer.current !== null) window.clearTimeout(classificationTimer.current);
+    classificationTimer.current = null;
+    classificationRequestSequence.current += 1;
     setIssueType(value as typeof issueType);
-    setClassificationConfirmed(false);
     setClassificationSource(classification?.issueType === value ? 'GEMINI_SUGGESTED' : 'CITIZEN_SELECTED');
     setRouteResult(null);
     resetDraft();
@@ -1357,36 +1389,74 @@ function App() {
   function chooseEvidenceImage(file: File | null) {
     setEvidenceImage(file);
     resetEvidenceDerivedState();
+    scheduleEvidenceClassification(file, evidenceText, file ? 0 : 650);
+    if (file && reportLocationSource !== 'MANUAL') {
+      void prefillReportLocation(file);
+    } else if (!file && reportLocationSource === 'PHOTO') {
+      reportLocationRequestSequence.current += 1;
+      reportDeviceLocationAttempted.current = false;
+      setPrabhagId('');
+      setResolution(null);
+      setSelectionMethod('SELF_REPORTED');
+      setCitizenConfirmed(false);
+      setManualPrabhagSelected(false);
+      setReportLocationSource('');
+      setBoundaryDatasetVersion(undefined);
+      setCurrentCoordinates(null);
+      requestDeviceReportLocation();
+    }
   }
 
-  async function classifyEvidence() {
+  function scheduleEvidenceClassification(image: File | null, text: string, delay: number) {
+    if (classificationTimer.current !== null) window.clearTimeout(classificationTimer.current);
+    classificationTimer.current = null;
+    classificationRequestSequence.current += 1;
+    if (!image && !text.trim()) return;
+    classificationTimer.current = window.setTimeout(() => {
+      classificationTimer.current = null;
+      void classifyEvidence(image, text);
+    }, delay);
+  }
+
+  async function classifyEvidence(image: File | null, text: string) {
+    const requestSequence = ++classificationRequestSequence.current;
     setClassification(null);
-    setClassificationConfirmed(false);
     setComplaintFacts('');
     setRouteResult(null);
     resetDraft();
-    if (!evidenceImage && !evidenceText.trim()) {
+    const trimmedText = text.trim();
+    if (!image && !trimmedText) {
       setClassificationStatus('Add a photo or a short description first.');
       return;
     }
-    if (evidenceImage && evidenceImage.size > 5 * 1024 * 1024) {
+    if (image && image.size > 5 * 1024 * 1024) {
       setClassificationStatus('Please choose a photo that is 5 MB or smaller.');
       return;
     }
     setClassificationStatus('Checking the issue category…');
     const form = new FormData();
-    if (evidenceImage) form.append('image', evidenceImage);
-    if (evidenceText.trim()) form.append('text', evidenceText.trim());
-    const idToken = await sessionToken();
-    const response = await fetch(`${API_URL}/api/civic/classify`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${idToken}` },
-      body: form,
-    });
-    const result: ClassificationResult = await response.json();
+    if (image) form.append('image', image);
+    if (trimmedText) form.append('text', trimmedText);
+    let response: Response;
+    let result: ClassificationResult;
+    try {
+      const idToken = await sessionToken();
+      response = await fetch(`${API_URL}/api/civic/classify`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+        body: form,
+      });
+      result = await response.json();
+    } catch {
+      if (requestSequence !== classificationRequestSequence.current) return;
+      setClassificationStatus('The category could not be checked. Choose it manually below.');
+      setClassificationSource('CITIZEN_SELECTED');
+      return;
+    }
+    if (requestSequence !== classificationRequestSequence.current) return;
     setClassification(result);
-    setComplaintFacts(evidenceText.trim() || result.description || '');
-    if (!evidenceText.trim() && result.description) setEvidenceText(result.description);
+    setComplaintFacts(trimmedText || result.description || '');
+    if (!trimmedText && result.description) setEvidenceText(result.description);
     if (!response.ok || result.status === 'CLASSIFICATION_ERROR') {
       setClassificationStatus(result.message ?? 'The category could not be checked. Choose it manually below.');
       setClassificationSource('CITIZEN_SELECTED');
@@ -1405,30 +1475,23 @@ function App() {
     );
   }
 
-  function confirmIssueType() {
-    const source = classification?.issueType === issueType && classification.status === 'CLASSIFIED'
-      ? 'CITIZEN_CONFIRMED_GEMINI'
-      : 'CITIZEN_SELECTED';
-    setClassificationSource(source);
-    setClassificationConfirmed(true);
-    setClassificationStatus(classificationConfirmedMessage(language, issueLabel(issueType, language)));
-  }
-
   async function findCivicRoute() {
     setRouteResult(null);
     resetDraft();
-    if (!classificationConfirmed) {
-      setRouteResult({ status: 'CATEGORY_CONFIRMATION_REQUIRED' });
+    if (!issueType) {
+      setRouteResult({ status: 'CATEGORY_REQUIRED' });
       return;
     }
-    if (!prabhagSelectionMade) {
-      setRouteResult({ status: 'PRABHAG_CONFIRMATION_REQUIRED' });
+    if (!prabhagId) {
+      setRouteResult({ status: 'PRABHAG_REQUIRED' });
       return;
     }
+    const acceptedAutomaticLocation = !manualPrabhagSelected && resolution?.prabhagId === prabhagId;
+    setCitizenConfirmed(acceptedAutomaticLocation);
     const response = await fetch(`${API_URL}/api/civic/route`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ issueType, prabhagId, resolutionMethod: selectionMethod, citizenConfirmed, boundaryDatasetVersion }),
+      body: JSON.stringify({ issueType, prabhagId, resolutionMethod: selectionMethod, citizenConfirmed: acceptedAutomaticLocation, boundaryDatasetVersion }),
     });
     if (!response.ok) throw new Error(`Routing request failed (${response.status})`);
     const result: RouteResult = await response.json();
@@ -1516,7 +1579,6 @@ function App() {
         resolutionMethod: selectionMethod,
         citizenConfirmed,
         boundaryDatasetVersion,
-        classificationConfirmed,
         citizenDescription: complaintFacts.trim(),
         locationDetails: locationDetails.trim() || null,
         draftLanguage,
@@ -2094,9 +2156,9 @@ function App() {
           <button aria-current={navCurrent(screen === 'points')} className={screen === 'points' ? 'active' : ''} onClick={() => navigate('points')}>{t('Civic Card')}</button>
         </nav>
         <div className="language-switcher" role="group" aria-label={t('Language')}>
-          {([{ value: 'en', label: 'EN', lang: 'en' }, { value: 'mr', label: 'मराठी', lang: 'mr' }, { value: 'hi', label: 'हिंदी', lang: 'hi' }] as const).map((option) => <button type="button" key={option.value} lang={option.lang} className={`language-option ${language === option.value ? 'active' : ''}`} aria-pressed={language === option.value} onClick={() => setLanguage(option.value)}>{option.label}</button>)}
+          {([{ value: 'en', label: 'EN', compactLabel: 'E', accessibleLabel: 'English', lang: 'en' }, { value: 'mr', label: 'मराठी', compactLabel: 'म', accessibleLabel: 'मराठी', lang: 'mr' }, { value: 'hi', label: 'हिंदी', compactLabel: 'ह', accessibleLabel: 'हिंदी', lang: 'hi' }] as const).map((option) => <button type="button" key={option.value} lang={option.lang} className={`language-option ${language === option.value ? 'active' : ''}`} aria-label={option.accessibleLabel} aria-pressed={language === option.value} onClick={() => setLanguage(option.value)}><span className="language-label-full">{option.label}</span><span className="language-label-compact" aria-hidden="true">{option.compactLabel}</span></button>)}
         </div>
-        <button className="header-emergency" onClick={() => navigate('emergency')} aria-label={t('Open Emergency Information — 112')}><strong>112</strong><span>{t('Emergency')}</span></button>
+        <button className="header-emergency" onClick={() => navigate('emergency')} aria-label={t('Open Emergency Information — 112')}><AppIcon name="phone" className="header-emergency-icon" /><strong>112</strong><span>{t('Emergency')}</span></button>
         <AccountControl
           state={accountState}
           dialog={accountDialog}
@@ -2227,9 +2289,9 @@ function App() {
       <header className="flow-page-heading initiative-page-heading"><h1 className="page-title">{t('New Initiative')}</h1><button type="button" className="secondary flow-start-over" onClick={startInitiativeOver}>{t('Start over')}</button></header>
       {!initiativeReviewing ? <div className="initiative-form">
       <section className={`initiative-form-block ${initiativeFormStep === 1 ? 'is-active' : 'is-complete'}`} data-initiative-step="1">
-      <div className="initiative-block-header"><span className="initiative-step">{initiativeFormStep === 1 ? '1' : '✓'}</span><div className="initiative-block-heading"><h2>{t('What are you organising?')}</h2>{initiativeFormStep === 1 && <p>{t('Pick the closest one. You can add details next.')}</p>}</div>{initiativeFormStep !== 1 && <button type="button" className="initiative-step-edit" onClick={() => openInitiativeFormStep(1)}>{t('Edit')}</button>}</div>
+      <div className="initiative-block-header"><span className="initiative-step">{initiativeFormStep === 1 ? '1' : '✓'}</span><div className="initiative-block-heading"><h2 className="initiative-type-heading">{t('What are you organising?')}</h2>{initiativeFormStep === 1 && <p>{t('Pick the closest one. You can edit details next.')}</p>}</div>{initiativeFormStep !== 1 && <button type="button" className="initiative-step-edit" onClick={() => openInitiativeFormStep(1)}>{t('Edit')}</button>}</div>
       {initiativeFormStep === 1 ? <>
-      <fieldset className="icon-choice-fieldset"><legend>{t('Activity type')}</legend><div className="activity-type-grid">{INITIATIVE_TEMPLATES.map((template) => <button type="button" className={`icon-choice-card ${initiativeCategory === template.value ? 'selected' : ''}`} aria-pressed={initiativeCategory === template.value} key={template.value} onClick={() => applyInitiativeTemplate(template.value)}><AppIcon name={initiativeTypeIcon(template.value)} /><span><strong>{t(template.label)}</strong><small>{t(template.example)}</small></span></button>)}</div></fieldset>
+      <TemplatePicker id="initiative-type" label={t('Activity type')} placeholder={t('Choose an activity type')} searchPlaceholder={t('Filter activities')} emptyMessage={t('No activities match your search.')} clearSearchLabel={t('Clear search')} value={initiativeCategory} options={INITIATIVE_TEMPLATES.map((template) => ({ value: template.value, icon: <AppIcon name={initiativeTypeIcon(template.value)} />, title: t(template.label), description: t(template.example) }))} onChange={applyInitiativeTemplate} />
       <label>{t('Title')}<input type="text" maxLength={100} value={initiativeTitle} onChange={(event) => setInitiativeTitle(event.target.value)} /></label>
       <label>{t('Description')}<textarea maxLength={1200} value={initiativeDescription} onChange={(event) => setInitiativeDescription(event.target.value)} /></label>
       <div className="initiative-next-row"><button type="button" disabled={!initiativeCategory || !initiativeTitle.trim() || !initiativeDescription.trim()} onClick={() => advanceInitiativeForm(1)}>{t('Next')}</button></div>
@@ -2326,51 +2388,43 @@ function App() {
     <header className="flow-page-heading report-page-heading"><h1 className="page-title">{t('New Report')}</h1><button type="button" className="secondary flow-start-over" onClick={startOver}>{t('Start over')}</button></header>
     <section className="card report-flow-card">
       <div className="report-purpose"><span className="signal" aria-hidden="true" /><p>{t("Let's find how to report this issue")}</p></div>
-      {classificationConfirmed ? <>
-        <div className="report-step-summary">
-          <div><span><AppIcon name="check" /></span><div><b>{t('Describe the issue')}</b><small>{issueLabel(issueType, language)} · {classificationSourceLabel(classificationSource)}</small></div></div>
-          <button type="button" className="secondary" onClick={() => setClassificationConfirmed(false)}>{t('Edit')}</button>
-        </div>
-      </> : <>
-        <div className="flow-step"><span>1</span><b>{t('Describe the issue')}</b></div>
+      <div className="flow-step"><span>1</span><b>{t('Describe the issue')}</b></div>
         <div className="photo-input-grid">
-          <label className="photo-upload-label">{t('Add photo')}<span className="photo-file-control"><AppIcon name="camera" /><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => chooseEvidenceImage(event.target.files?.[0] ?? null)} /></span></label>
+          <div className="photo-upload-field">
+            <label className="photo-upload-label">
+              <input className="photo-file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => chooseEvidenceImage(event.target.files?.[0] ?? null)} />
+              <span className={`photo-upload-surface ${evidencePreviewUrl ? 'has-preview' : ''}`}>
+                {evidencePreviewUrl ? <img src={evidencePreviewUrl} alt="" /> : <span className="photo-upload-icon"><AppIcon name="camera" /></span>}
+                <span className="photo-upload-copy"><strong>{t(evidenceImage ? 'Replace photo' : 'Take or add a photo')}</strong><small>{evidenceImage?.name || t('Camera or photo library')}</small></span>
+              </span>
+            </label>
+            {evidenceImage && <button type="button" className="photo-remove-button" onClick={() => chooseEvidenceImage(null)}>{t('Remove photo')}</button>}
+          </div>
         </div>
         <label>{t('Short description (optional)')}<textarea maxLength={2000} value={evidenceText} placeholder="उदा. रस्त्यावर मोठा खड्डा आहे" onChange={(event) => {
-          setEvidenceText(event.target.value);
+          const nextText = event.target.value;
+          setEvidenceText(nextText);
           resetEvidenceDerivedState();
+          scheduleEvidenceClassification(evidenceImage, nextText, 650);
+          if (nextText.trim() && !prabhagId && reportLocationSource !== 'MANUAL') requestDeviceReportLocation();
         }} /></label>
-        <button className="secondary" onClick={() => prefillReportDetails().catch(() => {
-          setClassificationStatus('The category could not be checked. Choose it manually below.');
-          setClassificationSource('CITIZEN_SELECTED');
-        })}>{t('Prefill report details')}</button>
-        <small className="field-help">{t('Seewik uses the photo or description to suggest wording and a category, and asks permission to suggest your Prabhag from location. You confirm or edit everything.')}</small>
         {classificationStatus && <div role="status" aria-live="polite" className={`status-panel ${classification?.status === 'CLASSIFICATION_ERROR' ? 'state-error' : classification?.status === 'CLASSIFIED' ? 'state-success' : 'state-warning'}`}>
-          <strong>{classification?.status === 'CLASSIFIED' ? t('Category suggestion ready') : classification?.status === 'CLARIFICATION_REQUIRED' ? t('Please clarify') : t('Category confirmation')}</strong>
+          <strong>{classification?.status === 'CLASSIFIED' ? t('Category suggestion ready') : classification?.status === 'CLARIFICATION_REQUIRED' ? t('Please clarify') : t('Category suggestion')}</strong>
           <span>{runtimeMessage(classificationStatus)}</span>
           {classification?.description && <small>{classification.description}</small>}
           {classification?.detectedLanguage && <small>{t('Detected language')}: {classification.detectedLanguage}</small>}
         </div>}
-        <fieldset className="icon-choice-fieldset"><legend>{t('Issue category')}</legend><div className="issue-category-grid">{ISSUE_TYPES.map(([value]) => <button type="button" className={`icon-choice-card ${issueType === value ? 'selected' : ''}`} aria-pressed={issueType === value} key={value} onClick={() => chooseIssueType(value)}><AppIcon name={issueTypeIcon(value)} /><span><strong>{issueLabel(value, language)}</strong></span></button>)}</div></fieldset>
-        <button onClick={confirmIssueType}>{t('Confirm this category')}</button>
-      </>}
+        <TemplatePicker id="issue-category" label={t('Issue category')} placeholder={t('Choose an issue category')} searchPlaceholder={t('Filter categories')} emptyMessage={t('No categories match your search.')} clearSearchLabel={t('Clear search')} value={issueType} options={ISSUE_TYPES.map(([value]) => ({ value, icon: <AppIcon name={issueTypeIcon(value)} />, title: issueLabel(value, language) }))} onChange={(value) => chooseIssueType(value)} />
 
-      <div className="flow-step"><span>2</span><b>{t('Confirm your prabhag')}</b></div>
-      <p>{t('Use your location for a suggestion, or choose your Prabhag manually. You always confirm the result.')}</p>
-      <small className="field-help">{t('The approximate guide is for orientation and is not an official boundary determination.')}</small>
-      <button className="secondary" onClick={useMyLocation}>{t('Suggest from my location')}</button>
-      {locationStatus && <div role="status" aria-live="polite" className={`status-panel ${resolution?.status === 'CANDIDATE_PRABHAG' ? 'state-success' : resolution?.status === 'OUTSIDE_SUPPORTED_AREA' || resolution?.status === 'RESOLUTION_UNAVAILABLE' || resolution?.status === 'INVALID_COORDINATES' ? 'state-error' : 'state-warning'}`}>{runtimeMessage(locationStatus)}</div>}
-      {resolution?.status === 'CANDIDATE_PRABHAG' && resolution.prabhagId && <div className="candidate"><strong>{resolution.prabhagName}</strong><span>{resolution.resolutionQuality} · {resolution.datasetVersion}</span><span>{resolution.resolutionMethod}: {resolution.queryLatencyMs} ms</span>{resolution.fallbackReason && <small>{resolution.fallbackReason}</small>}<button onClick={confirmCandidate}>{t('Confirm this suggested prabhag')}</button></div>}
-      <div className="boundary-selection-layout">
-        <div className="boundary-manual-choice">
-          <h3>{t('Choose manually')}</h3>
-          <p>{t('The list is a complete non-map option. Choosing here overrides any automatic suggestion.')}</p>
-          <label>{t('Prabhag number')}<select value={prabhagId} onChange={(event) => selectManualPrabhag(event.target.value)}>
+      <div className="flow-step"><span>2</span><b>{t('Location')}</b></div>
+      <div className="report-location-field">
+        <span className="report-location-icon" aria-hidden="true"><AppIcon name="pin" /></span>
+        <label>{t('Prabhag')}<select value={prabhagId} onChange={(event) => selectManualPrabhag(event.target.value)}>
             <option value="" disabled>{t('Choose Prabhag 1–20')}</option>
             {PRABHAGS.map((value, index) => <option key={value} value={value}>{t('Prabhag')} {index + 1}</option>)}
-          </select></label>
-          {prabhagSelectionMade && <div className="confirmed-line" role="status" aria-live="polite">✓ {t('Prabhag')} {Number(prabhagId.slice(-2))} · {manualPrabhagSelected ? t('Selected manually') : t('Confirmed selection')}</div>}
-        </div>
+        </select>{prabhagId && reportLocationSourceLabel && <small>{reportLocationSourceLabel}</small>}</label>
+      </div>
+      <div className="report-location-map">
         <BoundaryMapErrorBoundary fallback={<div className="status-panel state-warning" role="status">{t('The boundary guide is unavailable. Choose Prabhag 1–20 manually.')}</div>}>
           <PrabhagBoundaryMap
             language={language}
@@ -2381,10 +2435,10 @@ function App() {
           />
         </BoundaryMapErrorBoundary>
       </div>
-      <div className="flow-step"><span>3</span><b>{t('Find the right office')}</b></div>
-      <button disabled={!classificationConfirmed || !prabhagSelectionMade} onClick={() => findCivicRoute().catch((error) => setRouteResult({ status: citizenSafeError(error, 'The right office could not be found. Try again.') }))}>{t('Find official route')}</button>
+      <div className="flow-step"><span>3</span><b>{t('Find the right route')}</b></div>
+      <button onClick={() => findCivicRoute().catch((error) => setRouteResult({ status: citizenSafeError(error, 'The right route could not be found. Try again.') }))}>{t('Find official route')}</button>
       {routeResult && <div aria-live="polite" className={`route-result ${routeResult.status === 'SUPPORTED_ROUTE' ? 'state-success' : 'state-error'}`}>
-        <strong>{routeResult.status === 'SUPPORTED_ROUTE' ? routeResult.authority : routeResult.status === 'CATEGORY_CONFIRMATION_REQUIRED' ? t('Confirm the issue category first') : routeResult.status === 'PRABHAG_CONFIRMATION_REQUIRED' ? t('Choose and confirm a prabhag first') : routeResult.status}</strong>
+        <strong>{routeResult.status === 'SUPPORTED_ROUTE' ? routeResult.authority : routeResult.status === 'CATEGORY_REQUIRED' ? t('Choose an issue category to continue.') : routeResult.status === 'PRABHAG_REQUIRED' ? t('Choose a Prabhag to continue.') : routeResult.status}</strong>
         {routeResult.routeId && <>
           {routeResult.department && <div className="department-result">
             <b>{routeResult.department.status === 'TYPICAL_STRUCTURE_UNVERIFIED' ? t('Likely department') : t('Department')}: {routeResult.department.displayName}</b>

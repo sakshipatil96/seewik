@@ -4,7 +4,7 @@ export type AppIconName =
   | 'bench' | 'book' | 'bookmark' | 'broom' | 'building' | 'camera' | 'check'
   | 'clock' | 'dots' | 'drop' | 'dumbbell' | 'food' | 'form' | 'gift' | 'info'
   | 'leaf' | 'list' | 'mail' | 'phone' | 'pin' | 'plus' | 'road' | 'share' | 'shield'
-  | 'star' | 'tap' | 'trash' | 'users' | 'bulb';
+  | 'star' | 'tap' | 'trash' | 'user' | 'users' | 'bulb';
 
 const drawings: Record<AppIconName, ReactNode> = {
   bench: <><path d="M5 11h14M6 11v4h12v-4M7 15v5M17 15v5M8 8h8" /></>,
@@ -34,6 +34,7 @@ const drawings: Record<AppIconName, ReactNode> = {
   star: <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z" />,
   tap: <><path d="M7 8V5h7M11 5V3h4v2M5 8h14v5h-4c0 3-1.5 5-4 5s-4-2-4-5H5z" /><path d="M11 21h.01" /></>,
   trash: <><path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6" /></>,
+  user: <><circle cx="12" cy="8" r="4" /><path d="M4.5 21c.7-5 3.2-7.5 7.5-7.5s6.8 2.5 7.5 7.5" /></>,
   users: <><circle cx="9" cy="8" r="3" /><path d="M3.5 20c.5-4 2.3-6 5.5-6s5 2 5.5 6M16 5.5a3 3 0 0 1 0 5.5M16 14c2.7.2 4.2 2.2 4.5 5" /></>,
   bulb: <><path d="M9 18h6M10 21h4M8.5 15.5A7 7 0 1 1 15.5 15.5L15 17H9z" /><path d="M12 2V1M4.5 5.5l-1-1M19.5 5.5l1-1" /></>,
 };

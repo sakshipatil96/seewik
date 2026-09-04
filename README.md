@@ -1,6 +1,6 @@
 # Seewik
 
-Seewik is a multilingual civic-action platform for Nandurbar. It helps a citizen describe a local problem, confirm the relevant civic facts, find the verified complaint route, organise or join a community initiative, and keep a private record of civic contributions.
+Seewik is a multilingual civic-action platform for Nandurbar. It helps a citizen describe a local problem, review or edit the relevant civic facts, find the verified complaint route, organise or join a community initiative, and keep a private record of civic contributions.
 
 **Live application:** [seewik.web.app](https://seewik.web.app/)
 
@@ -8,7 +8,7 @@ Seewik is an independent prototype. It is not a government service, emergency-re
 
 ## Product pillars
 
-1. **Improve** — add a photograph or description, receive a Gemini category suggestion, confirm the issue and Prabhag, and use the deterministic Civic Pack route and complaint draft.
+1. **Improve** — add a photograph or description, review or edit the suggested category and location, and use the deterministic Civic Pack route and complaint draft.
 2. **Initiate** — create or join local activities with an organiser-confirmed meeting point, participant directions, approval controls, attendance and completion states.
 3. **My Civic Card** — view private contribution history, lifetime non-deducting points, opt-in recognition, a locally generated sharing image and clearly illustrative rewards.
 4. **Civic Awareness and Emergency Information** — read sourced civic information and reach verified emergency numbers through direct call actions.
@@ -19,7 +19,7 @@ The interface is available in English, Marathi and Hindi.
 
 > Gemini understands the citizen; the verified Civic Pack decides who is responsible.
 
-Gemini may suggest an issue category and help draft citizen wording. It does not select the authority, department, complaint channel, SLA, escalation path or Prabhag. Those fields come from versioned civic data and deterministic code, with explicit citizen confirmation where required.
+Gemini may suggest an issue category and help draft citizen wording. It does not select the authority, department, complaint channel, SLA, escalation path or Prabhag. Citizens can edit the suggested category and Prabhag before invoking `Find official route`; that action uses the values currently visible in the form.
 
 ## Architecture
 
@@ -42,16 +42,16 @@ Firebase Security Rules deny client forgery of backend-owned lifecycle events, I
 
 ## Current status
 
-The four product pillars are deployed. The latest recorded Day 15 application release passed:
+The four product pillars are deployed. The Day 16 release candidate passed:
 
 - 222 backend tests;
-- 74 frontend tests;
+- 79 frontend tests;
 - the frontend production build;
 - the high-severity dependency audit and vulnerability scan;
 - repository, secret-safe diagnostic and Prabhag checksum gates;
 - candidate health, traffic switch, Firebase Hosting/rules deployment and route checks.
 
-The release evidence is recorded in [DAY15_BUILD_LOG.md](DAY15_BUILD_LOG.md). Physical Android follow-ups and known limitations remain tracked in [PROJECT_TODOS.md](PROJECT_TODOS.md).
+The release evidence is recorded in [DAY16_BUILD_LOG.md](DAY16_BUILD_LOG.md). Physical Android and Safari follow-ups and known limitations remain tracked in [PROJECT_TODOS.md](PROJECT_TODOS.md).
 
 ## Local frontend
 
@@ -117,6 +117,7 @@ Release diagnostics must use allow-listed projections. Do not print Cloud Run en
 - [Day 13 build log](DAY13_BUILD_LOG.md)
 - [Day 14 build log](DAY14_BUILD_LOG.md)
 - [Day 15 build log](DAY15_BUILD_LOG.md)
+- [Day 16 build log](DAY16_BUILD_LOG.md)
 - [Touchpoint 3 business case](TOUCHPOINT3_BUSINESS_CASE.md)
 - [Security findings](SECURITY_FINDINGS.md)
 - [Changelog](CHANGELOG.md)
