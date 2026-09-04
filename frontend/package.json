@@ -22,7 +22,7 @@
     "vite": "latest"
   },
   "devDependencies": {
-    "@firebase/rules-unit-testing": "5.0.0",
+    "@firebase/rules-unit-testing": "5.0.2",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "typescript": "latest"
