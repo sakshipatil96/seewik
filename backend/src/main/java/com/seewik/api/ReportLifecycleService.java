@@ -37,8 +37,9 @@ public class ReportLifecycleService {
             ReportLifecycleGateway gateway,
             CivicRouterService router,
             ObjectMapper objectMapper,
-            LifecycleAnalyticsPublisher analyticsPublisher) {
-        this(gateway, router, objectMapper, Clock.systemUTC(), analyticsPublisher);
+            LifecycleAnalyticsPublisher analyticsPublisher,
+            Clock clock) {
+        this(gateway, router, objectMapper, clock, analyticsPublisher);
     }
 
     ReportLifecycleService(

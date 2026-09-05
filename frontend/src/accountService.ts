@@ -1,5 +1,6 @@
 import {
   GoogleAuthProvider,
+  linkWithCredential,
   linkWithPopup,
   onAuthStateChanged,
   signInAnonymously,
@@ -10,8 +11,9 @@ import {
   type User,
 } from 'firebase/auth';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { auth, authPersistenceReady, db } from './firebase';
+import { auth, authPersistenceReady, db, useFirebaseEmulators } from './firebase';
 import { API_URL } from './apiConfig';
+import { anonymousSessionDecision, finalizeLinkedUser } from './accountSessionRules';
 import {
   SIGNED_OUT_STORAGE_KEY,
   accountIdentityState,
@@ -84,8 +86,9 @@ export function observeAccount(listener: (snapshot: AccountSnapshot) => void) {
 
 export async function ensureAnonymousSession() {
   await authPersistenceReady;
-  if (auth.currentUser) return auth.currentUser;
-  if (signedOutDeliberately()) throw new Error('ACCOUNT_SIGNED_OUT');
+  const decision = anonymousSessionDecision(Boolean(auth.currentUser), signedOutDeliberately());
+  if (decision === 'REUSE') return auth.currentUser!;
+  if (decision === 'REJECT') throw new Error('ACCOUNT_SIGNED_OUT');
   if (!anonymousSignIn) {
     anonymousSignIn = signInAnonymously(auth)
       .then((credential) => credential.user)
@@ -113,20 +116,45 @@ export async function linkCurrentSession(provider: AccountProvider) {
   }
   if (!user.isAnonymous) throw new Error('GOOGLE_LINK_REQUIRED');
   const beforeUid = user.uid;
-  const credential = await linkWithPopup(user, providers[provider]);
-  if (credential.user.uid !== beforeUid) throw new Error('LINK_CHANGED_UID');
-  await credential.user.getIdToken(true);
-  await syncPrivateProfile(credential.user);
-  return credential.user;
+  const credential = useFirebaseEmulators
+    ? await linkWithCredential(user, localE2EGoogleCredential())
+    : await linkWithPopup(user, providers[provider]);
+  return finalizeLinkedUser(beforeUid, credential.user, syncPrivateProfile);
 }
 
 export async function signIntoAccount(provider: AccountProvider) {
   await authPersistenceReady;
+  if (useFirebaseEmulators) {
+    const result = await signInWithCredential(auth, localE2EGoogleCredential());
+    window.localStorage.removeItem(SIGNED_OUT_STORAGE_KEY);
+    await result.user.getIdToken(true);
+    await syncPrivateProfile(result.user);
+    return result.user;
+  }
   const credential = await signInWithPopup(auth, providers[provider]);
   window.localStorage.removeItem(SIGNED_OUT_STORAGE_KEY);
   await credential.user.getIdToken(true);
   await syncPrivateProfile(credential.user);
   return credential.user;
+}
+
+function localE2EGoogleCredential() {
+  const encode = (value: object) => btoa(JSON.stringify(value))
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replaceAll('=', '');
+  const issuedAt = Math.floor(Date.now() / 1000);
+  const idToken = `${encode({ alg: 'none', typ: 'JWT' })}.${encode({
+    iss: 'https://accounts.google.com',
+    aud: 'seewik-local-e2e',
+    sub: 'seewik-local-e2e-citizen',
+    iat: issuedAt,
+    exp: issuedAt + 3600,
+    email: 'citizen@local.seewik.test',
+    email_verified: true,
+    name: 'Seewik Test Citizen',
+  })}.`;
+  return GoogleAuthProvider.credential(idToken);
 }
 
 export async function continueWithExistingAccount(credential: AuthCredential) {

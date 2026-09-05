@@ -11,6 +11,7 @@ import {
   reportsViewState,
   safeAccountErrorCode,
 } from '../src/accountIdentity.ts';
+import { anonymousSessionDecision, finalizeLinkedUser } from '../src/accountSessionRules.ts';
 
 test('identity states distinguish anonymous, linked, and deliberate sign-out', () => {
   assert.equal(accountIdentityState({ uid: 'anon-1', isAnonymous: true, providerIds: [] }), 'GOOGLE_LINK_REQUIRED');
@@ -122,17 +123,20 @@ test('anonymous callers cannot bypass report or technical write gates', async ()
 });
 
 test('linking preserves the UID, refreshes the token, and deliberate sign-out suppresses anonymous recreation', async () => {
-  const service = await readFile(new URL('../src/accountService.ts', import.meta.url), 'utf8');
   const firebase = await readFile(new URL('../src/firebase.ts', import.meta.url), 'utf8');
-  assert.match(service, /const beforeUid = user\.uid/);
-  assert.match(service, /credential\.user\.uid !== beforeUid/);
-  assert.match(service, /credential\.user\.getIdToken\(true\)/);
-  assert.match(service, /localStorage\.setItem\(SIGNED_OUT_STORAGE_KEY, 'true'\)/);
-  assert.match(service, /if \(signedOutDeliberately\(\)\) throw new Error\('ACCOUNT_SIGNED_OUT'\)/);
+  const calls = [];
+  const linkedUser = {
+    uid: 'anonymous-uid',
+    async getIdToken(forceRefresh) { calls.push(['token', forceRefresh]); return 'token'; },
+  };
+  assert.equal(await finalizeLinkedUser('anonymous-uid', linkedUser, async (user) => calls.push(['sync', user.uid])), linkedUser);
+  assert.deepEqual(calls, [['token', true], ['sync', 'anonymous-uid']]);
+  await assert.rejects(() => finalizeLinkedUser('anonymous-uid', { ...linkedUser, uid: 'changed-uid' }, async () => undefined), /LINK_CHANGED_UID/);
+  assert.equal(anonymousSessionDecision(true, false), 'REUSE');
+  assert.equal(anonymousSessionDecision(false, true), 'REJECT');
+  assert.equal(anonymousSessionDecision(false, false), 'CREATE');
   assert.match(firebase, /auth\.authStateReady\(\)/);
   assert.match(firebase, /setPersistence\(auth, browserLocalPersistence\)/);
-  assert.match(service, /export async function ensureAnonymousSession\(\) \{\s+await authPersistenceReady;\s+if \(auth\.currentUser\)/);
-  assert.match(service, /void authPersistenceReady\.then\(\(\) => \{/);
 });
 
 test('existing-account collision never retries the losing session mutation', async () => {

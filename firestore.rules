@@ -146,6 +146,11 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /reports/{reportId}/followUpEvents/{eventId} {
+      allow read: if ownsReport(reportId);
+      allow create, update, delete: if false;
+    }
+
     match /reports/{reportId}/dedupeEvaluations/{evaluationId} {
       allow read: if ownsReport(reportId);
       allow create, update, delete: if false;

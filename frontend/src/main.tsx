@@ -46,6 +46,10 @@ import {
 } from './recognitionClient';
 import { canEditReport, canResumeReport, draftRouteIsCurrent, initiativeIdFromPath, pathForScreen, reportIdFromPath, reportIdFromReviewSearch, screenFromPath, type AppScreen } from './reportNavigation';
 import { citizenSafeError } from './uiErrors';
+import { createFilingActionReceipt, filingActionReceiptMatches, readFilingActionReceipt, removeFilingActionReceipt, writeFilingActionReceipt, type FilingDraftIdentity, type FilingMethod } from './filingActionReceipt';
+import { readFilingContactDraft, removeFilingContactDraft, writeFilingContactDraft } from './filingContactDraft';
+import { routeSnapshotHashAfterTransition } from './reportRouteSnapshot';
+import { automaticEscalationLanguageTransition } from './escalationDraftLanguage';
 import './styles.css';
 
 const DEBUG_MODE = new URLSearchParams(window.location.search).get('debug') === '1';
@@ -196,8 +200,6 @@ type ComplaintDraftResult = {
   message?: string;
 };
 
-type FilingMethod = 'PRINT' | 'EMAIL' | 'DMA';
-
 type FilingDraftSnapshot = {
   result: ComplaintDraftResult;
   subject: string;
@@ -212,11 +214,16 @@ type LifecycleResponse = {
   toStatus: string;
   eventType?: string;
   verificationBasis: string;
+  schemaVersion?: string;
+  packVersion?: string;
   occurredAt: string;
+  idempotentReplay?: boolean;
   dedupeDisposition?: string;
   measuredDistanceMeters?: number;
   pointsAwarded: number;
   pointsWeight: number;
+  routeSnapshotHash?: string;
+  analyticsOutboxId?: string;
   errorCode?: string;
   message?: string;
 };
@@ -249,7 +256,52 @@ type SavedReport = {
   filingChannelId?: string;
   overdueEligibility?: string;
   routeSnapshot?: RouteResult;
+  routeSnapshotHash?: string;
 };
+
+type FollowUpEvent = {
+  eventId: string;
+  action: string;
+  cycleNumber: number;
+  recurrence: boolean;
+  channelId?: string;
+  language?: 'MR' | 'EN';
+  occurredAt: string;
+  nextPromptAt?: string;
+  pointsAwarded: number;
+};
+
+type FollowUpSummary = {
+  status: string;
+  reportId: string;
+  state: 'NOT_DUE' | 'DUE' | 'SNOOZED' | 'UNRESOLVED' | 'CLOSED' | 'UNAVAILABLE';
+  promptDue: boolean;
+  escalationAvailable: boolean;
+  cycleNumber: number;
+  recurrence: boolean;
+  anchorAt?: string;
+  followUpDueAt?: string;
+  nextPromptAt?: string;
+  routeId?: string;
+  packVersion?: string;
+  routeSnapshotHash?: string;
+  events: FollowUpEvent[];
+  schemaVersion: string;
+};
+
+type EscalationChannelId = 'NMC_FOLLOW_UP' | 'DISTRICT_JOINT_COMMISSIONER' | 'DMA_DESK_6';
+
+const ESCALATION_CHANNELS: ReadonlyArray<{
+  id: EscalationChannelId;
+  title: string;
+  description: string;
+  recipient: string;
+  sourceUrl?: string;
+}> = [
+  { id: 'NMC_FOLLOW_UP', title: 'Follow up with Nagar Palika', description: 'Ask the original municipal office for an update.', recipient: '' },
+  { id: 'DISTRICT_JOINT_COMMISSIONER', title: 'District Joint Commissioner Office', description: 'Escalate the unresolved municipal complaint at district level.', recipient: 'dponppcollndb@gmail.com', sourceUrl: 'https://mahadma.maharashtra.gov.in/en/regional-offices-contact-information/page/5/?dma_tab=ulb&lang=en&rom_page=2' },
+  { id: 'DMA_DESK_6', title: 'DMA Desk 6', description: 'Escalate municipal local issues and complaints to the state directorate desk.', recipient: 'desk6.dma@maharashtra.gov.in', sourceUrl: 'https://mahadma.maharashtra.gov.in/en/desk-structure-2/' },
+];
 
 type Initiative = {
   initiativeId: string;
@@ -384,6 +436,7 @@ function savedReport(id: string, data: Record<string, unknown>): SavedReport {
     filingChannelId: data.filingChannelId ? String(data.filingChannelId) : undefined,
     overdueEligibility: data.overdueEligibility ? String(data.overdueEligibility) : undefined,
     routeSnapshot: data.routeSnapshot as RouteResult | undefined,
+    routeSnapshotHash: data.routeSnapshotHash ? String(data.routeSnapshotHash) : undefined,
   };
 }
 
@@ -429,6 +482,15 @@ function App() {
   const [pointsTotal, setPointsTotal] = useState(0);
   const [demoStep, setDemoStep] = useState(0);
   const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
+  const [followUpsByReport, setFollowUpsByReport] = useState<Record<string, FollowUpSummary>>({});
+  const [followUpStatus, setFollowUpStatus] = useState('');
+  const [followUpBusy, setFollowUpBusy] = useState(false);
+  const [selectedEscalationChannel, setSelectedEscalationChannel] = useState<EscalationChannelId | ''>('');
+  const [escalationLanguage, setEscalationLanguage] = useState<'MR' | 'EN'>(() => language === 'en' ? 'EN' : 'MR');
+  const [escalationLanguageManuallySelected, setEscalationLanguageManuallySelected] = useState(false);
+  const [escalationSubject, setEscalationSubject] = useState('');
+  const [escalationBody, setEscalationBody] = useState('');
+  const [escalationActionOpened, setEscalationActionOpened] = useState(false);
   const [reportsStatus, setReportsStatus] = useState('');
   const [selectedReport, setSelectedReport] = useState<SavedReport | null>(null);
   const [initiatives, setInitiatives] = useState<Initiative[]>([]);
@@ -468,9 +530,10 @@ function App() {
   const [initiativeFormStep, setInitiativeFormStep] = useState(1);
   const [initiativeHighestStep, setInitiativeHighestStep] = useState(1);
   const [filingEmail, setFilingEmail] = useState('');
+  const initialFilingActionReceipt = useRef(readFilingActionReceipt(window.sessionStorage)).current;
   const [filingActionStatus, setFilingActionStatus] = useState('');
-  const [selectedFilingMethod, setSelectedFilingMethod] = useState<FilingMethod | ''>('');
-  const [filingActionOpened, setFilingActionOpened] = useState(false);
+  const [selectedFilingMethod, setSelectedFilingMethod] = useState<FilingMethod | ''>(initialFilingActionReceipt?.method ?? '');
+  const [filingActionReceipt, setFilingActionReceipt] = useState(initialFilingActionReceipt);
   const [complainantName, setComplainantName] = useState('');
   const [complainantEmail, setComplainantEmail] = useState('');
   const [complainantPhone, setComplainantPhone] = useState('');
@@ -478,6 +541,7 @@ function App() {
   const [complainantCity, setComplainantCity] = useState('Nandurbar');
   const [complainantPincode, setComplainantPincode] = useState('425412');
   const [complainantState, setComplainantState] = useState('Maharashtra');
+  const filingContactRestoredReportId = useRef('');
   const [accountState, setAccountState] = useState<AccountIdentityState>('ANONYMOUS_SESSION');
   const [accountUid, setAccountUid] = useState<string | null>(null);
   const [accountName, setAccountName] = useState<string | null>(null);
@@ -511,6 +575,7 @@ function App() {
   const routeResultHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const filingPanelRef = useRef<HTMLDivElement | null>(null);
   const filingDrafts = useRef<Record<string, FilingDraftSnapshot>>({});
+  const escalationDrafts = useRef<Record<string, { subject: string; body: string }>>({});
   const activeFilingMethod = useRef<FilingMethod | ''>('');
   const filingDraftRequestSequence = useRef(0);
   const t = (source: string) => translate(language, source);
@@ -622,6 +687,37 @@ function App() {
   }, [accountState, accountUid]);
 
   useEffect(() => {
+    if (!draftDocumentId) {
+      filingContactRestoredReportId.current = '';
+      return;
+    }
+    if (filingContactRestoredReportId.current !== draftDocumentId) {
+      filingContactRestoredReportId.current = draftDocumentId;
+      const restored = readFilingContactDraft(window.sessionStorage, draftDocumentId);
+      if (restored) {
+        setComplainantName(restored.complainantName);
+        setComplainantEmail(restored.complainantEmail);
+        setComplainantPhone(restored.complainantPhone);
+        setComplainantAddress(restored.complainantAddress);
+        setComplainantCity(restored.complainantCity);
+        setComplainantPincode(restored.complainantPincode);
+        setComplainantState(restored.complainantState);
+        return;
+      }
+    }
+    writeFilingContactDraft(window.sessionStorage, {
+      reportId: draftDocumentId,
+      complainantName,
+      complainantEmail,
+      complainantPhone,
+      complainantAddress,
+      complainantCity,
+      complainantPincode,
+      complainantState,
+    });
+  }, [draftDocumentId, complainantName, complainantEmail, complainantPhone, complainantAddress, complainantCity, complainantPincode, complainantState]);
+
+  useEffect(() => {
     if (accountState !== 'GOOGLE_LINKED' || !accountName?.trim()) return;
     setInitiativePublicOrganiserName((currentName) => currentName.trim() ? currentName : accountName.trim());
   }, [accountState, accountName]);
@@ -650,7 +746,7 @@ function App() {
     setFilingEmail('');
     setFilingActionStatus('');
     setSelectedFilingMethod('');
-    setFilingActionOpened(false);
+    clearFilingActionReceipt();
     activeFilingMethod.current = '';
     filingDrafts.current = {};
     filingDraftRequestSequence.current += 1;
@@ -671,6 +767,7 @@ function App() {
   }
 
   function startOver() {
+    removeFilingContactDraft(window.sessionStorage);
     if (classificationTimer.current !== null) window.clearTimeout(classificationTimer.current);
     classificationTimer.current = null;
     classificationRequestSequence.current += 1;
@@ -1008,6 +1105,27 @@ function App() {
       }
     }
   }, [screen, locationKey, accountState]);
+
+  useEffect(() => {
+    const transition = automaticEscalationLanguageTransition(language, escalationLanguageManuallySelected, escalationLanguage);
+    if (!transition.shouldSwitch) return;
+    cacheEscalationDraft();
+    setEscalationLanguage(transition.nextLanguage);
+    setEscalationActionOpened(false);
+    if (!selectedEscalationChannel) return;
+    const cached = escalationDrafts.current[escalationDraftKey(selectedEscalationChannel, transition.nextLanguage)];
+    const draft = cached ?? buildEscalationDraft(selectedEscalationChannel, transition.nextLanguage);
+    setEscalationSubject(draft.subject);
+    setEscalationBody(draft.body);
+  }, [language, escalationLanguageManuallySelected]);
+
+  useEffect(() => {
+    setSelectedEscalationChannel('');
+    setEscalationSubject('');
+    setEscalationBody('');
+    setEscalationActionOpened(false);
+    setFollowUpStatus('');
+  }, [selectedReport?.id]);
 
   useEffect(() => {
     if (screen !== 'initiatives') return;
@@ -1701,7 +1819,46 @@ function App() {
   }
 
   function markFilingDraftEdited() {
-    setFilingActionOpened(false);
+    clearFilingActionReceipt();
+  }
+
+  function currentFilingDraftIdentity(method = selectedFilingMethod): FilingDraftIdentity | null {
+    if (!method) return null;
+    return {
+      ownerUid: accountUid ?? selectedReport?.ownerUid ?? '',
+      reportId: draftDocumentId ?? '',
+      method,
+      routeId: routeResult?.routeId ?? complaintDraft?.routeId ?? '',
+      packVersion: routeResult?.packVersion ?? complaintDraft?.packVersion ?? '',
+      language: draftLanguage,
+      subject: draftSubject,
+      body: draftBody,
+      filingEmail,
+      complainantName,
+      complainantEmail,
+      complainantPhone,
+      complainantAddress,
+      complainantCity,
+      complainantPincode,
+      complainantState,
+    };
+  }
+
+  function clearFilingActionReceipt() {
+    setFilingActionReceipt(null);
+    removeFilingActionReceipt(window.sessionStorage);
+  }
+
+  function recordFilingAction(method: FilingMethod) {
+    const identity = currentFilingDraftIdentity(method);
+    if (!identity) return;
+    const receipt = createFilingActionReceipt(identity);
+    setFilingActionReceipt(receipt);
+    writeFilingActionReceipt(window.sessionStorage, receipt);
+  }
+
+  function filingActionIsCurrent() {
+    return filingActionReceiptMatches(filingActionReceipt, currentFilingDraftIdentity());
   }
 
   function filingChannelForMethod(method: FilingMethod) {
@@ -1713,7 +1870,7 @@ function App() {
     cacheCurrentFilingDraft();
     activeFilingMethod.current = method;
     setSelectedFilingMethod(method);
-    setFilingActionOpened(false);
+    clearFilingActionReceipt();
     setFilingActionStatus('');
     setFilingChannelId(filingChannelForMethod(method)?.channelId ?? '');
     setDraftLanguage(languageToUse);
@@ -1873,7 +2030,7 @@ function App() {
       setFilingActionStatus('Could not open email app. Complaint text copied so you can paste it manually.');
       return;
     }
-    setFilingActionOpened(true);
+    recordFilingAction('EMAIL');
     setFilingActionStatus('Your email app was opened with an editable draft. Seewik did not send it.');
   }
 
@@ -1900,7 +2057,7 @@ function App() {
     cacheCurrentFilingDraft();
     window.open(channel.localizedValues?.[draftLanguage] ?? channel.value, '_blank', 'noopener,noreferrer');
     setFilingChannelId(channel.channelId);
-    setFilingActionOpened(true);
+    recordFilingAction('DMA');
     setFilingActionStatus('The official DMA form was opened. Copy the prepared fields into it and attach the photo manually if needed.');
   }
 
@@ -1911,7 +2068,7 @@ function App() {
     if (navigator.share) {
       try {
         await navigator.share({ title: draftSubject.trim(), text });
-        setFilingActionOpened(true);
+        recordFilingAction('PRINT');
         setFilingActionStatus('Your device share sheet was opened. Seewik did not submit the letter.');
         return;
       } catch (error) {
@@ -1919,7 +2076,7 @@ function App() {
       }
     }
     await navigator.clipboard.writeText(text);
-    setFilingActionOpened(true);
+    recordFilingAction('PRINT');
     setFilingActionStatus('The letter was copied because sharing is unavailable on this device.');
   }
 
@@ -1967,7 +2124,7 @@ function App() {
     letter.append(header, content, footer);
     printDocument.body.appendChild(letter);
     printDocument.close();
-    setFilingActionOpened(true);
+    recordFilingAction('PRINT');
     setFilingActionStatus('The print window was opened. Write your name and sign the printed letter before submitting it.');
     window.setTimeout(() => {
       printWindow.focus();
@@ -2083,8 +2240,8 @@ function App() {
   }
 
   async function fileReviewedReport(dedupeOverride = false, requireActionConfirmation = true) {
-    if (requireActionConfirmation && (!selectedFilingMethod || !filingActionOpened)) {
-      setLifecycleStatus('Open or print the prepared complaint before confirming submission.');
+    if (requireActionConfirmation && (!selectedFilingMethod || !filingActionIsCurrent())) {
+      setLifecycleStatus('Open, print or share the current prepared complaint before confirming submission.');
       return;
     }
     if (!draftSubject.trim() || !draftBody.trim()) {
@@ -2112,7 +2269,227 @@ function App() {
       .map((item) => savedReport(item.id, item.data()))
       .sort((left, right) => timestampMillis(right.updatedAt) - timestampMillis(left.updatedAt));
     setSavedReports(reports);
+    try {
+      const token = await user.getIdToken();
+      const eligible = reports.filter((report) => report.status !== 'DRAFT');
+      const summaries = await Promise.all(eligible.map(async (report) => {
+        const summary = await fetchFollowUpSummary(report.id, token);
+        return [report.id, summary] as const;
+      }));
+      setFollowUpsByReport(Object.fromEntries(summaries));
+    } catch {
+      setFollowUpsByReport({});
+    }
     setReportsStatus(reports.length ? `${reports.length} saved report${reports.length === 1 ? '' : 's'}` : 'No saved reports yet.');
+  }
+
+  async function fetchFollowUpSummary(reportId: string, token?: string) {
+    const idToken = token ?? await sessionToken(true);
+    const response = await fetch(`${API_URL}/api/reports/${encodeURIComponent(reportId)}/follow-ups`, {
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message ?? `Follow-up could not be loaded (${response.status})`);
+    return result as FollowUpSummary;
+  }
+
+  async function refreshFollowUp(reportId: string) {
+    const summary = await fetchFollowUpSummary(reportId);
+    setFollowUpsByReport((current) => ({ ...current, [reportId]: summary }));
+    return summary;
+  }
+
+  async function recordFollowUp(action: 'UNRESOLVED' | 'UNSURE' | 'ESCALATION_SENT', channelId?: EscalationChannelId) {
+    if (!selectedReport) return;
+    setFollowUpBusy(true);
+    setFollowUpStatus(action === 'ESCALATION_SENT' ? 'Recording your confirmation…' : 'Saving your answer…');
+    try {
+      const idToken = await sessionToken(true);
+      const response = await fetch(`${API_URL}/api/reports/${encodeURIComponent(selectedReport.id)}/follow-ups`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({
+          action,
+          idempotencyKey: crypto.randomUUID(),
+          channelId: action === 'ESCALATION_SENT' ? channelId : null,
+          language: action === 'ESCALATION_SENT' ? escalationLanguage : null,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message ?? `Follow-up could not be saved (${response.status})`);
+      setFollowUpsByReport((current) => ({ ...current, [selectedReport.id]: result.summary as FollowUpSummary }));
+      setFollowUpStatus(action === 'UNSURE'
+        ? 'We will ask again in 3 days.'
+        : action === 'UNRESOLVED'
+          ? 'Your answer was saved. Escalation options are ready.'
+          : 'Your sent confirmation was recorded. No points were awarded.');
+    } catch (error) {
+      setFollowUpStatus(citizenSafeError(error, 'The follow-up could not be saved.'));
+    } finally {
+      setFollowUpBusy(false);
+    }
+  }
+
+  function currentFollowUp() {
+    return selectedReport ? followUpsByReport[selectedReport.id] ?? null : null;
+  }
+
+  function escalationRouteIsCurrent(summary = currentFollowUp()) {
+    return Boolean(selectedReport && summary
+      && summary.routeId && summary.routeId === selectedReport.routeId
+      && summary.packVersion && summary.packVersion === selectedReport.packVersion
+      && summary.routeSnapshotHash && summary.routeSnapshotHash === selectedReport.routeSnapshotHash);
+  }
+
+  function escalationRecipient(channelId: EscalationChannelId) {
+    if (channelId !== 'NMC_FOLLOW_UP') return ESCALATION_CHANNELS.find((item) => item.id === channelId)?.recipient ?? '';
+    return selectedReport?.routeSnapshot?.officialChannels?.find((channel) => channel.type === 'EMAIL')?.value || 'conandurbarnmc@gmail.com';
+  }
+
+  function escalationDraftKey(channelId: EscalationChannelId, languageToUse: 'MR' | 'EN') {
+    const summary = currentFollowUp();
+    return [selectedReport?.id, summary?.cycleNumber, channelId, languageToUse, summary?.routeSnapshotHash].join('|');
+  }
+
+  function cacheEscalationDraft() {
+    if (!selectedEscalationChannel || !escalationSubject.trim() || !escalationBody.trim()) return;
+    escalationDrafts.current[escalationDraftKey(selectedEscalationChannel, escalationLanguage)] = {
+      subject: escalationSubject,
+      body: escalationBody,
+    };
+  }
+
+  function buildEscalationDraft(channelId: EscalationChannelId, languageToUse: 'MR' | 'EN') {
+    if (!selectedReport) return { subject: '', body: '' };
+    const summary = currentFollowUp();
+    const marathi = languageToUse === 'MR';
+    const issue = issueLabel(selectedReport.confirmedIssueType, marathi ? 'mr' : 'en');
+    const filed = timestampMillis(selectedReport.filedAt)
+      ? new Intl.DateTimeFormat(marathi ? 'mr-IN' : 'en-IN', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(timestampMillis(selectedReport.filedAt)))
+      : '';
+    const recipientTitle = channelId === 'NMC_FOLLOW_UP'
+      ? (marathi ? 'नंदुरबार नगर परिषद' : 'Nandurbar Nagar Palika')
+      : channelId === 'DISTRICT_JOINT_COMMISSIONER'
+        ? (marathi ? 'जिल्हा सह आयुक्त कार्यालय, नंदुरबार' : 'District Joint Commissioner Office, Nandurbar')
+        : (marathi ? 'नगर परिषद स्थानिक समस्या व तक्रारी कक्ष क्रमांक ६' : 'DMA Desk 6 - Municipal Council Local Issues and Complaints');
+    const recurrence = summary?.recurrence
+      ? (marathi ? 'ही समस्या यापूर्वी पडताळलेल्या निराकरणानंतर पुन्हा उद्भवली आहे.' : 'This issue recurred after a previously verified resolution.')
+      : '';
+    const acknowledgement = selectedReport.acknowledgementId
+      ? (marathi ? `पोच क्रमांक: ${selectedReport.acknowledgementId}` : `Acknowledgement: ${selectedReport.acknowledgementId}`)
+      : '';
+    const originalSummary = selectedReport.draftBody.trim().slice(0, 700);
+    if (marathi) {
+      return {
+        subject: `पाठपुरावा: ${issue} - ${selectedReport.prabhagId}`,
+        body: [
+          'आदरणीय महोदय/महोदया,',
+          '',
+          `मी ${complainantName.trim() || 'नागरिक'} असून ${issue} या न सुटलेल्या नागरी समस्येबाबत ${recipientTitle} यांच्याकडे पाठपुरावा करत आहे.`,
+          '',
+          `समस्येचा प्रकार: ${issue}`,
+          `स्थान / प्रभाग: ${selectedReport.prabhagId}`,
+          filed ? `मूळ तक्रार दाखल केल्याची तारीख: ${filed}` : '',
+          acknowledgement,
+          recurrence,
+          '',
+          'मूळ तक्रारीचा संक्षिप्त मजकूर:',
+          originalSummary,
+          '',
+          channelId === 'NMC_FOLLOW_UP'
+            ? 'कृपया या तक्रारीची सद्यस्थिती कळवून आवश्यक कार्यवाही करावी.'
+            : 'ही तक्रार नगर परिषदेकडे नोंदवल्यानंतरही समस्या सुटलेली नाही. कृपया प्रकरणाची तपासणी करून योग्य कार्यवाही करावी.',
+          '',
+          'धन्यवाद.',
+          complainantName.trim(),
+          complainantEmail.trim(),
+          complainantPhone.trim(),
+        ].filter(Boolean).join('\n'),
+      };
+    }
+    return {
+      subject: `Follow-up: ${issue} - ${selectedReport.prabhagId}`,
+      body: [
+        'Dear Sir/Madam,',
+        '',
+        `I am ${complainantName.trim() || 'a resident'} and I am following up with ${recipientTitle} regarding an unresolved civic issue involving ${issue}.`,
+        '',
+        `Issue category: ${issue}`,
+        `Location / Prabhag: ${selectedReport.prabhagId}`,
+        filed ? `Original filing date: ${filed}` : '',
+        acknowledgement,
+        recurrence,
+        '',
+        'Original complaint summary:',
+        originalSummary,
+        '',
+        channelId === 'NMC_FOLLOW_UP'
+          ? 'Please provide the current status of this complaint and arrange the necessary action.'
+          : 'The issue remains unresolved after it was reported to Nandurbar Nagar Palika. Please review the matter and arrange the appropriate action.',
+        '',
+        'Thank you.',
+        complainantName.trim(),
+        complainantEmail.trim(),
+        complainantPhone.trim(),
+      ].filter(Boolean).join('\n'),
+    };
+  }
+
+  function selectEscalationChannel(channelId: EscalationChannelId, languageToUse = escalationLanguage) {
+    cacheEscalationDraft();
+    setSelectedEscalationChannel(channelId);
+    setEscalationActionOpened(false);
+    if (!escalationRouteIsCurrent()) {
+      setEscalationSubject('');
+      setEscalationBody('');
+      setFollowUpStatus('The verified route changed. Refresh this report before preparing an escalation.');
+      return;
+    }
+    const cached = escalationDrafts.current[escalationDraftKey(channelId, languageToUse)];
+    const draft = cached ?? buildEscalationDraft(channelId, languageToUse);
+    setEscalationSubject(draft.subject);
+    setEscalationBody(draft.body);
+    setFollowUpStatus('');
+    window.setTimeout(() => document.getElementById('escalation-preparation')?.focus(), 0);
+  }
+
+  function changeEscalationLanguage(languageToUse: 'MR' | 'EN') {
+    cacheEscalationDraft();
+    setEscalationLanguage(languageToUse);
+    setEscalationLanguageManuallySelected(true);
+    setEscalationActionOpened(false);
+    if (!selectedEscalationChannel) return;
+    const cached = escalationDrafts.current[escalationDraftKey(selectedEscalationChannel, languageToUse)];
+    const draft = cached ?? buildEscalationDraft(selectedEscalationChannel, languageToUse);
+    setEscalationSubject(draft.subject);
+    setEscalationBody(draft.body);
+  }
+
+  async function copyEscalationEmail() {
+    if (!selectedEscalationChannel || !escalationRouteIsCurrent()) {
+      setFollowUpStatus('This escalation draft is stale. Refresh the report before using it.');
+      return;
+    }
+    await navigator.clipboard.writeText(`To: ${escalationRecipient(selectedEscalationChannel)}\nSubject: ${escalationSubject.trim()}\n\n${escalationBody.trim()}`);
+    setEscalationActionOpened(true);
+    setFollowUpStatus('The editable email was copied. Seewik has not sent it.');
+  }
+
+  async function openEscalationEmail() {
+    if (!selectedEscalationChannel || !escalationRouteIsCurrent()) {
+      setFollowUpStatus('This escalation draft is stale. Refresh the report before using it.');
+      return;
+    }
+    const recipient = escalationRecipient(selectedEscalationChannel);
+    const mailto = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(escalationSubject.trim())}&body=${encodeURIComponent(escalationBody.trim())}`;
+    if (mailto.length > 1900) {
+      await copyEscalationEmail();
+      setFollowUpStatus('The draft was copied because it is too long for a reliable email link. Paste it into your email app.');
+      return;
+    }
+    setEscalationActionOpened(true);
+    window.location.href = mailto;
+    setFollowUpStatus('Your email app was opened. Seewik has not sent the message.');
   }
 
   async function loadTimeline(report: SavedReport) {
@@ -2322,11 +2699,16 @@ function App() {
       acknowledgementId: isFiling ? acknowledgementId.trim() || undefined : report.acknowledgementId,
       filingChannelId: isFiling ? filingChannelId || undefined : report.filingChannelId,
       routeSnapshot: isFiling && routeResult ? routeResult : report.routeSnapshot,
+      routeSnapshotHash: routeSnapshotHashAfterTransition(isFiling, result.routeSnapshotHash, report.routeSnapshotHash),
       overdueEligibility: isFiling ? 'OVERDUE_UNKNOWN' : report.overdueEligibility,
     } : report);
-    setSavedReports((reports) => reports.map((report) => report.id === draftDocumentId ? { ...report, status: result.toStatus, updatedAt, acknowledgementId: isFiling ? acknowledgementId.trim() || undefined : report.acknowledgementId, filingChannelId: isFiling ? filingChannelId || undefined : report.filingChannelId, routeSnapshot: isFiling && routeResult ? routeResult : report.routeSnapshot, overdueEligibility: isFiling ? 'OVERDUE_UNKNOWN' : report.overdueEligibility } : report));
+    setSavedReports((reports) => reports.map((report) => report.id === draftDocumentId ? { ...report, status: result.toStatus, updatedAt, acknowledgementId: isFiling ? acknowledgementId.trim() || undefined : report.acknowledgementId, filingChannelId: isFiling ? filingChannelId || undefined : report.filingChannelId, routeSnapshot: isFiling && routeResult ? routeResult : report.routeSnapshot, routeSnapshotHash: routeSnapshotHashAfterTransition(isFiling, result.routeSnapshotHash, report.routeSnapshotHash), overdueEligibility: isFiling ? 'OVERDUE_UNKNOWN' : report.overdueEligibility } : report));
     await refreshDerivedPoints();
-    if (result.toStatus === 'FILED') navigate('report-detail', false, draftDocumentId);
+    if (result.toStatus === 'FILED') {
+      removeFilingContactDraft(window.sessionStorage);
+      clearFilingActionReceipt();
+      navigate('report-detail', false, draftDocumentId);
+    }
   }
 
   const myInitiativesSection = <section id="my-initiatives" className="actions-subsection initiative-memberships">
@@ -2438,7 +2820,10 @@ function App() {
       : selectedFilingMethod === 'DMA'
         ? t('Directorate of Municipal Administration')
         : '';
-  const canConfirmFilings = Boolean(selectedFilingMethod && complaintDraft?.status === 'DRAFT_READY' && draftDocumentId && draftSubject.trim() && draftBody.trim() && filingActionOpened);
+  const canConfirmFilings = Boolean(selectedFilingMethod && complaintDraft?.status === 'DRAFT_READY' && draftDocumentId && draftSubject.trim() && draftBody.trim() && filingActionIsCurrent());
+  const activeFollowUp = selectedReport ? followUpsByReport[selectedReport.id] ?? null : null;
+  const activeEscalationRoute = ESCALATION_CHANNELS.find((item) => item.id === selectedEscalationChannel);
+  const followUpLifecycleActive = ['FILED', 'OVERDUE', 'REOPENED'].includes(reportStatus);
 
   return <>
     <a className="skip-link" href="#main-content">{t('Skip to main content')}</a>
@@ -2847,7 +3232,7 @@ function App() {
               <div className="lifecycle-heading filing-confirmation-heading"><div><small>{t('Did you submit this report?')}</small><strong>{t('Confirm real-world action')}</strong></div></div>
               <div className="filing-method-actions filing-confirmation-actions">
                 <button onClick={() => requestLinkedMutation(() => fileReviewedReport(false).catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))} disabled={!canConfirmFilings}>{t('I filed this report')}</button>
-                <button className="secondary" onClick={() => { setFilingActionOpened(false); setLifecycleStatus('Continue filing and confirm once submitted.'); }}>{t('I have not filed it yet')}</button>
+                <button className="secondary" onClick={() => { clearFilingActionReceipt(); setLifecycleStatus('Continue filing and confirm once submitted.'); }}>{t('I have not filed it yet')}</button>
               </div>
               {!currentCoordinates && <small className="filing-dedupe-note">{t('Dedupe is not evaluated when location is unavailable.')}</small>}
               <div className="filing-confirmation-fields">
@@ -2916,7 +3301,7 @@ function App() {
           {reportsView === 'HAS_REPORTS' && <div className="reports-toolbar"><span role="status" aria-live="polite">{runtimeMessage(reportsStatus)}</span></div>}
           {reportsView === 'LINKED_EMPTY' && <div className="empty-state"><b>{t('Signed in. No saved reports yet.')}</b><p>{t('Create a report to keep a draft only you can see.')}</p><button onClick={() => navigate('new-report')}>{t('Create a report')}</button></div>}
           {reportsView === 'ANONYMOUS_EMPTY' && <div className="empty-state"><b>{t('No reports are saved for this device-only account.')}</b><p>{t('Create a report to keep a draft only you can see.')}</p><button onClick={() => navigate('new-report')}>{t('Create a report')}</button></div>}
-          {reportsView === 'HAS_REPORTS' && <div className="report-list">{savedReports.map((report) => <article className="report-list-item" key={report.id}><div><span className={`status-chip status-${report.status.toLowerCase()}`}>{localizedStatus(language, report.status)}</span><h3>{issueLabel(report.confirmedIssueType, language)}</h3><p>{report.prabhagId} · {t('Updated')} {timestampLabel(report.updatedAt, language)}</p><small>{report.id.slice(0, 12)}…</small></div>{canResumeReport(report.status) ? <button onClick={() => resumeSavedReport(report).catch((error) => setReportsStatus(citizenSafeError(error, 'The draft could not be resumed.')))}>{t('Resume draft')}</button> : <button onClick={() => openSavedReport(report).catch((error) => setReportsStatus(citizenSafeError(error, 'The report could not be loaded.')))}>{t('View report')}</button>}</article>)}</div>}
+          {reportsView === 'HAS_REPORTS' && <div className="report-list">{savedReports.map((report) => { const followUp = followUpsByReport[report.id]; return <article className="report-list-item" key={report.id}><div><span className={`status-chip status-${report.status.toLowerCase()}`}>{localizedStatus(language, report.status)}</span>{followUp?.promptDue && <span className="follow-up-chip">{t('Follow-up due')}</span>}{followUp?.escalationAvailable && <span className="follow-up-chip escalation-ready">{t('Escalation ready')}</span>}<h3>{issueLabel(report.confirmedIssueType, language)}</h3><p>{report.prabhagId} · {t('Updated')} {timestampLabel(report.updatedAt, language)}</p><small>{report.id.slice(0, 12)}…</small></div>{canResumeReport(report.status) ? <button onClick={() => resumeSavedReport(report).catch((error) => setReportsStatus(citizenSafeError(error, 'The draft could not be resumed.')))}>{t('Resume draft')}</button> : <button onClick={() => openSavedReport(report).catch((error) => setReportsStatus(citizenSafeError(error, 'The report could not be loaded.')))}>{t('View report')}</button>}</article>; })}</div>}
         </section>
         {myInitiativesSection}
       </>}
@@ -2930,11 +3315,47 @@ function App() {
         {selectedReport.routeSnapshot?.department && <div className="locked-recipient"><small>{t('Frozen route department')}</small><strong>{selectedReport.routeSnapshot.department.displayName}</strong><span>{selectedReport.routeSnapshot.department.status} · {selectedReport.routeSnapshot.sourceStatus} · {selectedReport.routeSnapshot.reviewStatus}</span></div>}
         {(selectedReport.routeSnapshot?.knownLimitations?.length ?? 0) > 0 && <div className="route-limitations"><b>{t('Please keep in mind')}</b><ul>{selectedReport.routeSnapshot?.knownLimitations?.map((limitation) => <li key={limitation.code}>{limitation.citizenMessage}</li>)}</ul></div>}
         <div className="points-summary"><span>{t('Derived points for this profile')}</span><b>{pointsTotal}</b></div>
+        {followUpLifecycleActive && !activeFollowUp && <button className="secondary" onClick={() => refreshFollowUp(selectedReport.id).catch((error) => setFollowUpStatus(citizenSafeError(error, 'The follow-up could not be loaded.')))}>{t('Check follow-up')}</button>}
+        {followUpLifecycleActive && activeFollowUp?.promptDue && <section className="follow-up-panel" aria-labelledby="follow-up-heading">
+          <span className="eyebrow">{t('SEVEN-DAY FOLLOW-UP')}</span>
+          <h3 id="follow-up-heading">{t('Was this issue resolved?')}</h3>
+          <p>{activeFollowUp.recurrence ? t('This follow-up belongs to a recurrence after a previously verified resolution.') : t('Your report has reached its follow-up date. Tell us what happened.')}</p>
+          <div className="follow-up-actions">
+            <button disabled={followUpBusy} onClick={() => requestLinkedMutation(() => transitionReport('CLAIMED_FIXED').catch((error) => setFollowUpStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Yes, it was resolved')}</button>
+            <button disabled={followUpBusy} className="secondary" onClick={() => requestLinkedMutation(() => recordFollowUp('UNRESOLVED'))}>{t('No, it is still unresolved')}</button>
+            <button disabled={followUpBusy} className="secondary" onClick={() => requestLinkedMutation(() => recordFollowUp('UNSURE'))}>{t("I'm not sure yet")}</button>
+          </div>
+          <small>{t('Follow-up timing is calculated from server records. No points are awarded for an answer or escalation.')}</small>
+        </section>}
+        {followUpLifecycleActive && activeFollowUp?.state === 'SNOOZED' && <div className="follow-up-reminder"><b>{t('We will ask again')}</b><span>{activeFollowUp.nextPromptAt ? timestampLabel(activeFollowUp.nextPromptAt, language) : t('In 3 days')}</span></div>}
+        {followUpLifecycleActive && activeFollowUp?.escalationAvailable && <section className="escalation-section" aria-labelledby="escalation-heading">
+          <span className="eyebrow">{t('OFFICIAL ESCALATION ROUTES')}</span>
+          <h3 id="escalation-heading">{t('Choose the next follow-up route')}</h3>
+          <p>{t('The order below is recommended, not mandatory. Seewik prepares an editable email and never sends it automatically.')}</p>
+          {activeFollowUp.recurrence && <div className="recurrence-note">{t('This issue recurred after a previously verified resolution. That supported fact will be included in the draft; the internal cycle number will not.')}</div>}
+          <div className="escalation-route-grid">
+            {ESCALATION_CHANNELS.map((route) => <button type="button" key={route.id} className={selectedEscalationChannel === route.id ? 'selected' : ''} aria-pressed={selectedEscalationChannel === route.id} onClick={() => selectEscalationChannel(route.id)}><strong>{t(route.title)}</strong><small>{t(route.description)}</small></button>)}
+          </div>
+          {selectedEscalationChannel && activeEscalationRoute && <div className="escalation-preparation" id="escalation-preparation" tabIndex={-1}>
+            <div className="escalation-preparation-heading"><div><small>{t('Preparing for')}</small><strong>{t(activeEscalationRoute.title)}</strong></div>{activeEscalationRoute.sourceUrl && <a href={activeEscalationRoute.sourceUrl} target="_blank" rel="noreferrer">{t('Official source')} ↗</a>}</div>
+            {!escalationRouteIsCurrent(activeFollowUp) ? <div className="status-panel state-warning">{t('The verified route changed. Refresh this report before preparing an escalation.')}</div> : <>
+              <div className="locked-recipient"><small>{t('Verified recipient')}</small><strong>{escalationRecipient(selectedEscalationChannel)}</strong><span>{t('This address cannot be edited inside Seewik.')}</span></div>
+              <label>{t('Escalation language')}<select value={escalationLanguage} onChange={(event) => changeEscalationLanguage(event.target.value as 'MR' | 'EN')}><option value="EN">English</option><option value="MR">मराठी</option></select><small>{t('Hindi interface defaults to a Marathi government draft. You may switch it to English.')}</small></label>
+              <label>{t('Email subject')}<input value={escalationSubject} maxLength={160} onChange={(event) => { setEscalationSubject(event.target.value); setEscalationActionOpened(false); }} /></label>
+              <label>{t('Email message')}<textarea rows={14} value={escalationBody} maxLength={3500} onChange={(event) => { setEscalationBody(event.target.value); setEscalationActionOpened(false); }} /></label>
+              <div className="evidence-reminder"><b>{t('Before sending')}</b><span>{t('Attach your original complaint, acknowledgement and relevant photo manually. Email links cannot attach files for you.')}</span></div>
+              <div className="escalation-actions"><button className="secondary" onClick={() => void copyEscalationEmail()}>{t('Copy email')}</button><button onClick={() => void openEscalationEmail()}>{t('Open email app')}</button></div>
+              <div className="sent-confirmation"><b>{t('Did you send this follow-up?')}</b><p>{t('Opening or copying the draft does not mean it was sent.')}</p><button disabled={!escalationActionOpened || followUpBusy} onClick={() => requestLinkedMutation(() => recordFollowUp('ESCALATION_SENT', selectedEscalationChannel))}>{t('I sent this follow-up')}</button></div>
+            </>}
+          </div>}
+          <button className="secondary resolved-later" onClick={() => requestLinkedMutation(() => transitionReport('CLAIMED_FIXED').catch((error) => setFollowUpStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('It has now been resolved')}</button>
+        </section>}
         {reportStatus === 'DRAFT' && <button onClick={() => resumeSavedReport(selectedReport).catch((error) => setReportsStatus(citizenSafeError(error, 'The draft could not be resumed.')))}>{t('Resume draft')}</button>}
-        {['FILED', 'OVERDUE', 'REOPENED'].includes(reportStatus) && <><div className="overdue-unknown"><b>{t('Overdue: unknown')}</b><span>{t('No verified SLA exists, so Seewik will not invent a due date.')}</span></div><button onClick={() => requestLinkedMutation(() => transitionReport('CLAIMED_FIXED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Record a repair claim')}</button></>}
+        {['FILED', 'OVERDUE', 'REOPENED'].includes(reportStatus) && <><div className="overdue-unknown"><b>{t('Overdue: unknown')}</b><span>{t('No verified SLA exists, so Seewik will not invent a due date.')}</span></div>{!activeFollowUp?.promptDue && !activeFollowUp?.escalationAvailable && <button onClick={() => requestLinkedMutation(() => transitionReport('CLAIMED_FIXED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Record a repair claim')}</button>}</>}
         {reportStatus === 'CLAIMED_FIXED' && <div className="lifecycle-actions"><button onClick={() => requestLinkedMutation(() => transitionReport('VERIFIED_FIXED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Verify fixed')}</button><button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Reject repair claim')}</button></div>}
         {reportStatus === 'VERIFIED_FIXED' && <button className="secondary" onClick={() => requestLinkedMutation(() => transitionReport('REOPENED').catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))}>{t('Report recurrence')}</button>}
         {lifecycleStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(lifecycleStatus)}</div>}
+        {followUpStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{t(followUpStatus)}</div>}
         <ol className="timeline">{timeline.map((item, index) => <li key={`${item.occurredAt}-${index}`}><span>{index + 1}</span><div><b>{localizedStatus(language, item.toStatus)}</b><small>{item.eventType} · {item.verificationBasis}{item.pointsAwarded ? ` · +${item.pointsAwarded}` : ''}</small></div></li>)}</ol>
       </>}
     </section>}

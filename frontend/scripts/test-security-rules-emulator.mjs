@@ -102,6 +102,20 @@ test('Firestore rejects direct writes to backend-owned civic records', async () 
     doc(database, 'initiatives', `initiative-${randomUUID()}`, 'events', `event-${randomUUID()}`),
     { eventType: 'INITIATIVE_ATTENDANCE_ORGANISER_CODE_ATTESTED' },
   ));
+
+  const reportId = `follow-up-report-${randomUUID()}`;
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'reports', reportId), validDraft(uid));
+    await setDoc(doc(context.firestore(), 'reports', reportId, 'followUpEvents', 'server-event'), {
+      action: 'UNRESOLVED', ownerUid: uid, schemaVersion: 'report-follow-up-v0.1',
+    });
+  });
+  await assertSucceeds(getDoc(doc(database, 'reports', reportId, 'followUpEvents', 'server-event')));
+  await assertFails(setDoc(doc(database, 'reports', reportId, 'followUpEvents', 'forged-event'), {
+    action: 'ESCALATION_SENT', ownerUid: uid, channelId: 'DMA_DESK_6',
+  }));
+  const outsider = testEnvironment.authenticatedContext(`outsider-${randomUUID()}`, googleClaims).firestore();
+  await assertFails(getDoc(doc(outsider, 'reports', reportId, 'followUpEvents', 'server-event')));
 });
 
 test('Storage permits a small owner object but blocks anonymous, cross-owner and oversized writes', async () => {
