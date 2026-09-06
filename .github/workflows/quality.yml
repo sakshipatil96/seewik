@@ -34,7 +34,7 @@ jobs:
         working-directory: data/prabhags
         run: shasum -a 256 -c official-map-digitized-boundaries-v0.2.sha256
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
