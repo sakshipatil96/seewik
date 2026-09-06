@@ -27,6 +27,37 @@
 .google-attribution { justify-self: end; width: 120px; height: auto; margin: 8px 10px; }
 .google-place-selection { display: grid; gap: 3px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-teal-soft); color: var(--color-teal-ink); }
 .google-place-selection span { font-size: .68rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.report-location-search { margin-bottom: var(--space-4); padding: var(--space-3); }
+.report-location-search h4 { font-size: .82rem; }
+.report-location-search .google-place-selection { display: none; }
+.report-flow-card .report-location-search .google-place-search-control input {
+  border-color: var(--color-line-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+  outline: none;
+  box-shadow: none;
+}
+.report-flow-card .report-location-search .google-place-search-control input:focus {
+  border-color: #6ea8e5;
+  box-shadow: 0 0 0 3px rgba(110, 168, 229, .2);
+}
+.report-flow-card .report-location-search .google-place-suggestions {
+  border-color: var(--color-line-strong);
+  background: var(--color-surface);
+}
+.report-flow-card .report-location-search .google-place-suggestions button {
+  border-color: var(--color-line) !important;
+  background: var(--color-surface) !important;
+  color: var(--color-text) !important;
+  box-shadow: none !important;
+}
+.report-flow-card .report-location-search .google-place-suggestions button:hover,
+.report-flow-card .report-location-search .google-place-suggestions button:focus-visible,
+.report-flow-card .report-location-search .google-place-suggestions button.active {
+  border-color: #6ea8e5 !important;
+  background: var(--color-surface-2) !important;
+  color: var(--color-text) !important;
+}
 .google-place-selection b { font-size: .78rem; line-height: 1.4; overflow-wrap: anywhere; }
 .google-place-search-error { padding: 10px 12px; border-radius: var(--radius-sm); background: var(--color-warning-soft); color: var(--color-warning-ink) !important; }
 .google-place-search-divider { display: flex; align-items: center; gap: var(--space-3); color: var(--color-muted); font-size: .67rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }

@@ -20,9 +20,9 @@ test('boundary guide renders immediately and preserves manual and error fallback
 });
 
 test('local SVG guide exposes locked provenance and accessible outline controls', () => {
-  assert.match(mapSource, /official-map-digitized-boundaries-v0\.1\.geojson\?raw/);
-  assert.match(mapSource, /approximate boundaries digitized from an official map image/);
-  assert.match(mapSource, /REVIEW_PENDING_GEOREFERENCE/);
+  assert.match(mapSource, /prabhagBoundaryCollection as collection/);
+  assert.match(mapSource, /Approximate boundaries traced from a municipal-office wall-map photograph/);
+  assert.match(mapSource, /Every suggestion requires your confirmation/);
   assert.match(mapSource, /role="button"/);
   assert.match(mapSource, /tabIndex=\{0\}/);
   assert.match(mapSource, /event\.key !== 'Enter' && event\.key !== ' '/);

@@ -45,6 +45,14 @@ export type GooglePlacesLibrary = {
   };
 };
 
+type GoogleGeocodingLibrary = {
+  Geocoder: new () => {
+    geocode: (request: { location: { lat: number; lng: number } }) => Promise<{
+      results: Array<{ formatted_address?: string }>;
+    }>;
+  };
+};
+
 const CALLBACK_NAME = '__seewikGoogleMapsReady';
 const SCRIPT_ID = 'seewik-google-maps-script';
 let mapsPromise: Promise<GoogleMapsRoot> | null = null;
@@ -100,4 +108,11 @@ export async function loadGooglePlaces(): Promise<GooglePlacesLibrary> {
 
 export async function loadGoogleMaps(): Promise<GoogleMapsRoot> {
   return await loadMapsRoot();
+}
+
+export async function reverseGeocodeGoogleLocation(latitude: number, longitude: number) {
+  const maps = await loadMapsRoot();
+  const geocoding = await maps.importLibrary('geocoding') as GoogleGeocodingLibrary;
+  const response = await new geocoding.Geocoder().geocode({ location: { lat: latitude, lng: longitude } });
+  return response.results[0]?.formatted_address?.trim() ?? '';
 }

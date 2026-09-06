@@ -30,6 +30,9 @@ import { TemplatePicker } from './TemplatePicker';
 import { extractPhotoCoordinates } from './photoLocation';
 import InitiativeMeetingPointPicker, { type MeetingPointPosition } from './InitiativeMeetingPointPicker';
 import PrabhagBoundaryMap from './PrabhagBoundaryMap';
+import GoogleMeetingPointSearch, { type GoogleMeetingPointSelection } from './GoogleMeetingPointSearch';
+import { reverseGeocodeGoogleLocation } from './googleMapsPlaces';
+import { PRABHAG_BOUNDS } from './prabhagBoundaryData';
 import {
   claimReward,
   fetchCurrentRecognition,
@@ -454,7 +457,7 @@ function App() {
   const [selectionMethod, setSelectionMethod] = useState('SELF_REPORTED');
   const [citizenConfirmed, setCitizenConfirmed] = useState(false);
   const [manualPrabhagSelected, setManualPrabhagSelected] = useState(false);
-  const [reportLocationSource, setReportLocationSource] = useState<'PHOTO' | 'DEVICE' | 'MANUAL' | ''>('');
+  const [reportLocationSource, setReportLocationSource] = useState<'PHOTO' | 'DEVICE' | 'GOOGLE' | 'MANUAL' | ''>('');
   const [boundaryDatasetVersion, setBoundaryDatasetVersion] = useState<string | undefined>();
   const [evidenceText, setEvidenceText] = useState('');
   const [evidenceImage, setEvidenceImage] = useState<File | null>(null);
@@ -605,9 +608,11 @@ function App() {
     ? t('Suggested from photo location')
     : reportLocationSource === 'DEVICE'
       ? t('Suggested from current location')
-      : reportLocationSource === 'MANUAL'
-        ? t('Selected manually')
-        : '';
+      : reportLocationSource === 'GOOGLE'
+        ? t('Selected from Google location')
+        : reportLocationSource === 'MANUAL'
+          ? t('Selected manually')
+          : '';
   const reportsView = reportsViewState(accountState, savedReports.length, reportsStatus.startsWith('Loading'));
   const initiativeCategoryLabel = (category: string) => ({
     PLANTATION: t('Plantation'),
@@ -827,6 +832,7 @@ function App() {
   }
 
   function clearAccountBoundState() {
+    removeFilingContactDraft(window.sessionStorage);
     setSavedReports([]);
     setSelectedReport(null);
     setReportsStatus('');
@@ -1466,7 +1472,7 @@ function App() {
     if (!background) setInitiativeStatus('The organiser code is active. It rotates every 10 minutes.');
   }
 
-  async function resolveCoordinates(latitude: number, longitude: number, source: 'PHOTO' | 'DEVICE', requestSequence = ++reportLocationRequestSequence.current) {
+  async function resolveCoordinates(latitude: number, longitude: number, source: 'PHOTO' | 'DEVICE' | 'GOOGLE', requestSequence = ++reportLocationRequestSequence.current, address = '') {
     const response = await fetch(`${API_URL}/api/civic/resolve-prabhag`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1475,6 +1481,7 @@ function App() {
     if (!response.ok) throw new Error(`Location request failed (${response.status})`);
     const result: PrabhagResolution = await response.json();
     if (requestSequence !== reportLocationRequestSequence.current) return null;
+    if (address.trim()) setLocationDetails(address.trim());
     setResolution(result);
     if (result.status === 'CANDIDATE_PRABHAG' && result.prabhagId && result.datasetVersion) {
       setPrabhagId(result.prabhagId);
@@ -1491,9 +1498,9 @@ function App() {
       setSelectionMethod('SELF_REPORTED');
       setCitizenConfirmed(false);
       setManualPrabhagSelected(false);
-      setReportLocationSource('');
+      setReportLocationSource(source);
       setBoundaryDatasetVersion(undefined);
-      setCurrentCoordinates(null);
+      setCurrentCoordinates({ latitude, longitude });
       setRouteResult(null);
       resetDraft();
     }
@@ -1506,7 +1513,10 @@ function App() {
     const requestSequence = ++reportLocationRequestSequence.current;
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        void resolveCoordinates(position.coords.latitude, position.coords.longitude, 'DEVICE', requestSequence).catch(() => undefined);
+        void reverseGeocodeGoogleLocation(position.coords.latitude, position.coords.longitude)
+          .catch(() => '')
+          .then((address) => resolveCoordinates(position.coords.latitude, position.coords.longitude, 'DEVICE', requestSequence, address))
+          .catch(() => undefined);
       },
       () => undefined,
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
@@ -1518,7 +1528,9 @@ function App() {
     const coordinates = await extractPhotoCoordinates(file).catch(() => null);
     if (extractionSequence !== reportLocationRequestSequence.current) return;
     if (coordinates) {
-      const result = await resolveCoordinates(coordinates.latitude, coordinates.longitude, 'PHOTO', extractionSequence).catch(() => null);
+      const address = await reverseGeocodeGoogleLocation(coordinates.latitude, coordinates.longitude).catch(() => '');
+      if (extractionSequence !== reportLocationRequestSequence.current) return;
+      const result = await resolveCoordinates(coordinates.latitude, coordinates.longitude, 'PHOTO', extractionSequence, address).catch(() => null);
       if (result?.status === 'CANDIDATE_PRABHAG') return;
     }
     requestDeviceReportLocation();
@@ -1532,12 +1544,39 @@ function App() {
     setSelectionMethod('SELF_REPORTED');
     setCitizenConfirmed(false);
     setManualPrabhagSelected(true);
-    setReportLocationSource('MANUAL');
+    if (!currentCoordinates) setReportLocationSource('MANUAL');
     setBoundaryDatasetVersion(undefined);
     setResolution(null);
-    setCurrentCoordinates(null);
     setRouteResult(null);
     resetDraft();
+  }
+
+  function editReportLocationAddress(value: string) {
+    setLocationDetails(value);
+    setCitizenConfirmed(false);
+    setRouteResult(null);
+    resetDraft();
+  }
+
+  function selectGoogleReportLocation(selection: GoogleMeetingPointSelection) {
+    const requestSequence = ++reportLocationRequestSequence.current;
+    reportDeviceLocationAttempted.current = true;
+    setLocationDetails(selection.address || selection.label);
+    setPrabhagId('');
+    setResolution(null);
+    setSelectionMethod('SELF_REPORTED');
+    setCitizenConfirmed(false);
+    setManualPrabhagSelected(false);
+    setBoundaryDatasetVersion(undefined);
+    setRouteResult(null);
+    resetDraft();
+    void resolveCoordinates(
+      selection.position.latitude,
+      selection.position.longitude,
+      'GOOGLE',
+      requestSequence,
+      selection.address || selection.label,
+    ).catch(() => undefined);
   }
 
   function chooseIssueType(value: string) {
@@ -1567,6 +1606,7 @@ function App() {
       setReportLocationSource('');
       setBoundaryDatasetVersion(undefined);
       setCurrentCoordinates(null);
+      setLocationDetails('');
       requestDeviceReportLocation();
     }
   }
@@ -3106,6 +3146,19 @@ function App() {
 
       <div id="report-location-section">
       <div className="flow-step"><span>2</span><b>{t('Location')}</b></div>
+      <GoogleMeetingPointSearch
+        language={language}
+        bounds={PRABHAG_BOUNDS ? {
+          south: PRABHAG_BOUNDS.minLatitude,
+          west: PRABHAG_BOUNDS.minLongitude,
+          north: PRABHAG_BOUNDS.maxLatitude,
+          east: PRABHAG_BOUNDS.maxLongitude,
+        } : null}
+        mode="report-location"
+        value={locationDetails}
+        onQueryChange={editReportLocationAddress}
+        onSelect={selectGoogleReportLocation}
+      />
       <div className="report-location-field">
         <span className="report-location-icon" aria-hidden="true"><AppIcon name="pin" /></span>
         <label>{t('Prabhag')}<select value={prabhagId} onChange={(event) => selectManualPrabhag(event.target.value)}>

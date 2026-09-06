@@ -1,18 +1,15 @@
-import boundaryGeoJsonText from '../../data/prabhags/official-map-digitized-boundaries-v0.1.geojson?raw';
 import { useEffect, useRef, useState } from 'react';
 import { translate, type InterfaceLanguage } from './i18n';
 import GoogleMeetingPointSearch, { type GoogleMeetingPointSelection } from './GoogleMeetingPointSearch';
 import { googlePlaceSearchConfigured, loadGoogleMaps } from './googleMapsPlaces';
+import {
+  prabhagBoundaryCollection as collection,
+  type PrabhagBoundaryFeature as BoundaryFeature,
+  type PrabhagCoordinate as Coordinate,
+} from './prabhagBoundaryData';
 import './InitiativeMeetingPointPicker.css';
 
 export type MeetingPointPosition = { latitude: number; longitude: number };
-
-type Coordinate = [number, number];
-type BoundaryFeature = {
-  properties: { wardNumber: number };
-  geometry: { type: 'Polygon'; coordinates: Coordinate[][] };
-};
-type BoundaryCollection = { type: 'FeatureCollection'; features: BoundaryFeature[] };
 
 type Props = {
   language: InterfaceLanguage;
@@ -41,22 +38,6 @@ type GoogleMapsLibrary = {
 type GoogleMarkerLibrary = {
   AdvancedMarkerElement: new (options: Record<string, unknown>) => GoogleMarkerInstance;
 };
-
-function collectionFromSource(): BoundaryCollection | null {
-  try {
-    const value = JSON.parse(boundaryGeoJsonText) as BoundaryCollection;
-    return value.type === 'FeatureCollection'
-      && Array.isArray(value.features)
-      && value.features.length === 20
-      && value.features.every((feature) => feature.geometry?.type === 'Polygon')
-      ? value
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-const collection = collectionFromSource();
 
 function geometry(features: BoundaryFeature[]) {
   const coordinates = features.flatMap((feature) => feature.geometry.coordinates.flat());

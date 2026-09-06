@@ -67,26 +67,26 @@ public class CivicRouterService {
             return unsupported(prabhagId.isBlank() ? null : prabhagId);
         }
         String requestedMethod = normalizeResolutionMethod(request == null ? null : request.resolutionMethod());
-        boolean syntheticCandidate = PrabhagResolverService.RESOLUTION_METHOD.equals(requestedMethod)
+        boolean approximateCandidate = PrabhagResolverService.RESOLUTION_METHOD.equals(requestedMethod)
                 || PrabhagResolverService.SNAPSHOT_RESOLUTION_METHOD.equals(requestedMethod);
-        if (!requestedMethod.isBlank() && !"SELF_REPORTED".equals(requestedMethod) && !syntheticCandidate) {
+        if (!requestedMethod.isBlank() && !"SELF_REPORTED".equals(requestedMethod) && !approximateCandidate) {
             return unsupported(prabhagId);
         }
-        if (syntheticCandidate
+        if (approximateCandidate
                 && (!Boolean.TRUE.equals(request.citizenConfirmed())
                         || !PrabhagResolverService.DATASET_VERSION.equals(request.boundaryDatasetVersion()))) {
             return CivicRouteResponse.confirmationRequired(prabhagId, requestedMethod, PACK_VERSION);
         }
-        String resolutionMethod = syntheticCandidate
-                ? "CITIZEN_CONFIRMED_SYNTHETIC_BOUNDARY"
+        String resolutionMethod = approximateCandidate
+                ? "CITIZEN_CONFIRMED_APPROXIMATE_BOUNDARY"
                 : "SELF_REPORTED";
         return new CivicRouteResponse(
                 "SUPPORTED_ROUTE",
                 route.routeId(),
                 prabhagId,
                 resolutionMethod,
-                syntheticCandidate,
-                syntheticCandidate ? PrabhagResolverService.DATASET_VERSION : null,
+                approximateCandidate,
+                approximateCandidate ? PrabhagResolverService.DATASET_VERSION : null,
                 pack.authority(),
                 pack.authorityLocalName(),
                 departmentsById.get(route.departmentId()),

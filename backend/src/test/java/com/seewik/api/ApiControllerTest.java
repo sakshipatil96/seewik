@@ -24,12 +24,12 @@ class ApiControllerTest {
             return Optional.of(new PrabhagBoundaryGateway.BoundaryMatch(
                     "PRABHAG-11",
                     "Prabhag 11",
-                    "SYNTHETIC_BOUNDARY",
+                    "APPROXIMATE_DIGITISED_MUNICIPAL_OFFICE_MAP_IMAGE",
                     true,
-                    "https://www.openstreetmap.org/node/245694497",
-                    "UNSOURCED",
-                    "REVIEW_PENDING",
-                    "synthetic-v0.1"));
+                    "Nandurbar municipal-office 2025 wall-map photograph",
+                    "MUNICIPAL_OFFICE_WALL_MAP_PHOTO",
+                    "NOT_AUTHORITY_VERIFIED",
+                    "seewik-map-trace-v0.2"));
         };
         PrabhagResolverService resolver = new PrabhagResolverService(gateway);
         return MockMvcBuilders.standaloneSetup(new ApiController(router, resolver)).build();
@@ -107,23 +107,23 @@ class ApiControllerTest {
                 .andExpect(jsonPath("$.status").value("CANDIDATE_PRABHAG"))
                 .andExpect(jsonPath("$.prabhagId").value("PRABHAG-11"))
                 .andExpect(jsonPath("$.resolutionMethod").value("BIGQUERY_ST_COVERS"))
-                .andExpect(jsonPath("$.resolutionQuality").value("SYNTHETIC_BOUNDARY"))
+                .andExpect(jsonPath("$.resolutionQuality").value("APPROXIMATE_DIGITISED_MUNICIPAL_OFFICE_MAP_IMAGE"))
                 .andExpect(jsonPath("$.requiresCitizenConfirmation").value(true))
-                .andExpect(jsonPath("$.sourceStatus").value("UNSOURCED"))
-                .andExpect(jsonPath("$.reviewStatus").value("REVIEW_PENDING"))
-                .andExpect(jsonPath("$.datasetVersion").value("synthetic-v0.1"))
+                .andExpect(jsonPath("$.sourceStatus").value("MUNICIPAL_OFFICE_WALL_MAP_PHOTO"))
+                .andExpect(jsonPath("$.reviewStatus").value("NOT_AUTHORITY_VERIFIED"))
+                .andExpect(jsonPath("$.datasetVersion").value("seewik-map-trace-v0.2"))
                 .andExpect(jsonPath("$.queryLatencyMs").isNumber());
     }
 
     @Test
-    void coordinatesOutsideNandurbarSyntheticExtentAreRejected() throws Exception {
+    void coordinatesOutsideNandurbarApproximateExtentAreRejected() throws Exception {
         mvc().perform(post("/api/civic/resolve-prabhag")
                         .contentType("application/json")
                         .content("{\"latitude\":20.9042,\"longitude\":74.7749}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("OUTSIDE_SUPPORTED_AREA"))
                 .andExpect(jsonPath("$.prabhagId").doesNotExist())
-                .andExpect(jsonPath("$.resolutionQuality").value("SYNTHETIC_BOUNDARY"));
+                .andExpect(jsonPath("$.resolutionQuality").value("APPROXIMATE_DIGITISED_MUNICIPAL_OFFICE_MAP_IMAGE"));
     }
 
     @Test
@@ -137,13 +137,13 @@ class ApiControllerTest {
     }
 
     @Test
-    void syntheticCandidateCannotRouteBeforeCitizenConfirmation() throws Exception {
+    void approximateCandidateCannotRouteBeforeCitizenConfirmation() throws Exception {
         mvc().perform(post("/api/civic/route")
                         .contentType("application/json")
                         .content("""
                                 {"issueType":"STREETLIGHT","prabhagId":"PRABHAG-11",
                                  "resolutionMethod":"BIGQUERY_ST_COVERS","citizenConfirmed":false,
-                                 "boundaryDatasetVersion":"synthetic-v0.1"}
+                                 "boundaryDatasetVersion":"seewik-map-trace-v0.2"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CONFIRMATION_REQUIRED"))
@@ -152,34 +152,34 @@ class ApiControllerTest {
     }
 
     @Test
-    void confirmedSyntheticCandidateCanReachDeterministicRouter() throws Exception {
+    void confirmedApproximateCandidateCanReachDeterministicRouter() throws Exception {
         mvc().perform(post("/api/civic/route")
                         .contentType("application/json")
                         .content("""
                                 {"issueType":"STREETLIGHT","prabhagId":"PRABHAG-11",
                                  "resolutionMethod":"BIGQUERY_ST_COVERS","citizenConfirmed":true,
-                                 "boundaryDatasetVersion":"synthetic-v0.1"}
+                                 "boundaryDatasetVersion":"seewik-map-trace-v0.2"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SUPPORTED_ROUTE"))
-                .andExpect(jsonPath("$.resolutionMethod").value("CITIZEN_CONFIRMED_SYNTHETIC_BOUNDARY"))
+                .andExpect(jsonPath("$.resolutionMethod").value("CITIZEN_CONFIRMED_APPROXIMATE_BOUNDARY"))
                 .andExpect(jsonPath("$.citizenConfirmationRecorded").value(true))
-                .andExpect(jsonPath("$.boundaryDatasetVersion").value("synthetic-v0.1"))
+                .andExpect(jsonPath("$.boundaryDatasetVersion").value("seewik-map-trace-v0.2"))
                 .andExpect(jsonPath("$.authority").value("Nandurbar Municipal Council"));
     }
 
     @Test
-    void confirmedSnapshotCandidateUsesTheSameSyntheticConfirmationGuard() throws Exception {
+    void confirmedSnapshotCandidateUsesTheSameApproximateConfirmationGuard() throws Exception {
         mvc().perform(post("/api/civic/route")
                         .contentType("application/json")
                         .content("""
                                 {"issueType":"STREETLIGHT","prabhagId":"PRABHAG-11",
                                  "resolutionMethod":"SNAPSHOT_POINT_IN_POLYGON","citizenConfirmed":true,
-                                 "boundaryDatasetVersion":"synthetic-v0.1"}
+                                 "boundaryDatasetVersion":"seewik-map-trace-v0.2"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SUPPORTED_ROUTE"))
-                .andExpect(jsonPath("$.resolutionMethod").value("CITIZEN_CONFIRMED_SYNTHETIC_BOUNDARY"))
+                .andExpect(jsonPath("$.resolutionMethod").value("CITIZEN_CONFIRMED_APPROXIMATE_BOUNDARY"))
                 .andExpect(jsonPath("$.citizenConfirmationRecorded").value(true));
     }
 
@@ -190,20 +190,20 @@ class ApiControllerTest {
                         .content("""
                                 {"issueType":"STREETLIGHT","prabhagId":"PRABHAG-11",
                                  "resolutionMethod":"SNAPSHOT_POINT_IN_POLYGON","citizenConfirmed":false,
-                                 "boundaryDatasetVersion":"synthetic-v0.1"}
+                                 "boundaryDatasetVersion":"seewik-map-trace-v0.2"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CONFIRMATION_REQUIRED"));
     }
 
     @Test
-    void staleSyntheticCandidateMustBeResolvedAgain() throws Exception {
+    void staleApproximateCandidateMustBeResolvedAgain() throws Exception {
         mvc().perform(post("/api/civic/route")
                         .contentType("application/json")
                         .content("""
                                 {"issueType":"STREETLIGHT","prabhagId":"PRABHAG-11",
                                  "resolutionMethod":"BIGQUERY_ST_COVERS","citizenConfirmed":true,
-                                 "boundaryDatasetVersion":"synthetic-v0.0"}
+                                 "boundaryDatasetVersion":"seewik-map-trace-v0.1"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CONFIRMATION_REQUIRED"));

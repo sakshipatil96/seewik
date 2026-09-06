@@ -14,18 +14,24 @@ class LastKnownGoodPrabhagSnapshotTest {
     void packagedSnapshotHasFrozenIntegrityAndTwentyPolygons() {
         assertTrue(snapshot.available());
         assertEquals(20, snapshot.boundaryCount());
-        assertEquals("059533c8988334e7a268482c83bac9693e74783081c5b3a8cb51061bda4e100a",
+        assertEquals("e386a77bd824e8eac91e6051b8be2428a2d70ecbc8954c0d03f4f37fb4c645dd",
                 LastKnownGoodPrabhagSnapshot.CHECKSUM);
     }
 
     @Test
-    void pointInPolygonReturnsSyntheticCandidateWithoutNearestGuess() {
+    void pointInPolygonReturnsApproximateCandidateWithoutNearestGuess() {
         var match = snapshot.findCoveringBoundary(21.363778, 74.2411418);
         assertTrue(match.isPresent());
-        assertEquals("PRABHAG-11", match.orElseThrow().prabhagId());
-        assertEquals("UNSOURCED", match.orElseThrow().sourceStatus());
+        assertEquals("PRABHAG-18", match.orElseThrow().prabhagId());
+        assertEquals("MUNICIPAL_OFFICE_WALL_MAP_PHOTO", match.orElseThrow().sourceStatus());
         assertTrue(match.orElseThrow().requiresCitizenConfirmation());
         assertTrue(snapshot.findCoveringBoundary(20.9042, 74.7749).isEmpty());
+    }
+
+    @Test
+    void multiMatchUsesTheLowestPrabhagIdDeterministically() {
+        assertEquals(2, snapshot.coveringBoundaryCount(21.383790, 74.239480));
+        assertEquals("PRABHAG-01", snapshot.findCoveringBoundary(21.383790, 74.239480).orElseThrow().prabhagId());
     }
 
     @Test

@@ -6,6 +6,7 @@ import { meetingPointSelectionFromPlace } from '../src/meetingPointSearchSelecti
 
 const app = await readFile(new URL('../src/main.tsx', import.meta.url), 'utf8');
 const picker = await readFile(new URL('../src/InitiativeMeetingPointPicker.tsx', import.meta.url), 'utf8');
+const boundaryData = await readFile(new URL('../src/prabhagBoundaryData.ts', import.meta.url), 'utf8');
 const placeSearch = await readFile(new URL('../src/GoogleMeetingPointSearch.tsx', import.meta.url), 'utf8');
 const mapsLoader = await readFile(new URL('../src/googleMapsPlaces.ts', import.meta.url), 'utf8');
 const pickerStyles = await readFile(new URL('../src/InitiativeMeetingPointPicker.css', import.meta.url), 'utf8');
@@ -25,7 +26,8 @@ test('creation uses a separate confirmed pin instead of device discovery locatio
 });
 
 test('interactive Google map supports a movable pin and a clear unavailable state', () => {
-  assert.match(picker, /official-map-digitized-boundaries-v0\.1\.geojson\?raw/);
+  assert.match(picker, /from '\.\/prabhagBoundaryData'/);
+  assert.match(boundaryData, /official-map-digitized-boundaries-v0\.2\.geojson\?raw/);
   assert.match(picker, /loadGoogleMaps/);
   assert.match(picker, /importLibrary\('maps'\)/);
   assert.match(picker, /importLibrary\('marker'\)/);

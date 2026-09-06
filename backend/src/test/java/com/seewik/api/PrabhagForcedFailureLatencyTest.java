@@ -27,7 +27,7 @@ class PrabhagForcedFailureLatencyTest {
                     21.363778, 74.2411418));
             timeoutFallback.add(elapsed(started));
             assertEquals("BIGQUERY_TIMEOUT", result.fallbackReason());
-            assertEquals("PRABHAG-11", result.prabhagId());
+            assertEquals("PRABHAG-18", result.prabhagId());
         }
 
         PrabhagResolverService openService = service((latitude, longitude) -> {

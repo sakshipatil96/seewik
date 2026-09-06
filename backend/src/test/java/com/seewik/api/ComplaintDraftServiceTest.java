@@ -142,9 +142,9 @@ class ComplaintDraftServiceTest {
     }
 
     @Test
-    void unconfirmedSyntheticCandidateCannotDraft() {
+    void unconfirmedApproximateBoundaryCandidateCannotDraft() {
         var request = new ComplaintDraftService.ComplaintDraftRequest(
-                "STREETLIGHT", "PRABHAG-11", "BIGQUERY_ST_COVERS", false, "synthetic-v0.1",
+                "STREETLIGHT", "PRABHAG-11", "BIGQUERY_ST_COVERS", false, "seewik-map-trace-v0.2",
                 true, "स्ट्रीट लाईट बंद आहे", "मुख्य रस्त्यावर", "MR", "PRINT");
         assertInputCode(() -> serviceReturning(ComplaintDraftValidatorTest.validDraft()).draft(request),
                 "ROUTE_CONFIRMATION_REQUIRED");
@@ -153,7 +153,7 @@ class ComplaintDraftServiceTest {
     @Test
     void confirmedSnapshotCandidateCanDraftWithoutChangingTheDeterministicRoute() {
         var request = new ComplaintDraftService.ComplaintDraftRequest(
-                "STREETLIGHT", "PRABHAG-11", "SNAPSHOT_POINT_IN_POLYGON", true, "synthetic-v0.1",
+                "STREETLIGHT", "PRABHAG-11", "SNAPSHOT_POINT_IN_POLYGON", true, "seewik-map-trace-v0.2",
                 true, "स्ट्रीट लाईट बंद आहे", "मुख्य रस्त्यावर", "MR", "PRINT");
         var result = serviceReturning(ComplaintDraftValidatorTest.validDraft()).draft(request);
         assertEquals("NMC-PW-STREETLIGHT-v0.2", result.routeId());

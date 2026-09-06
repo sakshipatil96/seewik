@@ -62,3 +62,24 @@ This is a functional Initiative improvement, not a Day 12 recognition requiremen
 - [x] Complete the batch before the Day 14 freeze unless an item is intentionally deferred.
 
 The language default remains remembered/device-language selection with English fallback. A forced Marathi default, custom native-control replacements, Article 51A illustrations and major navigation redesign are deliberately deferred.
+
+## Post-checkpoint engineering backlog
+
+These items were confirmed by the September 6 architecture audit. They are intentionally deferred until after the September 9 checkpoint so the release remains focused and low-risk.
+
+- [ ] Add a scheduled, bounded BigQuery analytics-outbox retry worker with leases, attempt counts, backoff and a dead-letter state. Immediate publishing may remain as a latency optimisation, but a transient failure must not leave an event pending forever.
+- [ ] Migrate frontend source-structure assertions to behavioural coverage with Vitest/React Testing Library and Playwright. Preserve the existing checks until equivalent behaviour is covered.
+- [ ] Split `frontend/src/main.tsx` into feature modules and use explicit reducers/state machines for report and Initiative transitions.
+- [ ] Split `InitiativeGateway` into capability-specific repository interfaces and replace runtime `UnsupportedOperationException` defaults.
+- [ ] Replace repeated Firestore `Map<String, Object>` handling with typed records and dedicated document mappers.
+- [ ] Centralise controller authentication and API error mapping with an authenticated-citizen argument resolver and `@RestControllerAdvice`.
+- [ ] Introduce one owner-bound, versioned and failure-safe browser-storage adapter for private drafts and caches.
+- [ ] Materialise the monthly public-recognition snapshot outside the public request path instead of rescanning lifetime point entries on each visit.
+- [ ] Replace the handwritten service-worker cache with a build-generated precache strategy and explicitly exclude `/api/` responses.
+- [ ] Replace frontend dependency declarations using `latest` with reviewed versions or bounded semver ranges.
+- [ ] Configure a restricted project-owned Google Maps map ID instead of `DEMO_MAP_ID`.
+
+Known pre-checkpoint limitations:
+
+- Analytics outbox events do not yet have an automatic retry worker after a transient BigQuery publishing failure.
+- The frontend test suite currently mixes behavioural tests with source-structure assertions; migration is planned after the checkpoint.

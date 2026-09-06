@@ -32,7 +32,8 @@ public class GoogleBigQueryPrabhagGateway implements PrabhagBoundaryGateway {
               sourceReference,
               sourceStatus,
               reviewStatus,
-              datasetVersion
+              datasetVersion,
+              COUNT(*) OVER() AS coveringMatchCount
             FROM `seewik.seewik_civic.prabhag_boundaries`
             WHERE isActive = TRUE
               AND ST_COVERS(geometry, ST_GEOGPOINT(@longitude, @latitude))
@@ -42,16 +43,19 @@ public class GoogleBigQueryPrabhagGateway implements PrabhagBoundaryGateway {
 
     private final BigQuery bigQuery;
     private final long timeoutMs;
+    private final OperationalMetrics metrics;
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     private static final Set<String> PRABHAG_IDS = IntStream.rangeClosed(1, 20)
             .mapToObj(number -> "PRABHAG-%02d".formatted(number)).collect(Collectors.toUnmodifiableSet());
 
     public GoogleBigQueryPrabhagGateway(
             BigQuery bigQuery,
-            @Value("${seewik.bigquery.timeout-ms:1500}") long timeoutMs) {
+            @Value("${seewik.bigquery.timeout-ms:1500}") long timeoutMs,
+            OperationalMetrics metrics) {
         if (timeoutMs < 1L) throw new IllegalArgumentException("BigQuery timeout must be positive");
         this.bigQuery = bigQuery;
         this.timeoutMs = timeoutMs;
+        this.metrics = metrics;
     }
 
     @Override
@@ -94,6 +98,9 @@ public class GoogleBigQueryPrabhagGateway implements PrabhagBoundaryGateway {
                     row.get("reviewStatus").getStringValue(),
                     row.get("datasetVersion").getStringValue());
             validate(match);
+            if (row.get("coveringMatchCount").getLongValue() > 1L) {
+                metrics.increment("prabhag.bigquery_multi_match");
+            }
             return Optional.of(match);
         } catch (RuntimeException exception) {
             if (exception instanceof InvalidBoundaryResponseException invalid) throw invalid;
@@ -108,8 +115,8 @@ public class GoogleBigQueryPrabhagGateway implements PrabhagBoundaryGateway {
                 || !PrabhagResolverService.RESOLUTION_QUALITY.equals(match.resolutionQuality())
                 || !match.requiresCitizenConfirmation()
                 || match.sourceReference() == null || match.sourceReference().isBlank()
-                || !"UNSOURCED".equals(match.sourceStatus())
-                || !"REVIEW_PENDING".equals(match.reviewStatus())
+                || !PrabhagResolverService.SOURCE_STATUS.equals(match.sourceStatus())
+                || !PrabhagResolverService.REVIEW_STATUS.equals(match.reviewStatus())
                 || !PrabhagResolverService.DATASET_VERSION.equals(match.datasetVersion())) {
             throw new InvalidBoundaryResponseException("BigQuery returned an invalid boundary row");
         }

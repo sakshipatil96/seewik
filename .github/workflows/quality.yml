@@ -32,7 +32,7 @@ jobs:
 
       - name: Boundary dataset integrity
         working-directory: data/prabhags
-        run: shasum -a 256 -c official-map-digitized-boundaries-v0.1.sha256
+        run: shasum -a 256 -c official-map-digitized-boundaries-v0.2.sha256
 
       - uses: actions/setup-java@v5
         with:

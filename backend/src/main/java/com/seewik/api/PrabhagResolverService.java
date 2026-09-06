@@ -7,11 +7,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 public class PrabhagResolverService {
-    public static final String DATASET_VERSION = "synthetic-v0.1";
+    public static final String DATASET_VERSION = "seewik-map-trace-v0.2";
     public static final String RESOLUTION_METHOD = "BIGQUERY_ST_COVERS";
     public static final String SNAPSHOT_RESOLUTION_METHOD = "SNAPSHOT_POINT_IN_POLYGON";
     public static final String MANUAL_RESOLUTION_METHOD = "MANUAL_SELECTION_REQUIRED";
-    public static final String RESOLUTION_QUALITY = "SYNTHETIC_BOUNDARY";
+    public static final String RESOLUTION_QUALITY = "APPROXIMATE_DIGITISED_MUNICIPAL_OFFICE_MAP_IMAGE";
+    public static final String SOURCE_STATUS = "MUNICIPAL_OFFICE_WALL_MAP_PHOTO";
+    public static final String REVIEW_STATUS = "NOT_AUTHORITY_VERIFIED";
     private final PrabhagBoundaryGateway boundaryGateway;
     private final LastKnownGoodPrabhagSnapshot snapshot;
     private final PrabhagCircuitBreaker circuitBreaker;
@@ -73,7 +75,7 @@ public class PrabhagResolverService {
             metrics.increment("prabhag.bigquery_resolution");
             return PrabhagResolution.candidate(
                     boundary, RESOLUTION_METHOD, latencyMs, circuitBreaker.state().name(), null, null, null,
-                    "Synthetic candidate only. Confirm the prabhag or choose it manually.");
+                    "Approximate map-trace suggestion only. Confirm the prabhag or choose it manually.");
         } catch (GoogleBigQueryPrabhagGateway.BoundaryTimeoutException error) {
             circuitBreaker.failure(permit);
             metrics.increment("bigquery.timeout");
@@ -98,6 +100,9 @@ public class PrabhagResolverService {
     private PrabhagResolution snapshotFallback(
             double latitude, double longitude, long requestStartedAt, String fallbackReason) {
         long snapshotStartedAt = System.nanoTime();
+        if (snapshot.coveringBoundaryCount(latitude, longitude) > 1) {
+            metrics.increment("prabhag.snapshot_multi_match");
+        }
         Optional<PrabhagBoundaryGateway.BoundaryMatch> match = snapshot.findCoveringBoundary(latitude, longitude);
         long snapshotLatencyMs = elapsedMillis(snapshotStartedAt);
         long totalLatencyMs = elapsedMillis(requestStartedAt);
@@ -123,7 +128,7 @@ public class PrabhagResolverService {
                 fallbackReason,
                 LastKnownGoodPrabhagSnapshot.CHECKSUM,
                 LastKnownGoodPrabhagSnapshot.PROVENANCE,
-                "BigQuery is temporarily unavailable. This synthetic snapshot candidate must be confirmed or replaced with a manual prabhag selection.");
+                "BigQuery is temporarily unavailable. This approximate map-trace suggestion must be confirmed or replaced with a manual prabhag selection.");
     }
 
     private static boolean validCoordinates(Double latitude, Double longitude) {
@@ -200,9 +205,9 @@ public class PrabhagResolverService {
                 String snapshotProvenance) {
             return new PrabhagResolution(
                     "OUTSIDE_SUPPORTED_AREA", null, null, method, RESOLUTION_QUALITY,
-                    false, null, "UNSOURCED", "REVIEW_PENDING", DATASET_VERSION, latencyMs,
+                    false, null, SOURCE_STATUS, REVIEW_STATUS, DATASET_VERSION, latencyMs,
                     circuitState, fallbackReason, snapshotChecksum, snapshotProvenance,
-                    "The coordinates are outside the synthetic development extent. Select a prabhag manually if appropriate.");
+                    "The coordinates are outside the approximate mapped extent. Select a prabhag manually if appropriate.");
         }
     }
 }

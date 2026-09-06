@@ -1,25 +1,14 @@
-import boundaryGeoJsonText from '../../data/prabhags/official-map-digitized-boundaries-v0.1.geojson?raw';
 import type { KeyboardEvent } from 'react';
 import { translate, type InterfaceLanguage } from './i18n';
+import {
+  PRABHAG_DATASET_VERSION,
+  prabhagBoundaryCollection as collection,
+  type PrabhagBoundaryFeature as BoundaryFeature,
+  type PrabhagCoordinate as Coordinate,
+} from './prabhagBoundaryData';
 import './PrabhagBoundaryMap.css';
 
 type Position = { latitude: number; longitude: number };
-type Coordinate = [number, number];
-type BoundaryFeature = {
-  id: string;
-  properties: {
-    prabhagId: string;
-    wardNumber: number;
-    datasetVersion: string;
-    reviewStatus: string;
-  };
-  geometry: { type: 'Polygon'; coordinates: Coordinate[][] };
-};
-type BoundaryCollection = {
-  type: 'FeatureCollection';
-  metadata: { datasetVersion: string; prabhagCount: number };
-  features: BoundaryFeature[];
-};
 
 type PrabhagBoundaryMapProps = {
   language: InterfaceLanguage;
@@ -32,28 +21,6 @@ type PrabhagBoundaryMapProps = {
 const VIEW_WIDTH = 720;
 const VIEW_HEIGHT = 540;
 const PADDING = 28;
-
-function validCollection(value: unknown): value is BoundaryCollection {
-  if (!value || typeof value !== 'object') return false;
-  const candidate = value as BoundaryCollection;
-  return candidate.type === 'FeatureCollection'
-    && candidate.metadata?.datasetVersion === 'official-map-digitized-v0.1'
-    && candidate.metadata?.prabhagCount === 20
-    && Array.isArray(candidate.features)
-    && candidate.features.length === 20
-    && candidate.features.every((feature) => feature.geometry?.type === 'Polygon');
-}
-
-function parseCollection() {
-  try {
-    const value: unknown = JSON.parse(boundaryGeoJsonText);
-    return validCollection(value) ? value : null;
-  } catch {
-    return null;
-  }
-}
-
-const collection = parseCollection();
 
 function boundsFor(features: BoundaryFeature[]) {
   const coordinates = features.flatMap((feature) => feature.geometry.coordinates.flat());
@@ -146,15 +113,15 @@ export default function PrabhagBoundaryMap({
     <div className="boundary-map-heading">
       <div>
         <h3 id="boundary-map-title">{t('Approximate prabhag boundary guide')}</h3>
-        <p>{t('approximate boundaries digitized from an official map image')}</p>
+        <p>{t('Approximate boundaries traced from a municipal-office wall-map photograph')}</p>
       </div>
       <span className="boundary-map-count">20</span>
     </div>
     <dl className="boundary-map-metadata">
-      <div><dt>{t('Dataset')}</dt><dd>{collection.metadata.datasetVersion}</dd></div>
-      <div><dt>{t('Georeference review')}</dt><dd>REVIEW_PENDING_GEOREFERENCE</dd></div>
+      <div><dt>{t('Dataset')}</dt><dd>{PRABHAG_DATASET_VERSION}</dd></div>
+      <div><dt>{t('Use')}</dt><dd>{t('Suggestion only')}</dd></div>
     </dl>
-    <p className="boundary-map-caveat">{t('This is a visual orientation aid, not official digital GIS geometry. It never changes automatic routing and every selection still requires citizen confirmation.')}</p>
+    <p className="boundary-map-caveat">{t('This is an approximate orientation aid created from a map photograph, not official digital ward geometry. Every suggestion requires your confirmation.')}</p>
     <div className="boundary-map-frame">
       <svg
         className="boundary-map"

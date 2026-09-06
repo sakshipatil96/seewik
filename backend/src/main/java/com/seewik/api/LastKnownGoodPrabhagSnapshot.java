@@ -18,10 +18,10 @@ import org.springframework.stereotype.Component;
 @Component
 public final class LastKnownGoodPrabhagSnapshot {
     private static final Logger LOGGER = LoggerFactory.getLogger(LastKnownGoodPrabhagSnapshot.class);
-    public static final String RESOURCE = "/prabhag-snapshot-synthetic-v0.1.geojson";
-    public static final String DATASET_VERSION = "synthetic-v0.1";
-    public static final String CHECKSUM = "059533c8988334e7a268482c83bac9693e74783081c5b3a8cb51061bda4e100a";
-    public static final String PROVENANCE = "Packaged last-known-good copy of fixed-seed synthetic-boundaries-v0.1";
+    public static final String RESOURCE = "/prabhag-snapshot-map-trace-v0.2.geojson";
+    public static final String DATASET_VERSION = "seewik-map-trace-v0.2";
+    public static final String CHECKSUM = "e386a77bd824e8eac91e6051b8be2428a2d70ecbc8954c0d03f4f37fb4c645dd";
+    public static final String PROVENANCE = "Packaged v0.2 trace from a Nandurbar municipal-office wall-map photograph; no official digital geometry available";
     private final List<PolygonBoundary> boundaries;
     private final boolean available;
 
@@ -42,6 +42,7 @@ public final class LastKnownGoodPrabhagSnapshot {
                 throw new IOException("Prabhag snapshot must contain exactly 20 polygon features");
             }
             for (JsonNode feature : root.path("features")) loaded.add(parse(feature));
+            loaded.sort(java.util.Comparator.comparing(boundary -> boundary.match().prabhagId()));
             loadedSuccessfully = true;
         } catch (IOException | RuntimeException exception) {
             loaded.clear();
@@ -57,6 +58,15 @@ public final class LastKnownGoodPrabhagSnapshot {
             if (covers(boundary.ring(), longitude, latitude)) return Optional.of(boundary.match());
         }
         return Optional.empty();
+    }
+
+    int coveringBoundaryCount(double latitude, double longitude) {
+        if (!available) return 0;
+        int count = 0;
+        for (PolygonBoundary boundary : boundaries) {
+            if (covers(boundary.ring(), longitude, latitude)) count += 1;
+        }
+        return count;
     }
 
     int boundaryCount() {
@@ -81,15 +91,19 @@ public final class LastKnownGoodPrabhagSnapshot {
             }
             ring.add(new Point(coordinate.get(0).asDouble(), coordinate.get(1).asDouble()));
         }
+        if (!properties.path("requiresCitizenConfirmation").asBoolean(false)
+                || !DATASET_VERSION.equals(required(properties, "datasetVersion"))) {
+            throw new IOException("Snapshot must remain an approximate, citizen-confirmed v0.2 dataset");
+        }
         PrabhagBoundaryGateway.BoundaryMatch match = new PrabhagBoundaryGateway.BoundaryMatch(
                 required(properties, "prabhagId"),
                 required(properties, "prabhagName"),
-                required(properties, "resolutionQuality"),
-                properties.path("requiresCitizenConfirmation").asBoolean(false),
-                required(properties, "sourceReference"),
-                required(properties, "sourceStatus"),
-                required(properties, "reviewStatus"),
-                required(properties, "datasetVersion"));
+                PrabhagResolverService.RESOLUTION_QUALITY,
+                true,
+                PROVENANCE,
+                PrabhagResolverService.SOURCE_STATUS,
+                PrabhagResolverService.REVIEW_STATUS,
+                DATASET_VERSION);
         GoogleBigQueryPrabhagGateway.validate(match);
         return new PolygonBoundary(match, List.copyOf(ring));
     }
