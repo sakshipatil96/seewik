@@ -93,7 +93,7 @@ test('all durable frontend mutations pass through the reusable link gate', async
   for (const action of guardedActions) {
     assert.match(source, new RegExp(`requestLinkedMutation\\(\\(\\) => ${action}\\(`), `${action} must be invoked through the link gate`);
   }
-  assert.match(source, /requestLinkedMutation\(\(\) => saveGeneratedDraft\(result\)\)/);
+  assert.match(source, /requestLinkedMutation\(async \(\) => \{ await saveGeneratedDraft\(result\); \}\)/);
 });
 
 test('Firestore profile and audit writes require a linked Google token', async () => {

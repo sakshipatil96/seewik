@@ -832,7 +832,14 @@ button.secondary:hover { background: var(--color-surface-2); border-color: var(-
 .filing-method-actions { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 .filing-method-actions button { margin: 0; }
 .filing-method-actions .secondary { margin-top: 0; }
+.filing-prep-panel label > input,
+.filing-prep-panel label > select,
+.filing-prep-panel label > textarea { display: block; width: 100%; margin-top: var(--space-2); }
+.filing-email-copy-actions,
+.filing-email-open-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.filing-email-open-actions { margin-top: var(--space-3); }
 .filing-dual-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
+.filing-dual-fields { margin-top: var(--space-4); }
 .filing-dual-fields label { margin-top: 0; }
 .filing-status-panel { margin-top: var(--space-5); }
 .filing-status-panel .lifecycle-actions { margin-top: var(--space-3); }
@@ -845,8 +852,10 @@ button.secondary:hover { background: var(--color-surface-2); border-color: var(-
 .filing-confirmation-actions button { min-height: 54px; }
 .filing-dedupe-note { display: flex; align-items: center; gap: 8px; width: fit-content; margin: 0; padding: 8px 11px; border-radius: 999px; background: color-mix(in srgb, var(--color-surface) 72%, transparent); color: var(--color-muted); font-size: .72rem; line-height: 1.35; }
 .filing-dedupe-note::before { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--color-muted); content: ''; opacity: .72; }
-.filing-confirmation-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); margin-top: var(--space-2); padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-surface) 72%, transparent); }
-.filing-confirmation-fields label { margin-top: 0; }
+.filing-confirmation-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: var(--space-4); margin-top: var(--space-2); padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-md); background: color-mix(in srgb, var(--color-surface) 72%, transparent); }
+.filing-confirmation-fields label { display: grid; align-content: end; gap: var(--space-2); margin-top: 0; }
+.filing-confirmation-fields label > input,
+.filing-confirmation-fields label > select { width: 100%; min-height: 48px; margin-top: 0; }
 @media (max-width: 760px) {
   .filing-confirmation-panel { margin-top: var(--space-8); padding-top: var(--space-5); }
   .filing-confirmation-fields { grid-template-columns: minmax(0, 1fr); }

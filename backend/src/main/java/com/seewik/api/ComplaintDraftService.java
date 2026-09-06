@@ -7,11 +7,14 @@ import java.io.InputStream;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
 public class ComplaintDraftService {
+    private static final Logger log = LoggerFactory.getLogger(ComplaintDraftService.class);
     public static final int MAX_DESCRIPTION_LENGTH = 2000;
     public static final int MAX_LOCATION_LENGTH = 500;
     private final GeminiGateway geminiGateway;
@@ -113,6 +116,10 @@ public class ComplaintDraftService {
             throw new ComplaintDraftExecutionException(
                     "MODEL_TIMEOUT", "The complaint drafting model exceeded its deadline", exception);
         } catch (Exception exception) {
+            log.warn(
+                    "Complaint drafting model call failed: {}: {}",
+                    exception.getClass().getSimpleName(),
+                    exception.getMessage() == null ? "no message" : exception.getMessage());
             metrics.increment("model.drafting.failure");
             throw new ComplaintDraftExecutionException(
                     "MODEL_CALL_FAILED", "The complaint drafting model is temporarily unavailable", exception);
@@ -123,6 +130,7 @@ public class ComplaintDraftService {
         try {
             draft = validator.validate(generated.text(), input.draftLanguage());
         } catch (ComplaintDraftValidator.ComplaintDraftValidationException exception) {
+            log.warn("Complaint drafting response rejected by validator: {}", exception.code());
             metrics.increment("model.drafting.schema_failure");
             throw new ComplaintDraftExecutionException(
                     "SCHEMA_VALIDATION_FAILED", "The model returned an invalid complaint draft", exception);

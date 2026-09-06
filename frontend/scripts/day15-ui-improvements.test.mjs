@@ -50,6 +50,11 @@ test('report flow provides camera, editable confirmation, and three honest filin
   assert.doesNotMatch(app, /Prefill report details/);
   assert.match(app, /Recipient email/);
   assert.match(app, /mailto:/);
+  assert.match(app, /window\.open\(action\.url, '_blank', 'noopener,noreferrer'\)/);
+  assert.match(app, /Open Gmail in browser/);
+  assert.match(app, /filing-email-copy-actions/);
+  assert.match(app, /filing-email-open-actions/);
+  assert.doesNotMatch(app, /window\.location\.href = mailtoUrl/);
   assert.match(app, /Open official DMA form/);
   assert.match(app, /Share letter/);
   assert.match(app, /Print or save as PDF/);

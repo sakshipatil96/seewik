@@ -1778,8 +1778,10 @@ function App() {
     try {
       const reportId = await persistNewDraft(result);
       setDraftStatus(`Draft saved · ${reportId.slice(0, 8)}… Choose how you want to file it below.`);
+      return reportId;
     } catch (error) {
       setDraftStatus(`Draft created but could not be saved: ${(error as Error).message}`);
+      return null;
     }
   }
 
@@ -1835,7 +1837,7 @@ function App() {
       setDraftBody(fallback.body!);
       filingDrafts.current[`${method}:${languageToUse}`] = { result: fallback, subject: fallback.subject!, body: fallback.body! };
       setDraftStatus(result.message ?? 'Automatic drafting is unavailable. Review and edit the manual draft before filing.');
-      requestLinkedMutation(() => saveGeneratedDraft(fallback));
+      requestLinkedMutation(async () => { await saveGeneratedDraft(fallback); });
       return;
     }
     setComplaintDraft(result);
@@ -1846,7 +1848,7 @@ function App() {
     if (accountState !== 'GOOGLE_LINKED') {
       setDraftStatus('Draft ready. Connect Google to save it without losing this form.');
     }
-    requestLinkedMutation(() => saveGeneratedDraft(result));
+    requestLinkedMutation(async () => { await saveGeneratedDraft(result); });
   }
 
   function cacheCurrentFilingDraft() {
@@ -1889,10 +1891,10 @@ function App() {
     removeFilingActionReceipt(window.sessionStorage);
   }
 
-  function recordFilingAction(method: FilingMethod) {
+  function recordFilingAction(method: FilingMethod, reportIdOverride?: string) {
     const identity = currentFilingDraftIdentity(method);
     if (!identity) return;
-    const receipt = createFilingActionReceipt(identity);
+    const receipt = createFilingActionReceipt(reportIdOverride ? { ...identity, reportId: reportIdOverride } : identity);
     setFilingActionReceipt(receipt);
     writeFilingActionReceipt(window.sessionStorage, receipt);
   }
@@ -1915,8 +1917,7 @@ function App() {
     setFilingChannelId(filingChannelForMethod(method)?.channelId ?? '');
     setDraftLanguage(languageToUse);
     const exactKey = `${method}:${languageToUse}`;
-    const cached = filingDrafts.current[exactKey]
-      ?? Object.entries(filingDrafts.current).find(([key]) => key.endsWith(`:${languageToUse}`))?.[1];
+    const cached = filingDrafts.current[exactKey];
     if (cached) {
       const restored = { ...cached.result, language: languageToUse, subject: cached.subject, body: cached.body };
       filingDrafts.current[exactKey] = { result: restored, subject: cached.subject, body: cached.body };
@@ -2030,19 +2031,15 @@ function App() {
     ].join('\n');
   }
 
-  function openEmailDraft() {
+  function emailDraftAction(): { url: string; gmailUrl: string; channelId?: string } | { error: string } {
     const channel = routeResult?.officialChannels?.find((item) => item.type === 'EMAIL');
     const recipient = filingEmail.trim() || channel?.value || '';
     if (!/^\S+@\S+\.\S+$/.test(recipient.trim())) {
-      setFilingActionStatus('No verified recipient email is available for this route.');
-      return;
+      return { error: 'No verified recipient email is available for this route.' };
     }
     if (!draftSubject.trim() || !draftBody.trim()) {
-      setFilingActionStatus('Add both subject and complaint body before opening email.');
-      return;
+      return { error: 'Add both subject and complaint body before opening email.' };
     }
-    if (channel) setFilingChannelId(channel.channelId);
-    cacheCurrentFilingDraft();
     const marathi = draftLanguage === 'MR';
     const senderLocation = [complainantAddress.trim(), complainantCity.trim(), complainantState.trim(), complainantPincode.trim()].filter(Boolean).join(', ');
     const contactLines = [
@@ -2062,16 +2059,42 @@ function App() {
       marathi ? 'आपला/आपली विश्वासू,' : 'Yours sincerely,',
       ...contactLines,
     ].join('\n');
-    const mailtoUrl = `mailto:${recipient.trim()}?subject=${encodeURIComponent(draftSubject.trim())}&body=${encodeURIComponent(emailBody)}`;
-    try {
-      window.location.href = mailtoUrl;
-    } catch (error) {
-      void navigator.clipboard.writeText(`${t('Complaint subject')}: ${draftSubject.trim()}\n\n${draftBody.trim()}`);
-      setFilingActionStatus('Could not open email app. Complaint text copied so you can paste it manually.');
+    const encodedRecipient = encodeURIComponent(recipient.trim());
+    const encodedSubject = encodeURIComponent(draftSubject.trim());
+    const encodedBody = encodeURIComponent(emailBody);
+    return {
+      url: `mailto:${recipient.trim()}?subject=${encodedSubject}&body=${encodedBody}`,
+      gmailUrl: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodedRecipient}&su=${encodedSubject}&body=${encodedBody}`,
+      channelId: channel?.channelId,
+    };
+  }
+
+  function recordEmailDraftAction(action: { channelId?: string }) {
+    if (action.channelId) setFilingChannelId(action.channelId);
+    cacheCurrentFilingDraft();
+    recordFilingAction('EMAIL');
+  }
+
+  function openEmailDraft() {
+    const action = emailDraftAction();
+    if ('error' in action) {
+      setFilingActionStatus(action.error);
       return;
     }
-    recordFilingAction('EMAIL');
-    setFilingActionStatus('Your email app was opened with an editable draft. Seewik did not send it.');
+    window.open(action.url, '_blank', 'noopener,noreferrer');
+    recordEmailDraftAction(action);
+    setFilingActionStatus('Email handoff requested. If no email app opened, use Gmail in browser or copy the complaint content.');
+  }
+
+  function openGmailDraft() {
+    const action = emailDraftAction();
+    if ('error' in action) {
+      setFilingActionStatus(action.error);
+      return;
+    }
+    window.open(action.gmailUrl, '_blank', 'noopener,noreferrer');
+    recordEmailDraftAction(action);
+    setFilingActionStatus('Your editable Gmail draft was opened in the browser. Seewik did not send it.');
   }
 
   function dmaFilingPackText() {
@@ -2299,6 +2322,32 @@ function App() {
     }
     if (!await saveDraftEdits()) return;
     await transitionReport('FILED', dedupeOverride);
+  }
+
+  function confirmFiledReport() {
+    const method = selectedFilingMethod;
+    if (!method) return;
+    requestLinkedMutation(async () => {
+      if (!draftDocumentId) {
+        if (!complaintDraft) {
+          setFilingActionStatus('Prepare a complaint draft before confirming submission.');
+          return;
+        }
+        const reportId = await saveGeneratedDraft({
+          ...complaintDraft,
+          subject: draftSubject.trim(),
+          body: draftBody.trim(),
+        });
+        if (!reportId) {
+          setFilingActionStatus('The draft could not be saved. Please try again before confirming submission.');
+          return;
+        }
+        recordFilingAction(method, reportId);
+        setFilingActionStatus('Your draft is now saved. Click I filed this report again to confirm submission.');
+        return;
+      }
+      await fileReviewedReport(false);
+    });
   }
 
   async function loadMyReports() {
@@ -2860,7 +2909,7 @@ function App() {
       : selectedFilingMethod === 'DMA'
         ? t('Directorate of Municipal Administration')
         : '';
-  const canConfirmFilings = Boolean(selectedFilingMethod && complaintDraft?.status === 'DRAFT_READY' && draftDocumentId && draftSubject.trim() && draftBody.trim() && filingActionIsCurrent());
+  const canConfirmFilings = Boolean(selectedFilingMethod && complaintDraft?.status === 'DRAFT_READY' && draftSubject.trim() && draftBody.trim() && filingActionIsCurrent());
   const activeFollowUp = selectedReport ? followUpsByReport[selectedReport.id] ?? null : null;
   const activeEscalationRoute = ESCALATION_CHANNELS.find((item) => item.id === selectedEscalationChannel);
   const followUpLifecycleActive = ['FILED', 'OVERDUE', 'REOPENED'].includes(reportStatus);
@@ -3212,6 +3261,7 @@ function App() {
         {selectedFilingMethod && complaintDraft?.status !== 'DRAFT_READY' && draftStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(draftStatus)}</div>}
         {selectedFilingMethod && complaintDraft?.status === 'DRAFT_READY' && <>
           <section className="filing-prep-panel" ref={filingPanelRef} tabIndex={-1}>
+            {complaintDraft.draftVersion === 'manual-v0.1' && draftStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(draftStatus)}</div>}
             <div className="lifecycle-heading filing-prep-heading"><div><small>{t('Prepare filing')}</small><strong>{selectedFilingLabel}</strong></div><div className="points-pill"><span>{t('Possible reward')}</span><b>+5</b></div></div>
             <label>{t('Complaint language')}<select value={draftLanguage} onChange={(event) => { const nextLanguage = event.target.value as 'MR' | 'EN'; markFilingDraftEdited(); void changeComplaintLanguage(nextLanguage); }}>
               {filingLanguageChoices.map((option) => <option key={option.value} value={option.value}>{filingLanguageLabel(option.value)}</option>)}
@@ -3254,10 +3304,13 @@ function App() {
                 <label>{t('Pincode')}<input type="text" maxLength={12} value={complainantPincode} onChange={(event) => { setComplainantPincode(event.target.value); markFilingDraftEdited(); }} /></label>
               </div>
               {evidenceImage && <div className="filing-info-note">{t('Photo ready to attach. Your email app cannot receive attachments automatically, so attach the photo before sending.')}</div>}
-              <div className="filing-method-actions">
+              <div className="filing-method-actions filing-email-copy-actions">
                 <button className="secondary" onClick={() => copyFilingField(t('Complaint subject'), draftSubject).catch((error) => setFilingActionStatus(citizenSafeError(error, 'Could not copy the subject.')))}>{t('Copy subject')}</button>
                 <button className="secondary" onClick={() => copyFilingField(t('Complaint body'), draftBody).catch((error) => setFilingActionStatus(citizenSafeError(error, 'Could not copy the body.')))}>{t('Copy complaint content')}</button>
-                <button onClick={() => openEmailDraft()}>{t('Open email app')}</button>
+              </div>
+              <div className="filing-method-actions filing-email-open-actions">
+                <button onClick={openEmailDraft}>{t('Open email app')}</button>
+                <button onClick={openGmailDraft}>{t('Open Gmail in browser')}</button>
               </div>
             </>}
 
@@ -3284,7 +3337,7 @@ function App() {
             <div className="filing-confirmation-panel">
               <div className="lifecycle-heading filing-confirmation-heading"><div><small>{t('Did you submit this report?')}</small><strong>{t('Confirm real-world action')}</strong></div></div>
               <div className="filing-method-actions filing-confirmation-actions">
-                <button onClick={() => requestLinkedMutation(() => fileReviewedReport(false).catch((error) => setLifecycleStatus(citizenSafeError(error, 'The report could not be updated.'))))} disabled={!canConfirmFilings}>{t('I filed this report')}</button>
+                <button onClick={confirmFiledReport} disabled={!canConfirmFilings}>{t('I filed this report')}</button>
                 <button className="secondary" onClick={() => { clearFilingActionReceipt(); setLifecycleStatus('Continue filing and confirm once submitted.'); }}>{t('I have not filed it yet')}</button>
               </div>
               {!currentCoordinates && <small className="filing-dedupe-note">{t('Dedupe is not evaluated when location is unavailable.')}</small>}

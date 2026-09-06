@@ -172,3 +172,36 @@ The local Day 12 and Day 15 handoff documents remain untracked and are not part 
 - Firebase emulator security rules: 3 tests passed, 0 failures.
 - Production frontend build completed successfully.
 - The existing large-bundle advisory remains non-blocking: JavaScript 1,240.85 kB, gzip 336.82 kB.
+
+## Set 3 location routing and final filing release - 6 September 2026
+
+### Location and civic-data delivery
+
+- Replaced the synthetic active resolver dataset with `seewik-map-trace-v0.2`, digitised from a photograph of the Nandurbar Municipal Council wall map because no official machine-readable boundary file is available.
+- Preserved the trust boundary in data and UI: `sourceStatus=MUNICIPAL_OFFICE_WALL_MAP_PHOTO`, `reviewStatus=NOT_AUTHORITY_VERIFIED`, approximate geometry, and mandatory citizen confirmation.
+- Added the v0.2 GeoJSON, BigQuery NDJSON, frozen checksum, packaged last-known-good snapshot, frontend boundary module, preparation script, and topology/integrity tests.
+- Made BigQuery multi-match resolution deterministic by choosing the lowest Prabhag ID and recording an operational counter; approximate double-trace overlaps remain below the frozen tolerance baseline.
+- Corrected report and initiative Google-place selection so the selected label and query remain synchronized, preventing a redundant autocomplete request and visible selection flicker.
+- Restricted localhost API calls to the same-origin Vite proxy with a localhost backend default; production routing now requires explicit production configuration.
+- Staged and validated all 20 v0.2 rows in BigQuery before activation. The known coordinate `21.363778, 74.2411418` changed from synthetic Prabhag 11 to traced Prabhag 18 as expected.
+- Activated v0.2 in one BigQuery transaction. Production now has 20 active v0.2 rows and retains 20 inactive synthetic-v0.1 rows for immediate rollback.
+
+### Complaint preparation and filing reliability
+
+- Prevented complaint drafts from leaking across filing methods by caching only an exact method-and-language match.
+- Kept deterministic, editable manual drafts available when Gemini is unavailable and made the fallback status visible to the citizen.
+- Added privacy-conscious backend diagnostics for model-call and response-validation failures without logging complaint content.
+- Restored email handoff with two explicit actions: the device email app and an editable Gmail browser draft. Both prefill the verified recipient, subject, and body without claiming that Seewik sent the message or attached evidence.
+- Fixed first-time filing confirmation for device-only drafts: after Google linking, Seewik saves the generated draft, binds the action receipt to the returned report ID, and asks the citizen to confirm once more before recording `FILED`.
+- Refined the email preparation layout with consistent label spacing, separate copy/open action rows, and aligned filing-channel and acknowledgement fields while preserving existing colors and responsive behavior.
+- Added English, Marathi, and Hindi copy for all new email and save-confirmation states.
+
+### Release inspection and evidence
+
+- Final inspection found `frontend/src/prabhagBoundaryData.ts` referenced by committed Set 3 code but still untracked. It is included in this release; without it a clean CI checkout would fail even though the local build succeeded.
+- Local Day 12 and Day 15 handoff documents remain intentionally untracked and excluded.
+- Manual checks covered normal report filing, Google location selection, correct Prabhag suggestion and confirmation, print/email/Gmail/DMA actions, `I filed this report`, My Actions, and the server-enforced day-eight escalation walkthrough.
+- The escalation walkthrough used only the production-inaccessible `local-e2e` profile, Firebase emulators, the built-in fake citizen, and the adjustable server clock. No production citizen or report data was changed.
+- English, Marathi, and Hindi interfaces and desktop/mobile layouts were checked. All three escalation routes remained editable, explicit, zero-point actions.
+- Frontend suite before release: 95/95 passed. Production frontend build passed; the existing large-bundle advisory remains non-blocking.
+- BigQuery activation verification: `seewik-map-trace-v0.2` active with 20 rows; `synthetic-v0.1` inactive with 20 rollback rows; known point resolves to Prabhag 18 with citizen confirmation required.
