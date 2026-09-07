@@ -16,7 +16,7 @@ import {
   signOutWithoutStartingAnonymousWork,
   syncPrivateProfile,
 } from './accountService';
-import { accountErrorMessage, isCredentialCollisionCode, reportsViewState, safeAccountErrorCode, type AccountIdentityState } from './accountIdentity';
+import { accountErrorMessage, durableWriteNeedsGoogleLink, isCredentialCollisionCode, reportsViewState, safeAccountErrorCode, type AccountIdentityState } from './accountIdentity';
 import { API_URL } from './apiConfig';
 import { LANGUAGE_STORAGE_KEY, classificationSuggestionMessage, formatDateTime, initialLanguage, localizedMonthLabel, localizedRuntimeMessage, localizedStatus, translate, type InterfaceLanguage } from './i18n';
 import { RecognitionPanel } from './RecognitionPanel';
@@ -53,6 +53,7 @@ import { createFilingActionReceipt, filingActionReceiptMatches, readFilingAction
 import { readFilingContactDraft, removeFilingContactDraft, writeFilingContactDraft } from './filingContactDraft';
 import { routeSnapshotHashAfterTransition } from './reportRouteSnapshot';
 import { automaticEscalationLanguageTransition } from './escalationDraftLanguage';
+import { resolveFilingRecipientEmail } from './filingChannels';
 import './styles.css';
 
 const DEBUG_MODE = new URLSearchParams(window.location.search).get('debug') === '1';
@@ -1707,7 +1708,7 @@ function App() {
     const result: RouteResult = await response.json();
     setRouteResult(result);
     setFilingChannelId('');
-    setFilingEmail(result.officialChannels?.find((channel) => channel.type === 'EMAIL')?.value ?? '');
+    setFilingEmail(resolveFilingRecipientEmail('', result.officialChannels));
     if (result.status === 'SUPPORTED_ROUTE' && complaintFacts.trim() !== preparedComplaintFacts) {
       setComplaintFacts(preparedComplaintFacts);
     }
@@ -1837,7 +1838,7 @@ function App() {
       setDraftBody(fallback.body!);
       filingDrafts.current[`${method}:${languageToUse}`] = { result: fallback, subject: fallback.subject!, body: fallback.body! };
       setDraftStatus(result.message ?? 'Automatic drafting is unavailable. Review and edit the manual draft before filing.');
-      requestLinkedMutation(async () => { await saveGeneratedDraft(fallback); });
+      await saveGeneratedDraft(fallback);
       return;
     }
     setComplaintDraft(result);
@@ -1845,10 +1846,7 @@ function App() {
     setDraftBody(result.body);
     filingDrafts.current[`${method}:${languageToUse}`] = { result, subject: result.subject, body: result.body };
     setDraftReviewed(false);
-    if (accountState !== 'GOOGLE_LINKED') {
-      setDraftStatus('Draft ready. Connect Google to save it without losing this form.');
-    }
-    requestLinkedMutation(async () => { await saveGeneratedDraft(result); });
+    await saveGeneratedDraft(result);
   }
 
   function cacheCurrentFilingDraft() {
@@ -1916,6 +1914,13 @@ function App() {
     setFilingActionStatus('');
     setFilingChannelId(filingChannelForMethod(method)?.channelId ?? '');
     setDraftLanguage(languageToUse);
+    if (durableWriteNeedsGoogleLink(accountState)) {
+      requestLinkedMutation(async () => {
+        const requestSequence = ++filingDraftRequestSequence.current;
+        await createComplaintDraft(languageToUse, method, requestSequence);
+      });
+      return;
+    }
     const exactKey = `${method}:${languageToUse}`;
     const cached = filingDrafts.current[exactKey];
     if (cached) {
@@ -2896,7 +2901,7 @@ function App() {
   const formChannel = routeResult?.officialChannels?.find((channel) => channel.type === 'ONLINE_FORM');
   const officeChannel = routeResult?.officialChannels?.find((channel) => channel.type === 'IN_PERSON');
   const filingAuthority = complaintDraft?.authorityLocalName || complaintDraft?.authority || routeResult?.authority || '';
-  const filingRecipientEmail = filingEmail || emailChannel?.value || '';
+  const filingRecipientEmail = resolveFilingRecipientEmail(filingEmail, routeResult?.officialChannels);
   const filingLanguageChoices = [
     { value: 'EN' as const, label: 'English' },
     { value: 'MR' as const, label: language === 'hi' ? 'मराठी' : t('मराठी') },

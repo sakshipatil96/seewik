@@ -64,6 +64,8 @@ class ApiControllerTest {
                 .andExpect(jsonPath("$.department.displayName").value("Health and Sanitation Department"))
                 .andExpect(jsonPath("$.department.status").value("TYPICAL_STRUCTURE_UNVERIFIED"))
                 .andExpect(jsonPath("$.officialChannels.length()").value(3))
+                .andExpect(jsonPath("$.officialChannels[0].channelId").value("EMAIL_NMC"))
+                .andExpect(jsonPath("$.officialChannels[0].value").value("conandurbarnmc@gmail.com"))
                 .andExpect(jsonPath("$.informationalLinks.length()").value(1))
                 .andExpect(jsonPath("$.sourceStatus").value("OFFICIAL_SOURCE"))
                 .andExpect(jsonPath("$.reviewStatus").value("REVIEW_PENDING"))

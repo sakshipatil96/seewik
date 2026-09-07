@@ -7,6 +7,7 @@ import {
   accountErrorMessage,
   accountIdentityState,
   collisionAuditData,
+  durableWriteNeedsGoogleLink,
   isCredentialCollisionCode,
   reportsViewState,
   safeAccountErrorCode,
@@ -26,6 +27,13 @@ test('report states distinguish sign-out, recovery, and zero-report ownership', 
   assert.equal(reportsViewState('GOOGLE_LINK_REQUIRED', 0, false), 'ANONYMOUS_EMPTY');
   assert.equal(reportsViewState('GOOGLE_LINKED', 0, false), 'LINKED_EMPTY');
   assert.equal(reportsViewState('GOOGLE_LINKED', 2, true), 'HAS_REPORTS');
+});
+
+test('every non-linked account state requests Google before a durable write', () => {
+  assert.equal(durableWriteNeedsGoogleLink('SIGNED_OUT'), true);
+  assert.equal(durableWriteNeedsGoogleLink('ANONYMOUS_SESSION'), true);
+  assert.equal(durableWriteNeedsGoogleLink('GOOGLE_LINK_REQUIRED'), true);
+  assert.equal(durableWriteNeedsGoogleLink('GOOGLE_LINKED'), false);
 });
 
 test('credential collision codes are separated from ordinary popup failures', () => {
@@ -93,7 +101,6 @@ test('all durable frontend mutations pass through the reusable link gate', async
   for (const action of guardedActions) {
     assert.match(source, new RegExp(`requestLinkedMutation\\(\\(\\) => ${action}\\(`), `${action} must be invoked through the link gate`);
   }
-  assert.match(source, /requestLinkedMutation\(async \(\) => \{ await saveGeneratedDraft\(result\); \}\)/);
 });
 
 test('Firestore profile and audit writes require a linked Google token', async () => {

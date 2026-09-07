@@ -205,3 +205,12 @@ The local Day 12 and Day 15 handoff documents remain untracked and are not part 
 - English, Marathi, and Hindi interfaces and desktop/mobile layouts were checked. All three escalation routes remained editable, explicit, zero-point actions.
 - Frontend suite before release: 95/95 passed. Production frontend build passed; the existing large-bundle advisory remains non-blocking.
 - BigQuery activation verification: `seewik-map-trace-v0.2` active with 20 rows; `synthetic-v0.1` inactive with 20 rollback rows; known point resolves to Prabhag 18 with citizen confirmation required.
+
+## Production filing walkthrough and signed-out gate correction - 7 September 2026
+
+- A signed-in production walkthrough passed routing, all three prepared filing formats, DMA handoff, the `FILED` transition, the frozen route display, and the `+5` event without browser-console errors.
+- Production test report `nCPlKajfIGGJHLx70SmE` was deliberately labelled as a synthetic walkthrough and was not submitted to a government office.
+- A signed-out production walkthrough confirmed that description, category, Prabhag selection, and deterministic routing remain publicly usable, but all three filing choices incorrectly showed a generic draft-creation error instead of the Google-link boundary.
+- Corrected the filing boundary so every non-linked identity state queues the selected filing method, opens the existing Google sign-in dialog before token or draft work, preserves the in-memory form, and resumes that exact draft action after authentication.
+- Centralized Civic Pack email resolution and added a regression test for the verified Nagar Palika address. A direct production router query confirmed that the deployed API returns `conandurbarnmc@gmail.com`; no duplicate frontend civic-data constant was introduced.
+- Added backend response assertions for the `EMAIL_NMC` channel ID and value. Priority 3 follow-up-button hydration and the separate filed-report `boundaryDatasetVersion` audit item remain intentionally outside this correction.

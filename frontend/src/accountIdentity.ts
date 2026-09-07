@@ -41,6 +41,10 @@ export function reportsViewState(accountState: AccountIdentityState, reportCount
   return accountState === 'GOOGLE_LINKED' ? 'LINKED_EMPTY' : 'ANONYMOUS_EMPTY';
 }
 
+export function durableWriteNeedsGoogleLink(accountState: AccountIdentityState) {
+  return accountState !== 'GOOGLE_LINKED';
+}
+
 export function isCredentialCollisionCode(code: string | undefined) {
   return code === 'auth/credential-already-in-use'
     || code === 'auth/account-exists-with-different-credential';
