@@ -64,6 +64,7 @@ import {
 import { routeSnapshotHashAfterTransition } from './reportRouteSnapshot';
 import { automaticEscalationLanguageTransition } from './escalationDraftLanguage';
 import { resolveFilingRecipientEmail } from './filingChannels';
+import { copyPlainText } from './plainTextClipboard';
 import './styles.css';
 
 const DEBUG_MODE = new URLSearchParams(window.location.search).get('debug') === '1';
@@ -2262,7 +2263,7 @@ function App() {
     const saved = await saveDraftEdits();
     if (!saved) return;
     const recipient = complaintDraft?.authorityLocalName || complaintDraft?.authority || '';
-    await navigator.clipboard.writeText(`${recipient}\n\n${draftSubject.trim()}\n\n${draftBody.trim()}`);
+    await copyPlainText(`${recipient}\n\n${draftSubject.trim()}\n\n${draftBody.trim()}`);
     setDraftStatus('Reviewed complaint copied. No complaint was submitted automatically.');
   }
 
@@ -2385,12 +2386,12 @@ function App() {
   }
 
   async function copyDmaPack() {
-    await navigator.clipboard.writeText(dmaFilingPackText());
+    await copyPlainText(dmaFilingPackText());
     setFilingActionStatus('The editable DMA filing fields were copied.');
   }
 
   async function copyFilingField(label: string, value: string) {
-    await navigator.clipboard.writeText(value);
+    await copyPlainText(value);
     setFilingActionStatus(`${label} copied.`);
   }
 
@@ -2421,7 +2422,7 @@ function App() {
         if (error instanceof DOMException && error.name === 'AbortError') return;
       }
     }
-    await navigator.clipboard.writeText(text);
+    await copyPlainText(text);
     recordFilingAction('PRINT');
     setFilingActionStatus('The letter was copied because sharing is unavailable on this device.');
   }
@@ -2572,16 +2573,7 @@ function App() {
         if (error instanceof DOMException && error.name === 'AbortError') return;
       }
     }
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      const field = document.createElement('textarea');
-      field.value = url;
-      document.body.appendChild(field);
-      field.select();
-      document.execCommand('copy');
-      field.remove();
-    }
+    await copyPlainText(url);
     setInitiativeStatus('Activity link copied.');
   }
 
@@ -2860,7 +2852,7 @@ function App() {
       setFollowUpStatus('This escalation draft is stale. Refresh the report before using it.');
       return;
     }
-    await navigator.clipboard.writeText(`To: ${escalationRecipient(selectedEscalationChannel)}\nSubject: ${escalationSubject.trim()}\n\n${escalationBody.trim()}`);
+    await copyPlainText(`To: ${escalationRecipient(selectedEscalationChannel)}\nSubject: ${escalationSubject.trim()}\n\n${escalationBody.trim()}`);
     setEscalationActionOpened(true);
     setFollowUpStatus('The editable email was copied. Seewik has not sent it.');
   }
