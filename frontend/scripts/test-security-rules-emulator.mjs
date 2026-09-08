@@ -35,6 +35,8 @@ function validDraft(ownerUid) {
     confirmedIssueType: 'POTHOLE_ROAD_DAMAGE',
     prabhagId: 'PRABHAG-03',
     routeId: 'NMC-PW-POTHOLE-v0.2',
+    boundaryDatasetVersion: 'seewik-map-trace-v0.2',
+    resolutionMethod: 'SELF_REPORTED',
     authority: 'Nandurbar Municipal Council',
     draftLanguage: 'MR',
     draftSubject: 'रस्त्यावरील खड्ड्याबाबत तक्रार',
