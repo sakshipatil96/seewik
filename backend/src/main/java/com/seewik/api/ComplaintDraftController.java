@@ -72,6 +72,36 @@ public class ComplaintDraftController {
         }
     }
 
+    @PostMapping(value = "/draft-observation", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> observeDraftAttempt(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody(required = false) DraftAttemptObservation observation) {
+        try {
+            identityVerifier.verifyBearer(authorization);
+        } catch (CitizenIdentityVerifier.AuthenticationException exception) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(error("AUTHENTICATION_REQUIRED", exception.getMessage()));
+        }
+        if (observation == null || observation.attemptNumber() == null || observation.durationMs() == null
+                || observation.outcome() == null || observation.attemptNumber() < 1 || observation.attemptNumber() > 2
+                || observation.durationMs() < 0 || observation.durationMs() > 300_000) {
+            return ResponseEntity.badRequest().body(error("INVALID_OBSERVATION", "Draft observation fields are invalid."));
+        }
+        String outcome = switch (observation.outcome()) {
+            case "SUCCESS", "TIMEOUT", "HTTP_ERROR", "INVALID_RESPONSE", "NETWORK_ERROR" -> observation.outcome();
+            default -> null;
+        };
+        if (outcome == null) {
+            return ResponseEntity.badRequest().body(error("INVALID_OBSERVATION", "Draft observation outcome is invalid."));
+        }
+        String metric = "client.drafting.attempt_" + observation.attemptNumber();
+        metrics.increment(metric + "." + outcome.toLowerCase());
+        metrics.recordLatency(metric, observation.durationMs());
+        return ResponseEntity.noContent().build();
+    }
+
+    public record DraftAttemptObservation(Integer attemptNumber, Long durationMs, String outcome) {}
+
     private static Map<String, String> error(String code, String message) {
         return Map.of("status", "DRAFT_ERROR", "errorCode", code, "message", message);
     }

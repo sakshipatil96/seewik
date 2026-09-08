@@ -83,6 +83,8 @@ test('emergency information stays independent of accounts, reports and location'
   assert.doesNotMatch(emergencyUi, /accountState|accountName|authService|report history|privatePoints|geolocation|coordinates|navigator\.geolocation/i);
   assert.match(emergencyUi, /Available without sign-in/);
   assert.match(emergencyUi, /offline viewing/);
-  assert.match(serviceWorker, /cache\.put\(event\.request,response\.clone\(\)\)/);
+  assert.match(serviceWorker, /const cacheResponse=response\.clone\(\)/);
+  assert.match(serviceWorker, /await cache\.put\(event\.request,cacheResponse\)/);
+  assert.match(serviceWorker, /event\.waitUntil\(responsePromise/);
   assert.match(serviceWorker, /event\.request\.mode==='navigate'\?caches\.match\('\/'\)/);
 });

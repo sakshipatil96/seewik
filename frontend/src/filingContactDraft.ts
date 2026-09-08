@@ -1,4 +1,6 @@
 export type FilingContactDraft = {
+  schemaVersion: 'filing-contact-draft-v0.2';
+  ownerUid: string;
   reportId: string;
   complainantName: string;
   complainantEmail: string;
@@ -9,16 +11,18 @@ export type FilingContactDraft = {
   complainantState: string;
 };
 
-const STORAGE_KEY = 'seewik:filing-contact-draft:v0.1';
+export const FILING_CONTACT_DRAFT_KEY = 'seewik:filing-contact-draft:v0.2';
 
 export function readFilingContactDraft(
   storage: Pick<Storage, 'getItem'>,
+  ownerUid: string,
   reportId: string,
 ): FilingContactDraft | null {
-  if (!reportId) return null;
+  if (!ownerUid || !reportId) return null;
   try {
-    const parsed = JSON.parse(storage.getItem(STORAGE_KEY) ?? 'null') as FilingContactDraft | null;
-    return parsed?.reportId === reportId ? parsed : null;
+    const parsed = JSON.parse(storage.getItem(FILING_CONTACT_DRAFT_KEY) ?? 'null') as FilingContactDraft | null;
+    if (parsed?.schemaVersion !== 'filing-contact-draft-v0.2') return null;
+    return parsed.ownerUid === ownerUid && parsed.reportId === reportId ? parsed : null;
   } catch {
     return null;
   }
@@ -28,10 +32,18 @@ export function writeFilingContactDraft(
   storage: Pick<Storage, 'setItem'>,
   draft: FilingContactDraft,
 ) {
-  if (!draft.reportId) return;
-  storage.setItem(STORAGE_KEY, JSON.stringify(draft));
+  if (!draft.ownerUid || !draft.reportId || draft.schemaVersion !== 'filing-contact-draft-v0.2') return;
+  try {
+    storage.setItem(FILING_CONTACT_DRAFT_KEY, JSON.stringify(draft));
+  } catch {
+    // The in-memory fields remain available when session storage is unavailable.
+  }
 }
 
 export function removeFilingContactDraft(storage: Pick<Storage, 'removeItem'>) {
-  storage.removeItem(STORAGE_KEY);
+  try {
+    storage.removeItem(FILING_CONTACT_DRAFT_KEY);
+  } catch {
+    // Storage can be unavailable in privacy-restricted browser contexts.
+  }
 }

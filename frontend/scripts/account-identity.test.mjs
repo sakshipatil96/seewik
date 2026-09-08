@@ -36,6 +36,22 @@ test('every non-linked account state requests Google before a durable write', ()
   assert.equal(durableWriteNeedsGoogleLink('GOOGLE_LINKED'), false);
 });
 
+test('guest complaint wording is generated before the durable filing gate', async () => {
+  const source = await readFile(new URL('../src/main.tsx', import.meta.url), 'utf8');
+  const prepareFiling = source.slice(
+    source.indexOf('async function prepareFilingMethod'),
+    source.indexOf('async function changeComplaintLanguage'),
+  );
+  const confirmFiling = source.slice(
+    source.indexOf('function confirmFiledReport'),
+    source.indexOf('async function loadMyReports'),
+  );
+  assert.doesNotMatch(prepareFiling, /durableWriteNeedsGoogleLink|requestLinkedMutation/);
+  assert.match(prepareFiling, /createComplaintDraft/);
+  assert.match(confirmFiling, /requestLinkedMutation/);
+  assert.match(confirmFiling, /saveGeneratedDraft/);
+});
+
 test('credential collision codes are separated from ordinary popup failures', () => {
   assert.equal(isCredentialCollisionCode('auth/credential-already-in-use'), true);
   assert.equal(isCredentialCollisionCode('auth/account-exists-with-different-credential'), true);

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import {
   createFilingActionReceipt,
@@ -42,4 +43,12 @@ test('changing the filing method or report invalidates the receipt', () => {
   writeFilingActionReceipt(storage, receipt);
   removeFilingActionReceipt(storage);
   assert.equal(readFilingActionReceipt(storage), null);
+});
+
+test('a guest filing action is rebound only while its linked draft save is pending', async () => {
+  const source = await readFile(new URL('../src/main.tsx', import.meta.url), 'utf8');
+  assert.match(source, /pendingSavedFilingAction\.current = \{ method, reportId \}/);
+  assert.match(source, /draftDocumentId !== pending\.reportId \|\| selectedFilingMethod !== pending\.method/);
+  assert.match(source, /recordFilingAction\(pending\.method, pending\.reportId\)/);
+  assert.match(source, /function clearFilingActionReceipt\(\) \{\s*pendingSavedFilingAction\.current = null/);
 });

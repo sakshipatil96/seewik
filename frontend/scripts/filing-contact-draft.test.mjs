@@ -16,6 +16,8 @@ function memoryStorage() {
 }
 
 const contact = {
+  schemaVersion: 'filing-contact-draft-v0.2',
+  ownerUid: 'anonymous-1',
   reportId: 'report-1',
   complainantName: 'Test Citizen',
   complainantEmail: 'citizen@example.test',
@@ -29,13 +31,20 @@ const contact = {
 test('filing contact fields survive a refresh for the same saved report', () => {
   const storage = memoryStorage();
   writeFilingContactDraft(storage, contact);
-  assert.deepEqual(readFilingContactDraft(storage, 'report-1'), contact);
+  assert.deepEqual(readFilingContactDraft(storage, 'anonymous-1', 'report-1'), contact);
 });
 
-test('filing contact fields never cross report boundaries and can be cleared', () => {
+test('filing contact fields never cross owner or report boundaries and can be cleared', () => {
   const storage = memoryStorage();
   writeFilingContactDraft(storage, contact);
-  assert.equal(readFilingContactDraft(storage, 'report-2'), null);
+  assert.equal(readFilingContactDraft(storage, 'anonymous-2', 'report-1'), null);
+  assert.equal(readFilingContactDraft(storage, 'anonymous-1', 'report-2'), null);
   removeFilingContactDraft(storage);
-  assert.equal(readFilingContactDraft(storage, 'report-1'), null);
+  assert.equal(readFilingContactDraft(storage, 'anonymous-1', 'report-1'), null);
+});
+
+test('legacy or malformed filing contact records are ignored', () => {
+  const storage = memoryStorage();
+  storage.setItem('seewik:filing-contact-draft:v0.2', JSON.stringify({ ...contact, schemaVersion: 'filing-contact-draft-v0.1' }));
+  assert.equal(readFilingContactDraft(storage, 'anonymous-1', 'report-1'), null);
 });

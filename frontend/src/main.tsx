@@ -14,9 +14,10 @@ import {
   sessionToken,
   signIntoAccount,
   signOutWithoutStartingAnonymousWork,
+  startAnonymousWorkSession,
   syncPrivateProfile,
 } from './accountService';
-import { accountErrorMessage, durableWriteNeedsGoogleLink, isCredentialCollisionCode, reportsViewState, safeAccountErrorCode, type AccountIdentityState } from './accountIdentity';
+import { accountErrorMessage, isCredentialCollisionCode, reportsViewState, safeAccountErrorCode, type AccountIdentityState } from './accountIdentity';
 import { API_URL } from './apiConfig';
 import { LANGUAGE_STORAGE_KEY, classificationSuggestionMessage, formatDateTime, initialLanguage, localizedMonthLabel, localizedRuntimeMessage, localizedStatus, translate, type InterfaceLanguage } from './i18n';
 import { RecognitionPanel } from './RecognitionPanel';
@@ -51,6 +52,15 @@ import { canEditReport, canResumeReport, draftRouteIsCurrent, initiativeIdFromPa
 import { citizenSafeError } from './uiErrors';
 import { createFilingActionReceipt, filingActionReceiptMatches, readFilingActionReceipt, removeFilingActionReceipt, writeFilingActionReceipt, type FilingDraftIdentity, type FilingMethod } from './filingActionReceipt';
 import { readFilingContactDraft, removeFilingContactDraft, writeFilingContactDraft } from './filingContactDraft';
+import { readGuestComplaintPreview, removeGuestComplaintPreview, writeGuestComplaintPreview } from './guestComplaintPreview';
+import {
+  INITIAL_COMPLAINT_DRAFT_TIMEOUT_MS,
+  RETRY_COMPLAINT_DRAFT_TIMEOUT_MS,
+  createDeterministicComplaintDraft,
+  fetchWithDeadline,
+  isComplaintDraftTimeout,
+  type ComplaintDraftAttemptOutcome,
+} from './complaintDraftResilience';
 import { routeSnapshotHashAfterTransition } from './reportRouteSnapshot';
 import { automaticEscalationLanguageTransition } from './escalationDraftLanguage';
 import { resolveFilingRecipientEmail } from './filingChannels';
@@ -474,6 +484,9 @@ function App() {
   const [draftSubject, setDraftSubject] = useState('');
   const [draftBody, setDraftBody] = useState('');
   const [draftStatus, setDraftStatus] = useState('');
+  const [draftSuggestion, setDraftSuggestion] = useState<{ result: ComplaintDraftResult; ownerUid: string } | null>(null);
+  const [draftRetrying, setDraftRetrying] = useState(false);
+  const [draftRetryAttempted, setDraftRetryAttempted] = useState(false);
   const [draftDocumentId, setDraftDocumentId] = useState<string | null>(null);
   const [draftReviewed, setDraftReviewed] = useState(false);
   const [currentCoordinates, setCurrentCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -545,7 +558,7 @@ function App() {
   const [complainantCity, setComplainantCity] = useState('Nandurbar');
   const [complainantPincode, setComplainantPincode] = useState('425412');
   const [complainantState, setComplainantState] = useState('Maharashtra');
-  const filingContactRestoredReportId = useRef('');
+  const filingContactRestoredKey = useRef('');
   const [accountState, setAccountState] = useState<AccountIdentityState>('ANONYMOUS_SESSION');
   const [accountUid, setAccountUid] = useState<string | null>(null);
   const [accountName, setAccountName] = useState<string | null>(null);
@@ -582,6 +595,8 @@ function App() {
   const escalationDrafts = useRef<Record<string, { subject: string; body: string }>>({});
   const activeFilingMethod = useRef<FilingMethod | ''>('');
   const filingDraftRequestSequence = useRef(0);
+  const observedAccountUid = useRef<string | null>(null);
+  const pendingSavedFilingAction = useRef<{ method: FilingMethod; reportId: string } | null>(null);
   const t = (source: string) => translate(language, source);
   const runtimeMessage = (message: string) => localizedRuntimeMessage(language, message);
   const initiativePublishRequirements = [
@@ -662,8 +677,17 @@ function App() {
   }, [evidenceImage]);
 
   useEffect(() => observeAccount(({ state, user }) => {
+    const nextUid = user?.uid ?? null;
+    const previousUid = observedAccountUid.current;
+    if (previousUid && previousUid !== nextUid) {
+      removeFilingContactDraft(window.sessionStorage);
+      removeGuestComplaintPreview(window.sessionStorage);
+      removeFilingActionReceipt(window.sessionStorage);
+      setFilingActionReceipt(null);
+    }
+    observedAccountUid.current = nextUid;
     setAccountState(state);
-    setAccountUid(user?.uid ?? null);
+    setAccountUid(nextUid);
     setAccountName(user?.displayName ? user.displayName.trim() : null);
     setAccountEmail(user?.email ?? null);
     setAccountProfileLoading(state === 'GOOGLE_LINKED');
@@ -688,18 +712,30 @@ function App() {
   }), []);
 
   useEffect(() => {
+    const pending = pendingSavedFilingAction.current;
+    if (!pending || draftDocumentId !== pending.reportId || selectedFilingMethod !== pending.method) return;
+    recordFilingAction(pending.method, pending.reportId);
+  }, [accountUid, draftDocumentId, selectedFilingMethod, draftLanguage, draftSubject, draftBody, filingEmail, complainantName, complainantEmail, complainantPhone, complainantAddress, complainantCity, complainantPincode, complainantState]);
+
+  useEffect(() => {
     if (accountState !== 'GOOGLE_LINKED' || !accountUid) return;
     void refreshDerivedPoints().catch(() => undefined);
   }, [accountState, accountUid]);
 
   useEffect(() => {
-    if (!draftDocumentId) {
-      filingContactRestoredReportId.current = '';
+    const ownerUid = accountUid ?? selectedReport?.ownerUid ?? '';
+    const reportId = draftDocumentId
+      ?? (complaintDraft?.status === 'DRAFT_READY' && complaintDraft.routeId && complaintDraft.prabhagId
+        ? `guest:${complaintDraft.routeId}:${complaintDraft.prabhagId}`
+        : '');
+    if (!ownerUid || !reportId) {
+      filingContactRestoredKey.current = '';
       return;
     }
-    if (filingContactRestoredReportId.current !== draftDocumentId) {
-      filingContactRestoredReportId.current = draftDocumentId;
-      const restored = readFilingContactDraft(window.sessionStorage, draftDocumentId);
+    const restorationKey = `${ownerUid}:${reportId}`;
+    if (filingContactRestoredKey.current !== restorationKey) {
+      filingContactRestoredKey.current = restorationKey;
+      const restored = readFilingContactDraft(window.sessionStorage, ownerUid, reportId);
       if (restored) {
         setComplainantName(restored.complainantName);
         setComplainantEmail(restored.complainantEmail);
@@ -712,7 +748,9 @@ function App() {
       }
     }
     writeFilingContactDraft(window.sessionStorage, {
-      reportId: draftDocumentId,
+      schemaVersion: 'filing-contact-draft-v0.2',
+      ownerUid,
+      reportId,
       complainantName,
       complainantEmail,
       complainantPhone,
@@ -721,7 +759,29 @@ function App() {
       complainantPincode,
       complainantState,
     });
-  }, [draftDocumentId, complainantName, complainantEmail, complainantPhone, complainantAddress, complainantCity, complainantPincode, complainantState]);
+  }, [accountUid, selectedReport?.ownerUid, draftDocumentId, complaintDraft, complainantName, complainantEmail, complainantPhone, complainantAddress, complainantCity, complainantPincode, complainantState]);
+
+  useEffect(() => {
+    if (accountState === 'GOOGLE_LINKED' || !accountUid || draftDocumentId || !selectedFilingMethod
+      || complaintDraft?.status !== 'DRAFT_READY' || !complaintDraft.routeId || !complaintDraft.packVersion
+      || !complaintDraft.prabhagId || !complaintDraft.language || !complaintDraft.draftVersion
+      || !complaintDraft.schemaVersion || !complaintDraft.authority || !draftSubject.trim() || !draftBody.trim()) return;
+    writeGuestComplaintPreview(window.sessionStorage, {
+      schemaVersion: 'guest-complaint-preview-v0.1',
+      ownerUid: accountUid,
+      routeId: complaintDraft.routeId,
+      packVersion: complaintDraft.packVersion,
+      prabhagId: complaintDraft.prabhagId,
+      method: selectedFilingMethod,
+      language: complaintDraft.language,
+      draftVersion: complaintDraft.draftVersion,
+      complaintSchemaVersion: complaintDraft.schemaVersion,
+      authority: complaintDraft.authority,
+      authorityLocalName: complaintDraft.authorityLocalName,
+      subject: draftSubject,
+      body: draftBody,
+    });
+  }, [accountState, accountUid, draftDocumentId, selectedFilingMethod, complaintDraft, draftSubject, draftBody]);
 
   useEffect(() => {
     if (accountState !== 'GOOGLE_LINKED' || !accountName?.trim()) return;
@@ -742,6 +802,9 @@ function App() {
     setDraftSubject('');
     setDraftBody('');
     setDraftStatus('');
+    setDraftSuggestion(null);
+    setDraftRetrying(false);
+    setDraftRetryAttempted(false);
     setDraftDocumentId(null);
     setDraftReviewed(false);
     setReportStatus('DRAFT');
@@ -774,6 +837,7 @@ function App() {
 
   function startOver() {
     removeFilingContactDraft(window.sessionStorage);
+    removeGuestComplaintPreview(window.sessionStorage);
     if (classificationTimer.current !== null) window.clearTimeout(classificationTimer.current);
     classificationTimer.current = null;
     classificationRequestSequence.current += 1;
@@ -834,6 +898,8 @@ function App() {
 
   function clearAccountBoundState() {
     removeFilingContactDraft(window.sessionStorage);
+    removeGuestComplaintPreview(window.sessionStorage);
+    removeFilingActionReceipt(window.sessionStorage);
     setSavedReports([]);
     setSelectedReport(null);
     setReportsStatus('');
@@ -1778,12 +1844,109 @@ function App() {
   async function saveGeneratedDraft(result: ComplaintDraftResult) {
     try {
       const reportId = await persistNewDraft(result);
+      removeGuestComplaintPreview(window.sessionStorage);
       setDraftStatus(`Draft saved · ${reportId.slice(0, 8)}… Choose how you want to file it below.`);
       return reportId;
     } catch (error) {
       setDraftStatus(`Draft created but could not be saved: ${(error as Error).message}`);
       return null;
     }
+  }
+
+  function persistGuestComplaintDraft(result: ComplaintDraftResult, ownerUid: string, method: FilingMethod, languageToUse: 'MR' | 'EN') {
+    writeGuestComplaintPreview(window.sessionStorage, {
+      schemaVersion: 'guest-complaint-preview-v0.1',
+      ownerUid,
+      routeId: result.routeId!,
+      packVersion: result.packVersion!,
+      prabhagId: result.prabhagId!,
+      method,
+      language: languageToUse,
+      draftVersion: result.draftVersion!,
+      complaintSchemaVersion: result.schemaVersion!,
+      authority: result.authority!,
+      authorityLocalName: result.authorityLocalName,
+      subject: result.subject!,
+      body: result.body!,
+    });
+  }
+
+  function recordComplaintDraftObservation(idToken: string, attemptNumber: 1 | 2, startedAt: number, outcome: ComplaintDraftAttemptOutcome) {
+    const durationMs = Math.max(0, Math.round(performance.now() - startedAt));
+    void fetch(`${API_URL}/api/civic/draft-observation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify({ attemptNumber, durationMs, outcome }),
+      keepalive: true,
+    }).catch(() => undefined);
+  }
+
+  async function runComplaintDraftAttempt(
+    languageToUse: 'MR' | 'EN',
+    method: FilingMethod,
+    idToken: string,
+    attemptNumber: 1 | 2,
+    timeoutMs: number,
+  ) {
+    const startedAt = performance.now();
+    try {
+      const response = await fetchWithDeadline(`${API_URL}/api/civic/draft-complaint`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({
+          issueType,
+          prabhagId,
+          resolutionMethod: selectionMethod,
+          citizenConfirmed,
+          boundaryDatasetVersion,
+          citizenDescription: complaintFacts.trim(),
+          locationDetails: locationDetails.trim() || null,
+          draftLanguage: languageToUse,
+          filingFormat: method,
+        }),
+      }, timeoutMs);
+      let result: ComplaintDraftResult;
+      try {
+        result = await response.json();
+      } catch {
+        result = { status: 'DRAFT_ERROR', message: 'The drafting service returned an unreadable response.' };
+      }
+      const ready = result.status === 'DRAFT_READY' && Boolean(result.subject) && Boolean(result.body);
+      const outcome: ComplaintDraftAttemptOutcome = !response.ok ? 'HTTP_ERROR' : ready ? 'SUCCESS' : 'INVALID_RESPONSE';
+      recordComplaintDraftObservation(idToken, attemptNumber, startedAt, outcome);
+      return { response, result, ready };
+    } catch (error) {
+      recordComplaintDraftObservation(idToken, attemptNumber, startedAt, isComplaintDraftTimeout(error) ? 'TIMEOUT' : 'NETWORK_ERROR');
+      throw error;
+    }
+  }
+
+  async function presentDeterministicComplaintDraft(
+    languageToUse: 'MR' | 'EN',
+    method: FilingMethod,
+    ownerUid: string,
+    shouldPersist: boolean,
+    status: string,
+  ) {
+    if (routeResult?.status !== 'SUPPORTED_ROUTE') return;
+    const fallback: ComplaintDraftResult = createDeterministicComplaintDraft({
+      language: languageToUse,
+      facts: complaintFacts,
+      locationDetails,
+      packVersion: routeResult.packVersion!,
+      routeId: routeResult.routeId!,
+      prabhagId,
+      authority: routeResult.authority!,
+      authorityLocalName: routeResult.authorityLocalName,
+    });
+    setComplaintDraft(fallback);
+    setDraftSubject(fallback.subject!);
+    setDraftBody(fallback.body!);
+    setDraftSuggestion(null);
+    filingDrafts.current[`${method}:${languageToUse}`] = { result: fallback, subject: fallback.subject!, body: fallback.body! };
+    setDraftStatus(status);
+    if (shouldPersist) await saveGeneratedDraft(fallback);
+    else persistGuestComplaintDraft(fallback, ownerUid, method, languageToUse);
   }
 
   async function createComplaintDraft(languageToUse: 'MR' | 'EN', method: FilingMethod, requestSequence: number) {
@@ -1799,54 +1962,111 @@ function App() {
     setDraftSubject('');
     setDraftBody('');
     setDraftReviewed(false);
+    setDraftSuggestion(null);
+    setDraftRetrying(false);
+    setDraftRetryAttempted(false);
     setDraftStatus(`Creating ${languageToUse === 'MR' ? 'Marathi' : 'English'} complaint draft…`);
-    const idToken = await sessionToken();
-    const response = await fetch(`${API_URL}/api/civic/draft-complaint`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-      body: JSON.stringify({
-        issueType,
-        prabhagId,
-        resolutionMethod: selectionMethod,
-        citizenConfirmed,
-        boundaryDatasetVersion,
-        citizenDescription: complaintFacts.trim(),
-        locationDetails: locationDetails.trim() || null,
-        draftLanguage: languageToUse,
-        filingFormat: method,
-      }),
-    });
-    const result: ComplaintDraftResult = await response.json();
+    const shouldPersist = accountState === 'GOOGLE_LINKED';
+    const draftingUser = accountState === 'SIGNED_OUT'
+      ? await startAnonymousWorkSession()
+      : await ensureAnonymousSession();
+    const idToken = await draftingUser.getIdToken();
+    let attempt;
+    try {
+      attempt = await runComplaintDraftAttempt(languageToUse, method, idToken, 1, INITIAL_COMPLAINT_DRAFT_TIMEOUT_MS);
+    } catch (error) {
+      if (requestSequence !== filingDraftRequestSequence.current || activeFilingMethod.current !== method) return;
+      await presentDeterministicComplaintDraft(
+        languageToUse,
+        method,
+        draftingUser.uid,
+        shouldPersist,
+        isComplaintDraftTimeout(error)
+          ? 'Automatic drafting took too long. A basic editable complaint is ready now.'
+          : 'Automatic drafting is unavailable. A basic editable complaint is ready now.',
+      );
+      return;
+    }
+    const { response, result, ready } = attempt;
     if (requestSequence !== filingDraftRequestSequence.current || activeFilingMethod.current !== method) return;
-    if (!response.ok || result.status !== 'DRAFT_READY' || !result.subject || !result.body) {
-      const fallback: ComplaintDraftResult = {
-        status: 'DRAFT_READY',
-        draftVersion: 'manual-v0.1',
-        schemaVersion: 'complaint-draft-v0.1',
-        packVersion: routeResult.packVersion,
-        language: languageToUse,
-        routeId: routeResult.routeId,
-        prabhagId,
-        authority: routeResult.authority,
-        authorityLocalName: routeResult.authorityLocalName,
-        subject: languageToUse === 'MR' ? 'नागरी समस्येबाबत तक्रार' : 'Civic issue complaint',
-        body: complaintFacts.trim(),
-        citizenReviewRequired: true,
-      };
-      setComplaintDraft(fallback);
-      setDraftSubject(fallback.subject!);
-      setDraftBody(fallback.body!);
-      filingDrafts.current[`${method}:${languageToUse}`] = { result: fallback, subject: fallback.subject!, body: fallback.body! };
-      setDraftStatus(result.message ?? 'Automatic drafting is unavailable. Review and edit the manual draft before filing.');
-      await saveGeneratedDraft(fallback);
+    if (!response.ok || !ready) {
+      await presentDeterministicComplaintDraft(
+        languageToUse,
+        method,
+        draftingUser.uid,
+        shouldPersist,
+        result.message ?? 'Automatic drafting is unavailable. A basic editable complaint is ready now.',
+      );
       return;
     }
     setComplaintDraft(result);
-    setDraftSubject(result.subject);
-    setDraftBody(result.body);
-    filingDrafts.current[`${method}:${languageToUse}`] = { result, subject: result.subject, body: result.body };
+    setDraftSubject(result.subject!);
+    setDraftBody(result.body!);
+    filingDrafts.current[`${method}:${languageToUse}`] = { result, subject: result.subject!, body: result.body! };
     setDraftReviewed(false);
-    await saveGeneratedDraft(result);
+    if (shouldPersist) await saveGeneratedDraft(result);
+    else {
+      persistGuestComplaintDraft(result, draftingUser.uid, method, languageToUse);
+      setDraftStatus('Complaint preview saved for this browser session. Sign in only when you are ready to record filing.');
+    }
+  }
+
+  async function retryComplaintDraft() {
+    if (!selectedFilingMethod || routeResult?.status !== 'SUPPORTED_ROUTE' || !complaintFacts.trim()) return;
+    const method = selectedFilingMethod;
+    const languageToUse = draftLanguage;
+    const requestSequence = ++filingDraftRequestSequence.current;
+    setDraftRetryAttempted(true);
+    setDraftRetrying(true);
+    setDraftSuggestion(null);
+    setDraftStatus('Trying AI wording in the background. Your editable complaint remains available.');
+    try {
+      const draftingUser = accountState === 'SIGNED_OUT'
+        ? await startAnonymousWorkSession()
+        : await ensureAnonymousSession();
+      const idToken = await draftingUser.getIdToken();
+      const { result, ready } = await runComplaintDraftAttempt(languageToUse, method, idToken, 2, RETRY_COMPLAINT_DRAFT_TIMEOUT_MS);
+      if (requestSequence !== filingDraftRequestSequence.current || activeFilingMethod.current !== method) return;
+      if (!ready) {
+        setDraftStatus('AI wording is still unavailable. Keep using the editable complaint already prepared.');
+        return;
+      }
+      setDraftSuggestion({ result, ownerUid: draftingUser.uid });
+      setDraftStatus('An AI wording suggestion is ready. Your current wording has not changed.');
+    } catch (error) {
+      if (requestSequence !== filingDraftRequestSequence.current || activeFilingMethod.current !== method) return;
+      setDraftStatus(isComplaintDraftTimeout(error)
+        ? 'The AI retry also took too long. Keep using the editable complaint already prepared.'
+        : 'The AI retry could not finish. Keep using the editable complaint already prepared.');
+    } finally {
+      if (requestSequence === filingDraftRequestSequence.current && activeFilingMethod.current === method) setDraftRetrying(false);
+    }
+  }
+
+  async function useSuggestedComplaintDraft() {
+    if (!draftSuggestion || !selectedFilingMethod) return;
+    const { result, ownerUid } = draftSuggestion;
+    const method = selectedFilingMethod;
+    setComplaintDraft(result);
+    setDraftSubject(result.subject!);
+    setDraftBody(result.body!);
+    setDraftReviewed(false);
+    clearFilingActionReceipt();
+    filingDrafts.current[`${method}:${draftLanguage}`] = { result, subject: result.subject!, body: result.body! };
+    setDraftSuggestion(null);
+    setDraftStatus('AI wording applied. Review and edit it before filing.');
+    if (accountState === 'GOOGLE_LINKED' && draftDocumentId) {
+      await updateDoc(doc(db, 'reports', draftDocumentId), {
+        draftLanguage,
+        draftSubject: result.subject!.trim(),
+        draftBody: result.body!.trim(),
+        updatedAt: serverTimestamp(),
+      });
+    } else if (accountState === 'GOOGLE_LINKED') {
+      await saveGeneratedDraft(result);
+    } else {
+      persistGuestComplaintDraft(result, ownerUid, method, draftLanguage);
+    }
   }
 
   function cacheCurrentFilingDraft() {
@@ -1885,6 +2105,7 @@ function App() {
   }
 
   function clearFilingActionReceipt() {
+    pendingSavedFilingAction.current = null;
     setFilingActionReceipt(null);
     removeFilingActionReceipt(window.sessionStorage);
   }
@@ -1914,24 +2135,48 @@ function App() {
     setFilingActionStatus('');
     setFilingChannelId(filingChannelForMethod(method)?.channelId ?? '');
     setDraftLanguage(languageToUse);
-    if (durableWriteNeedsGoogleLink(accountState)) {
-      requestLinkedMutation(async () => {
-        const requestSequence = ++filingDraftRequestSequence.current;
-        await createComplaintDraft(languageToUse, method, requestSequence);
-      });
-      return;
-    }
+    const requestSequence = ++filingDraftRequestSequence.current;
+    setDraftSuggestion(null);
+    setDraftRetrying(false);
+    setDraftRetryAttempted(false);
     const exactKey = `${method}:${languageToUse}`;
     const cached = filingDrafts.current[exactKey];
-    if (cached) {
-      const restored = { ...cached.result, language: languageToUse, subject: cached.subject, body: cached.body };
-      filingDrafts.current[exactKey] = { result: restored, subject: cached.subject, body: cached.body };
+    const stored = !cached && accountUid && routeResult?.status === 'SUPPORTED_ROUTE' && routeResult.routeId && routeResult.packVersion
+      ? readGuestComplaintPreview(window.sessionStorage, {
+        ownerUid: accountUid,
+        routeId: routeResult.routeId,
+        packVersion: routeResult.packVersion,
+        prabhagId,
+        method,
+        language: languageToUse,
+      })
+      : null;
+    if (cached || stored) {
+      const snapshot = cached ?? {
+        result: {
+          status: 'DRAFT_READY' as const,
+          draftVersion: stored!.draftVersion,
+          schemaVersion: stored!.complaintSchemaVersion,
+          packVersion: stored!.packVersion,
+          language: stored!.language,
+          routeId: stored!.routeId,
+          prabhagId: stored!.prabhagId,
+          authority: stored!.authority,
+          authorityLocalName: stored!.authorityLocalName,
+          subject: stored!.subject,
+          body: stored!.body,
+          citizenReviewRequired: true,
+        },
+        subject: stored!.subject,
+        body: stored!.body,
+      };
+      const restored = { ...snapshot.result, language: languageToUse, subject: snapshot.subject, body: snapshot.body };
+      filingDrafts.current[exactKey] = { result: restored, subject: snapshot.subject, body: snapshot.body };
       setComplaintDraft(restored);
-      setDraftSubject(cached.subject);
-      setDraftBody(cached.body);
+      setDraftSubject(snapshot.subject);
+      setDraftBody(snapshot.body);
       setDraftStatus('Prepared complaint restored. Review and edit it before filing.');
     } else {
-      const requestSequence = ++filingDraftRequestSequence.current;
       await createComplaintDraft(languageToUse, method, requestSequence);
     }
     window.setTimeout(() => filingPanelRef.current?.focus(), 0);
@@ -2347,10 +2592,12 @@ function App() {
           setFilingActionStatus('The draft could not be saved. Please try again before confirming submission.');
           return;
         }
+        pendingSavedFilingAction.current = { method, reportId };
         recordFilingAction(method, reportId);
         setFilingActionStatus('Your draft is now saved. Click I filed this report again to confirm submission.');
         return;
       }
+      pendingSavedFilingAction.current = null;
       await fileReviewedReport(false);
     });
   }
@@ -3266,7 +3513,7 @@ function App() {
         {selectedFilingMethod && complaintDraft?.status !== 'DRAFT_READY' && draftStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(draftStatus)}</div>}
         {selectedFilingMethod && complaintDraft?.status === 'DRAFT_READY' && <>
           <section className="filing-prep-panel" ref={filingPanelRef} tabIndex={-1}>
-            {complaintDraft.draftVersion === 'manual-v0.1' && draftStatus && <div role="status" aria-live="polite" className="status-panel state-warning">{runtimeMessage(draftStatus)}</div>}
+            {complaintDraft.draftVersion === 'manual-v0.1' && draftStatus && <div role="status" aria-live="polite" className="status-panel state-warning"><span>{runtimeMessage(draftStatus)}</span>{!draftRetryAttempted && <button type="button" className="secondary" disabled={draftRetrying} onClick={() => retryComplaintDraft().catch((error) => setDraftStatus(citizenSafeError(error, 'The AI retry could not finish.')))}>{draftRetrying ? t('Trying AI wording…') : t('Try AI wording again')}</button>}</div>}
             <div className="lifecycle-heading filing-prep-heading"><div><small>{t('Prepare filing')}</small><strong>{selectedFilingLabel}</strong></div><div className="points-pill"><span>{t('Possible reward')}</span><b>+5</b></div></div>
             <label>{t('Complaint language')}<select value={draftLanguage} onChange={(event) => { const nextLanguage = event.target.value as 'MR' | 'EN'; markFilingDraftEdited(); void changeComplaintLanguage(nextLanguage); }}>
               {filingLanguageChoices.map((option) => <option key={option.value} value={option.value}>{filingLanguageLabel(option.value)}</option>)}
@@ -3276,6 +3523,17 @@ function App() {
             </label>
             <label>{t('Subject')}<input type="text" maxLength={160} value={draftSubject} onChange={(event) => { setDraftSubject(event.target.value); markFilingDraftEdited(); }} /></label>
             <label>{t(selectedFilingMethod === 'DMA' ? 'Description of Complaint/Grievance' : selectedFilingMethod === 'EMAIL' ? 'Email complaint content' : 'Complaint body')}<textarea className="draft-body" maxLength={2500} value={draftBody} onChange={(event) => { setDraftBody(event.target.value); markFilingDraftEdited(); }} /></label>
+
+            {draftSuggestion && <aside className="status-panel state-success" aria-live="polite">
+              <strong>{t('AI wording is ready')}</strong>
+              <span>{t('Your current wording has not changed. Review this suggestion and choose whether to use it.')}</span>
+              <label>{t('Suggested subject')}<input type="text" readOnly value={draftSuggestion.result.subject ?? ''} /></label>
+              <label>{t('Suggested complaint body')}<textarea className="draft-body" readOnly value={draftSuggestion.result.body ?? ''} /></label>
+              <div className="filing-method-actions">
+                <button type="button" onClick={() => useSuggestedComplaintDraft().catch((error) => setFilingActionStatus(citizenSafeError(error, 'The AI wording could not be applied.')))}>{t('Use AI wording')}</button>
+                <button type="button" className="secondary" onClick={() => { setDraftSuggestion(null); setDraftStatus('Keeping your current wording. You can continue filing now.'); }}>{t('Keep my wording')}</button>
+              </div>
+            </aside>}
 
             {selectedFilingMethod === 'PRINT' && <>
               <div className="filing-info-note">{t('Use this letter for the office route; print, save, or share, then submit it in person.')}</div>

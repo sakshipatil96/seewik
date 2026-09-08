@@ -97,6 +97,12 @@ export async function ensureAnonymousSession() {
   return anonymousSignIn;
 }
 
+export async function startAnonymousWorkSession() {
+  await authPersistenceReady;
+  window.localStorage.removeItem(SIGNED_OUT_STORAGE_KEY);
+  return ensureAnonymousSession();
+}
+
 export async function sessionToken(forceRefresh = false) {
   const user = auth.currentUser ?? await ensureAnonymousSession();
   return user.getIdToken(forceRefresh);

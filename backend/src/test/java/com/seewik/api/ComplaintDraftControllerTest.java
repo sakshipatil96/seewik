@@ -114,6 +114,25 @@ class ComplaintDraftControllerTest {
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("write or copy")));
     }
 
+    @Test
+    void authenticatedClientDraftObservationIsAccepted() throws Exception {
+        mvcReturning(ComplaintDraftValidatorTest.validDraft()).perform(post("/api/civic/draft-observation")
+                        .header("Authorization", AUTHORIZATION)
+                        .contentType("application/json")
+                        .content("{\"attemptNumber\":1,\"durationMs\":12314,\"outcome\":\"SUCCESS\"}"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void invalidClientDraftObservationIsRejected() throws Exception {
+        mvcReturning(ComplaintDraftValidatorTest.validDraft()).perform(post("/api/civic/draft-observation")
+                        .header("Authorization", AUTHORIZATION)
+                        .contentType("application/json")
+                        .content("{\"attemptNumber\":3,\"durationMs\":12314,\"outcome\":\"SUCCESS\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("INVALID_OBSERVATION"));
+    }
+
     private static MockMvc mvcReturning(String output) throws Exception {
         ComplaintDraftService service = service((prompt, image, mime, schema) -> generated(output));
         ObjectMapper mapper = new ObjectMapper();
