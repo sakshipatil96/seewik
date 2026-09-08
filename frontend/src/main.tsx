@@ -126,6 +126,18 @@ type DepartmentResult = {
   basis: string;
 };
 
+const HINDI_ROUTE_NAMES: Record<string, string> = {
+  'Nandurbar Municipal Council': 'नंदुरबार नगर परिषद',
+  'Public Works Department': 'लोक निर्माण विभाग',
+  'Health and Sanitation Department': 'स्वास्थ्य एवं स्वच्छता विभाग',
+};
+
+function localizedRouteName(language: string, englishName: string, marathiName?: string) {
+  if (language === 'mr') return marathiName?.trim() || englishName;
+  if (language === 'hi') return HINDI_ROUTE_NAMES[englishName] || englishName;
+  return englishName;
+}
+
 type OfficialChannel = {
   channelId: string;
   type: 'EMAIL' | 'ONLINE_FORM' | 'IN_PERSON';
@@ -2971,7 +2983,7 @@ function App() {
       return;
     }
     await hydrateReport(report);
-    setDraftStatus(`Resumed Firestore DRAFT · ${report.id.slice(0, 8)}…`);
+    setDraftStatus(t('Draft resumed.'));
     navigate('review', false, report.id);
   }
 
@@ -3548,13 +3560,13 @@ function App() {
           <article className="responsible-authority-card">
             <span className="authority-icon"><AppIcon name="building" /></span>
             <small>{t('Responsible authority')}</small>
-            <h3>{routeResult.authority}</h3>
+            <h3>{localizedRouteName(language, routeResult.authority!, routeResult.authorityLocalName)}</h3>
             <dl>
-              {routeResult.department && <div><dt>{routeResult.department.status === 'TYPICAL_STRUCTURE_UNVERIFIED' ? t('Likely department') : t('Department')}</dt><dd>{routeResult.department.displayName}</dd></div>}
+              {routeResult.department && <div><dt>{routeResult.department.status === 'TYPICAL_STRUCTURE_UNVERIFIED' ? t('Likely department') : t('Department')}</dt><dd>{localizedRouteName(language, routeResult.department.displayName, routeResult.department.localName)}</dd></div>}
               <div><dt>{t('Selected issue')}</dt><dd>{issueLabel(issueType, language)}</dd></div>
               <div><dt>{t('Location')}</dt><dd>{locationDetails.trim() || `${t('Prabhag')} ${Number(prabhagId.slice(-2)) || ''}`}</dd></div>
             </dl>
-            {(routeResult.knownLimitations?.length ?? 0) > 0 && <div className="route-limitations"><b>{t('Please check before filing')}</b>{routeResult.knownLimitations?.map((limitation) => <span key={limitation.code}>{limitation.citizenMessage}</span>)}</div>}
+            {(routeResult.knownLimitations?.length ?? 0) > 0 && <div className="route-limitations"><b>{t('Please check before filing')}</b>{routeResult.knownLimitations?.map((limitation) => <span key={limitation.code}>{t(limitation.citizenMessage)}</span>)}</div>}
           </article>
         </section>
         <section className="filing-choice-panel" aria-labelledby="filing-choice-title">

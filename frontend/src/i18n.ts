@@ -19,6 +19,8 @@ const COPY: Record<string, LocalizedCopy> = {
   'Here is the responsible authority': { mr: 'ही जबाबदार संस्था आहे', hi: 'यह ज़िम्मेदार संस्था है' },
   'Responsible authority': { mr: 'जबाबदार संस्था', hi: 'ज़िम्मेदार संस्था' },
   'Selected issue': { mr: 'निवडलेली समस्या', hi: 'चुनी गई समस्या' },
+  'If this is a state or national highway, responsibility may sit with PWD or the relevant highway authority.': { mr: 'हा राज्य किंवा राष्ट्रीय महामार्ग असल्यास, जबाबदारी सार्वजनिक बांधकाम विभागाची किंवा संबंधित महामार्ग प्राधिकरणाची असू शकते.', hi: 'यदि यह राज्य या राष्ट्रीय राजमार्ग है, तो ज़िम्मेदारी लोक निर्माण विभाग या संबंधित राजमार्ग प्राधिकरण की हो सकती है।' },
+  'Draft resumed.': { mr: 'मसुदा पुन्हा उघडला.', hi: 'ड्राफ़्ट फिर से खोला गया।' },
   'Trying AI wording…': { mr: 'एआय मजकूर पुन्हा तयार करत आहे…', hi: 'एआई शब्दांकन फिर तैयार कर रहा है…' },
   'Try AI wording again': { mr: 'एआय मजकूर पुन्हा वापरून पाहा', hi: 'एआई शब्दांकन फिर आज़माएँ' },
   'Prepare filing': { mr: 'तक्रार दाखल करण्याची तयारी', hi: 'शिकायत दर्ज करने की तैयारी' },
