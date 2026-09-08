@@ -33,7 +33,7 @@ import InitiativeMeetingPointPicker, { type MeetingPointPosition } from './Initi
 import PrabhagBoundaryMap from './PrabhagBoundaryMap';
 import GoogleMeetingPointSearch, { type GoogleMeetingPointSelection } from './GoogleMeetingPointSearch';
 import { reverseGeocodeGoogleLocation } from './googleMapsPlaces';
-import { PRABHAG_BOUNDS } from './prabhagBoundaryData';
+import { PRABHAG_BOUNDS, PRABHAG_DATASET_VERSION } from './prabhagBoundaryData';
 import {
   claimReward,
   fetchCurrentRecognition,
@@ -163,6 +163,7 @@ type RouteResult = {
   sourceStatus?: string;
   reviewStatus?: string;
   packVersion?: string;
+  boundaryDatasetVersion?: string;
 };
 
 type PrabhagResolution = {
@@ -262,6 +263,8 @@ type SavedReport = {
   draftSubject: string;
   draftBody: string;
   packVersion: string;
+  boundaryDatasetVersion?: string;
+  resolutionMethod?: string;
   schemaVersion: string;
   createdAt?: unknown;
   updatedAt?: unknown;
@@ -302,6 +305,8 @@ type FollowUpSummary = {
   events: FollowUpEvent[];
   schemaVersion: string;
 };
+
+type FollowUpLoadState = 'LOADING' | 'READY' | 'ERROR';
 
 type EscalationChannelId = 'NMC_FOLLOW_UP' | 'DISTRICT_JOINT_COMMISSIONER' | 'DMA_DESK_6';
 
@@ -442,6 +447,8 @@ function savedReport(id: string, data: Record<string, unknown>): SavedReport {
     draftSubject: String(data.draftSubject ?? ''),
     draftBody: String(data.draftBody ?? ''),
     packVersion: String(data.packVersion ?? ''),
+    boundaryDatasetVersion: data.boundaryDatasetVersion ? String(data.boundaryDatasetVersion) : undefined,
+    resolutionMethod: data.resolutionMethod ? String(data.resolutionMethod) : undefined,
     schemaVersion: String(data.schemaVersion ?? ''),
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
@@ -469,6 +476,7 @@ function App() {
   const [citizenConfirmed, setCitizenConfirmed] = useState(false);
   const [manualPrabhagSelected, setManualPrabhagSelected] = useState(false);
   const [reportLocationSource, setReportLocationSource] = useState<'PHOTO' | 'DEVICE' | 'GOOGLE' | 'MANUAL' | ''>('');
+  const [reportLocationStatus, setReportLocationStatus] = useState('');
   const [boundaryDatasetVersion, setBoundaryDatasetVersion] = useState<string | undefined>();
   const [evidenceText, setEvidenceText] = useState('');
   const [evidenceImage, setEvidenceImage] = useState<File | null>(null);
@@ -500,6 +508,7 @@ function App() {
   const [demoStep, setDemoStep] = useState(0);
   const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
   const [followUpsByReport, setFollowUpsByReport] = useState<Record<string, FollowUpSummary>>({});
+  const [followUpLoadStates, setFollowUpLoadStates] = useState<Record<string, FollowUpLoadState>>({});
   const [followUpStatus, setFollowUpStatus] = useState('');
   const [followUpBusy, setFollowUpBusy] = useState(false);
   const [selectedEscalationChannel, setSelectedEscalationChannel] = useState<EscalationChannelId | ''>('');
@@ -849,6 +858,7 @@ function App() {
     setCitizenConfirmed(false);
     setManualPrabhagSelected(false);
     setReportLocationSource('');
+    setReportLocationStatus('');
     setBoundaryDatasetVersion(undefined);
     setEvidenceText('');
     setEvidenceImage(null);
@@ -1549,6 +1559,7 @@ function App() {
     const result: PrabhagResolution = await response.json();
     if (requestSequence !== reportLocationRequestSequence.current) return null;
     if (address.trim()) setLocationDetails(address.trim());
+    setReportLocationStatus('');
     setResolution(result);
     if (result.status === 'CANDIDATE_PRABHAG' && result.prabhagId && result.datasetVersion) {
       setPrabhagId(result.prabhagId);
@@ -1575,17 +1586,27 @@ function App() {
   }
 
   function requestDeviceReportLocation() {
-    if (reportDeviceLocationAttempted.current || !navigator.geolocation) return;
+    if (reportDeviceLocationAttempted.current) return;
     reportDeviceLocationAttempted.current = true;
+    if (!navigator.geolocation) {
+      setReportLocationStatus('Your device location could not be used. Search for an address or select your Prabhag manually.');
+      return;
+    }
+    setReportLocationStatus('');
     const requestSequence = ++reportLocationRequestSequence.current;
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        setReportLocationStatus('');
         void reverseGeocodeGoogleLocation(position.coords.latitude, position.coords.longitude)
           .catch(() => '')
           .then((address) => resolveCoordinates(position.coords.latitude, position.coords.longitude, 'DEVICE', requestSequence, address))
-          .catch(() => undefined);
+          .catch(() => {
+            if (requestSequence === reportLocationRequestSequence.current) {
+              setReportLocationStatus('Your device location could not be used. Search for an address or select your Prabhag manually.');
+            }
+          });
       },
-      () => undefined,
+      () => setReportLocationStatus('Your device location could not be used. Search for an address or select your Prabhag manually.'),
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
     );
   }
@@ -1612,7 +1633,8 @@ function App() {
     setCitizenConfirmed(false);
     setManualPrabhagSelected(true);
     if (!currentCoordinates) setReportLocationSource('MANUAL');
-    setBoundaryDatasetVersion(undefined);
+    setReportLocationStatus('');
+    setBoundaryDatasetVersion(PRABHAG_DATASET_VERSION);
     setResolution(null);
     setRouteResult(null);
     resetDraft();
@@ -1620,6 +1642,7 @@ function App() {
 
   function editReportLocationAddress(value: string) {
     setLocationDetails(value);
+    if (value.trim()) setReportLocationStatus('');
     setCitizenConfirmed(false);
     setRouteResult(null);
     resetDraft();
@@ -1628,6 +1651,7 @@ function App() {
   function selectGoogleReportLocation(selection: GoogleMeetingPointSelection) {
     const requestSequence = ++reportLocationRequestSequence.current;
     reportDeviceLocationAttempted.current = true;
+    setReportLocationStatus('');
     setLocationDetails(selection.address || selection.label);
     setPrabhagId('');
     setResolution(null);
@@ -1787,17 +1811,22 @@ function App() {
     if (!result.routeId || !result.prabhagId || !result.authority || !result.language || !result.subject || !result.body || !result.packVersion || !result.schemaVersion) {
       throw new Error('Draft metadata is incomplete and was not saved.');
     }
+    if (!boundaryDatasetVersion) {
+      throw new Error('Confirm your Prabhag again before saving this draft.');
+    }
     const user = await ensureAnonymousSession();
     if (draftDocumentId && reportStatus === 'DRAFT') {
       await updateDoc(doc(db, 'reports', draftDocumentId), {
         draftLanguage: result.language,
         draftSubject: result.subject,
         draftBody: result.body,
+        boundaryDatasetVersion,
+        resolutionMethod: selectionMethod,
         updatedAt: serverTimestamp(),
       });
       const updatedAt = new Date();
-      setSelectedReport((report) => report?.id === draftDocumentId ? { ...report, draftLanguage: result.language!, draftSubject: result.subject!, draftBody: result.body!, updatedAt } : report);
-      setSavedReports((reports) => reports.map((report) => report.id === draftDocumentId ? { ...report, draftLanguage: result.language!, draftSubject: result.subject!, draftBody: result.body!, updatedAt } : report));
+      setSelectedReport((report) => report?.id === draftDocumentId ? { ...report, draftLanguage: result.language!, draftSubject: result.subject!, draftBody: result.body!, boundaryDatasetVersion, resolutionMethod: selectionMethod, updatedAt } : report);
+      setSavedReports((reports) => reports.map((report) => report.id === draftDocumentId ? { ...report, draftLanguage: result.language!, draftSubject: result.subject!, draftBody: result.body!, boundaryDatasetVersion, resolutionMethod: selectionMethod, updatedAt } : report));
       return draftDocumentId;
     }
     const reportRef = doc(collection(db, 'reports'));
@@ -1812,6 +1841,8 @@ function App() {
       draftSubject: result.subject,
       draftBody: result.body,
       packVersion: result.packVersion,
+      boundaryDatasetVersion,
+      resolutionMethod: selectionMethod,
       schemaVersion: result.schemaVersion,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -1832,6 +1863,8 @@ function App() {
       draftSubject: result.subject,
       draftBody: result.body,
       packVersion: result.packVersion,
+      boundaryDatasetVersion,
+      resolutionMethod: selectionMethod,
       schemaVersion: result.schemaVersion,
       createdAt: now,
       updatedAt: now,
@@ -2610,16 +2643,20 @@ function App() {
       .map((item) => savedReport(item.id, item.data()))
       .sort((left, right) => timestampMillis(right.updatedAt) - timestampMillis(left.updatedAt));
     setSavedReports(reports);
+    const eligible = reports.filter((report) => report.status !== 'DRAFT');
+    setFollowUpsByReport({});
+    setFollowUpLoadStates(Object.fromEntries(eligible.map((report) => [report.id, 'LOADING' as const])));
     try {
       const token = await user.getIdToken();
-      const eligible = reports.filter((report) => report.status !== 'DRAFT');
       const summaries = await Promise.all(eligible.map(async (report) => {
         const summary = await fetchFollowUpSummary(report.id, token);
         return [report.id, summary] as const;
       }));
       setFollowUpsByReport(Object.fromEntries(summaries));
+      setFollowUpLoadStates(Object.fromEntries(eligible.map((report) => [report.id, 'READY' as const])));
     } catch {
       setFollowUpsByReport({});
+      setFollowUpLoadStates(Object.fromEntries(eligible.map((report) => [report.id, 'ERROR' as const])));
     }
     setReportsStatus(reports.length ? `${reports.length} saved report${reports.length === 1 ? '' : 's'}` : 'No saved reports yet.');
   }
@@ -2635,9 +2672,21 @@ function App() {
   }
 
   async function refreshFollowUp(reportId: string) {
-    const summary = await fetchFollowUpSummary(reportId);
-    setFollowUpsByReport((current) => ({ ...current, [reportId]: summary }));
-    return summary;
+    setFollowUpLoadStates((current) => ({ ...current, [reportId]: 'LOADING' }));
+    setFollowUpsByReport((current) => {
+      const next = { ...current };
+      delete next[reportId];
+      return next;
+    });
+    try {
+      const summary = await fetchFollowUpSummary(reportId);
+      setFollowUpsByReport((current) => ({ ...current, [reportId]: summary }));
+      setFollowUpLoadStates((current) => ({ ...current, [reportId]: 'READY' }));
+      return summary;
+    } catch (error) {
+      setFollowUpLoadStates((current) => ({ ...current, [reportId]: 'ERROR' }));
+      throw error;
+    }
   }
 
   async function recordFollowUp(action: 'UNRESOLVED' | 'UNSURE' | 'ESCALATION_SENT', channelId?: EscalationChannelId) {
@@ -2852,14 +2901,21 @@ function App() {
   }
 
   async function hydrateReport(report: SavedReport) {
+    const followUpRequest = report.status === 'DRAFT'
+      ? Promise.resolve(null)
+      : refreshFollowUp(report.id).catch((error) => {
+        setFollowUpStatus(citizenSafeError(error, 'The follow-up could not be loaded.'));
+        return null;
+      });
     setSelectedReport(report);
     setDraftDocumentId(report.id);
     setReportStatus(report.status);
     setIssueType(report.confirmedIssueType as typeof issueType);
     setPrabhagId(report.prabhagId);
-    setSelectionMethod('SELF_REPORTED');
+    setSelectionMethod(report.resolutionMethod ?? 'SELF_REPORTED');
     setCitizenConfirmed(false);
     setManualPrabhagSelected(true);
+    setBoundaryDatasetVersion(report.boundaryDatasetVersion);
     setDraftLanguage(report.draftLanguage);
     setComplaintLanguageManuallySelected(true);
     setDraftSubject(report.draftSubject);
@@ -2887,12 +2943,12 @@ function App() {
       const response = await fetch(`${API_URL}/api/civic/route`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ issueType: report.confirmedIssueType, prabhagId: report.prabhagId, resolutionMethod: 'SELF_REPORTED', citizenConfirmed: false }),
+        body: JSON.stringify({ issueType: report.confirmedIssueType, prabhagId: report.prabhagId, resolutionMethod: report.resolutionMethod ?? 'SELF_REPORTED', citizenConfirmed: false, boundaryDatasetVersion: report.boundaryDatasetVersion }),
       });
       if (response.ok) setRouteResult(await response.json());
       else setRouteResult({ status: 'SUPPORTED_ROUTE', routeId: report.routeId, prabhagId: report.prabhagId, authority: report.authority, packVersion: report.packVersion });
     }
-    await Promise.all([loadTimeline(report), refreshDerivedPoints()]);
+    await Promise.all([loadTimeline(report), refreshDerivedPoints(), followUpRequest]);
   }
 
   async function loadReportById(reportId: string, resumeRequested: boolean) {
@@ -3163,6 +3219,7 @@ function App() {
         : '';
   const canConfirmFilings = Boolean(selectedFilingMethod && complaintDraft?.status === 'DRAFT_READY' && draftSubject.trim() && draftBody.trim() && filingActionIsCurrent());
   const activeFollowUp = selectedReport ? followUpsByReport[selectedReport.id] ?? null : null;
+  const activeFollowUpLoadState = selectedReport ? followUpLoadStates[selectedReport.id] ?? 'LOADING' : 'LOADING';
   const activeEscalationRoute = ESCALATION_CHANNELS.find((item) => item.id === selectedEscalationChannel);
   const followUpLifecycleActive = ['FILED', 'OVERDUE', 'REOPENED'].includes(reportStatus);
 
@@ -3460,6 +3517,7 @@ function App() {
         onQueryChange={editReportLocationAddress}
         onSelect={selectGoogleReportLocation}
       />
+      {reportLocationStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{t(reportLocationStatus)}</div>}
       <div className="report-location-field">
         <span className="report-location-icon" aria-hidden="true"><AppIcon name="pin" /></span>
         <label>{t('Prabhag')}<select value={prabhagId} onChange={(event) => selectManualPrabhag(event.target.value)}>
@@ -3684,7 +3742,7 @@ function App() {
         {selectedReport.routeSnapshot?.department && <div className="locked-recipient"><small>{t('Frozen route department')}</small><strong>{selectedReport.routeSnapshot.department.displayName}</strong><span>{selectedReport.routeSnapshot.department.status} · {selectedReport.routeSnapshot.sourceStatus} · {selectedReport.routeSnapshot.reviewStatus}</span></div>}
         {(selectedReport.routeSnapshot?.knownLimitations?.length ?? 0) > 0 && <div className="route-limitations"><b>{t('Please keep in mind')}</b><ul>{selectedReport.routeSnapshot?.knownLimitations?.map((limitation) => <li key={limitation.code}>{limitation.citizenMessage}</li>)}</ul></div>}
         <div className="points-summary"><span>{t('Derived points for this profile')}</span><b>{pointsTotal}</b></div>
-        {followUpLifecycleActive && !activeFollowUp && <button className="secondary" onClick={() => refreshFollowUp(selectedReport.id).catch((error) => setFollowUpStatus(citizenSafeError(error, 'The follow-up could not be loaded.')))}>{t('Check follow-up')}</button>}
+        {followUpLifecycleActive && activeFollowUpLoadState === 'ERROR' && <button className="secondary" onClick={() => refreshFollowUp(selectedReport.id).catch((error) => setFollowUpStatus(citizenSafeError(error, 'The follow-up could not be loaded.')))}>{t('Check follow-up')}</button>}
         {followUpLifecycleActive && activeFollowUp?.promptDue && <section className="follow-up-panel" aria-labelledby="follow-up-heading">
           <span className="eyebrow">{t('SEVEN-DAY FOLLOW-UP')}</span>
           <h3 id="follow-up-heading">{t('Was this issue resolved?')}</h3>

@@ -36,11 +36,13 @@ service cloud.firestore {
     function validDraft(data) {
       return data.keys().hasOnly([
           'ownerUid', 'status', 'confirmedIssueType', 'prabhagId', 'routeId',
+          'boundaryDatasetVersion', 'resolutionMethod',
           'authority', 'draftLanguage', 'draftSubject', 'draftBody',
           'packVersion', 'schemaVersion', 'createdAt', 'updatedAt'
         ])
         && data.keys().hasAll([
           'ownerUid', 'status', 'confirmedIssueType', 'prabhagId', 'routeId',
+          'boundaryDatasetVersion', 'resolutionMethod',
           'authority', 'draftLanguage', 'draftSubject', 'draftBody',
           'packVersion', 'schemaVersion', 'createdAt', 'updatedAt'
         ])
@@ -52,6 +54,10 @@ service cloud.firestore {
         && data.prabhagId.matches('^PRABHAG-(0[1-9]|1[0-9]|20)$')
         && data.routeId is string
         && data.routeId.size() > 0
+        && data.boundaryDatasetVersion == 'seewik-map-trace-v0.2'
+        && data.resolutionMethod is string
+        && data.resolutionMethod.size() > 0
+        && data.resolutionMethod.size() <= 64
         && data.authority == 'Nandurbar Municipal Council'
         && data.draftLanguage in ['MR', 'EN']
         && data.draftSubject is string
@@ -133,7 +139,10 @@ service cloud.firestore {
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['draftSubject', 'draftBody', 'updatedAt'])
+          .hasOnly([
+            'draftSubject', 'draftBody', 'boundaryDatasetVersion',
+            'resolutionMethod', 'updatedAt'
+          ])
         && validDraft(request.resource.data);
 
       allow delete: if googleLinked()

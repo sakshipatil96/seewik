@@ -289,6 +289,16 @@ public class ReportLifecycleService {
         String recordedRouteId = string(report, "routeId");
         String recordedAuthority = string(report, "authority");
         String recordedPackVersion = string(report, "packVersion");
+        String recordedBoundaryDatasetVersion = required(
+                string(report, "boundaryDatasetVersion"),
+                "BOUNDARY_DATASET_VERSION_MISSING",
+                "Confirm the report Prabhag again before filing",
+                120);
+        if (!PrabhagResolverService.DATASET_VERSION.equals(recordedBoundaryDatasetVersion)) {
+            throw new LifecycleException(
+                    "BOUNDARY_DATASET_VERSION_MISMATCH",
+                    "The draft boundary dataset no longer matches the active Prabhag dataset");
+        }
         CivicRouterService.CivicRouteResponse route = router.route(new CivicRouterService.CivicRouteRequest(
                 issueType, prabhagId, null, "SELF_REPORTED", false, null));
         if (!"SUPPORTED_ROUTE".equals(route.status())
@@ -302,6 +312,7 @@ public class ReportLifecycleService {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("schemaVersion", ReportLifecycleContract.ROUTE_SNAPSHOT_SCHEMA_VERSION);
         snapshot.put("packVersion", route.packVersion());
+        snapshot.put("boundaryDatasetVersion", recordedBoundaryDatasetVersion);
         snapshot.put("routeId", route.routeId());
         snapshot.put("issueType", issueType);
         snapshot.put("prabhagId", route.prabhagId());

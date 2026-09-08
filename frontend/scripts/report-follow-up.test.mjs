@@ -14,6 +14,14 @@ test('follow-up timing is backend-owned and recurrence-aware', () => {
   assert.doesNotMatch(app, /cycleNumber\}.*email/i);
 });
 
+test('follow-up actions stay hidden until the server-owned state has loaded', () => {
+  assert.match(app, /type FollowUpLoadState = 'LOADING' \| 'READY' \| 'ERROR'/);
+  assert.match(app, /activeFollowUpLoadState === 'ERROR'/);
+  assert.doesNotMatch(app, /followUpLifecycleActive && !activeFollowUp && <button/);
+  assert.match(app, /setFollowUpLoadStates\(\(current\) => \(\{ \.\.\.current, \[reportId\]: 'LOADING' \}\)\)/);
+  assert.match(app, /setFollowUpLoadStates\(\(current\) => \(\{ \.\.\.current, \[reportId\]: 'READY' \}\)\)/);
+});
+
 test('all three escalation routes are explicit and never auto-send', () => {
   for (const channel of ['NMC_FOLLOW_UP', 'DISTRICT_JOINT_COMMISSIONER', 'DMA_DESK_6']) {
     assert.match(app, new RegExp(channel));

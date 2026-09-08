@@ -53,6 +53,7 @@ class ReportLifecycleServiceTest {
         assertNull(report.get("acknowledgementId"));
         Map<String, Object> snapshot = nested(report, "routeSnapshot");
         assertEquals("route-snapshot-v0.1", snapshot.get("schemaVersion"));
+        assertEquals("seewik-map-trace-v0.2", snapshot.get("boundaryDatasetVersion"));
         assertEquals("NMC-PW-POTHOLE-v0.2", snapshot.get("routeId"));
         assertEquals("Nandurbar Municipal Council", snapshot.get("authority"));
         assertEquals("UNKNOWN_LEGACY_DRAFT", snapshot.get("resolutionMethod"));
@@ -62,6 +63,30 @@ class ReportLifecycleServiceTest {
         assertFalse(((java.util.List<?>) snapshot.get("officialChannels")).isEmpty());
         assertEquals(1, gateway.pointsEntryCount());
         assertEquals(5, gateway.lastPointsEntry().get("awardedPoints"));
+    }
+
+    @Test
+    void filingRejectsDraftWithoutBoundaryDatasetVersion() {
+        Map<String, Object> report = draft();
+        report.remove("boundaryDatasetVersion");
+        gateway = new InMemoryGateway(report);
+        service = service(gateway);
+
+        assertCode(() -> service.transition("owner-1", "report-1", filed("missing-boundary-version")),
+                "BOUNDARY_DATASET_VERSION_MISSING");
+        assertEquals("DRAFT", gateway.report().get("status"));
+    }
+
+    @Test
+    void filingRejectsDraftFromInactiveBoundaryDataset() {
+        Map<String, Object> report = draft();
+        report.put("boundaryDatasetVersion", "seewik-map-trace-v0.1");
+        gateway = new InMemoryGateway(report);
+        service = service(gateway);
+
+        assertCode(() -> service.transition("owner-1", "report-1", filed("stale-boundary-version")),
+                "BOUNDARY_DATASET_VERSION_MISMATCH");
+        assertEquals("DRAFT", gateway.report().get("status"));
     }
 
     @Test
@@ -244,6 +269,7 @@ class ReportLifecycleServiceTest {
         report.put("routeId", "NMC-PW-POTHOLE-v0.2");
         report.put("authority", "Nandurbar Municipal Council");
         report.put("packVersion", "v0.2");
+        report.put("boundaryDatasetVersion", "seewik-map-trace-v0.2");
         return report;
     }
 
@@ -253,6 +279,7 @@ class ReportLifecycleServiceTest {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("schemaVersion", "route-snapshot-v0.1");
         snapshot.put("packVersion", "v0.2");
+        snapshot.put("boundaryDatasetVersion", "seewik-map-trace-v0.2");
         snapshot.put("routeId", "NMC-PW-POTHOLE-v0.2");
         snapshot.put("verifiedDueAt", verifiedDueAt);
         report.put("routeSnapshot", snapshot);
