@@ -65,6 +65,7 @@ import { routeSnapshotHashAfterTransition } from './reportRouteSnapshot';
 import { automaticEscalationLanguageTransition } from './escalationDraftLanguage';
 import { resolveFilingRecipientEmail } from './filingChannels';
 import { copyPlainText } from './plainTextClipboard';
+import { buildEmailHandoff, mailtoIsTooLong } from './emailHandoff';
 import './styles.css';
 
 const DEBUG_MODE = new URLSearchParams(window.location.search).get('debug') === '1';
@@ -2315,7 +2316,7 @@ function App() {
     ].join('\n');
   }
 
-  function emailDraftAction(): { url: string; gmailUrl: string; channelId?: string } | { error: string } {
+  function emailDraftAction(): { url: string; gmailUrl: string; copyText: string; channelId?: string } | { error: string } {
     const channel = routeResult?.officialChannels?.find((item) => item.type === 'EMAIL');
     const recipient = filingEmail.trim() || channel?.value || '';
     if (!/^\S+@\S+\.\S+$/.test(recipient.trim())) {
@@ -2343,12 +2344,12 @@ function App() {
       marathi ? 'आपला/आपली विश्वासू,' : 'Yours sincerely,',
       ...contactLines,
     ].join('\n');
-    const encodedRecipient = encodeURIComponent(recipient.trim());
-    const encodedSubject = encodeURIComponent(draftSubject.trim());
-    const encodedBody = encodeURIComponent(emailBody);
     return {
-      url: `mailto:${recipient.trim()}?subject=${encodedSubject}&body=${encodedBody}`,
-      gmailUrl: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodedRecipient}&su=${encodedSubject}&body=${encodedBody}`,
+      ...buildEmailHandoff({
+        recipient,
+        subject: draftSubject,
+        body: emailBody,
+      }),
       channelId: channel?.channelId,
     };
   }
@@ -2359,14 +2360,19 @@ function App() {
     recordFilingAction('EMAIL');
   }
 
-  function openEmailDraft() {
+  async function openEmailDraft() {
     const action = emailDraftAction();
     if ('error' in action) {
       setFilingActionStatus(action.error);
       return;
     }
-    window.open(action.url, '_blank', 'noopener,noreferrer');
     recordEmailDraftAction(action);
+    if (mailtoIsTooLong(action.url)) {
+      await copyPlainText(action.copyText);
+      setFilingActionStatus('The complaint was copied because it is too long for a reliable email link. Paste it into your email app.');
+      return;
+    }
+    window.location.href = action.url;
     setFilingActionStatus('Email handoff requested. If no email app opened, use Gmail in browser or copy the complaint content.');
   }
 
