@@ -2409,7 +2409,10 @@ function App() {
   }
 
   async function copyFilingField(label: string, value: string) {
-    await copyPlainText(value);
+    const plainValue = /^[A-Za-z][A-Za-z0-9+.-]*:\s/.test(value)
+      ? `Seewik civic complaint\n\n${value}`
+      : value;
+    await copyPlainText(plainValue);
     setFilingActionStatus(`${label} copied.`);
   }
 
