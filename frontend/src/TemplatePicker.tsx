@@ -16,6 +16,7 @@ type TemplatePickerProps = {
   clearSearchLabel: string;
   value: string;
   options: TemplatePickerOption[];
+  disabled?: boolean;
   onChange: (value: string) => void;
 };
 
@@ -28,6 +29,7 @@ export function TemplatePicker({
   clearSearchLabel,
   value,
   options,
+  disabled = false,
   onChange,
 }: TemplatePickerProps) {
   const [open, setOpen] = useState(false);
@@ -62,9 +64,16 @@ export function TemplatePicker({
   }
 
   function openPicker() {
+    if (disabled) return;
     updatePanelPlacement();
     setOpen(true);
   }
+
+  useEffect(() => {
+    if (!disabled) return;
+    setOpen(false);
+    setQuery('');
+  }, [disabled]);
 
   useEffect(() => {
     if (!open) return;
@@ -94,7 +103,7 @@ export function TemplatePicker({
   }, [open]);
 
   return (
-    <div ref={rootRef} className={`template-picker ${open ? 'is-open' : ''} ${opensAbove ? 'opens-above' : ''}`} style={{ '--template-picker-max-height': `${panelMaxHeight}px` } as CSSProperties}>
+    <div ref={rootRef} className={`template-picker ${open ? 'is-open' : ''} ${opensAbove ? 'opens-above' : ''} ${disabled ? 'is-disabled' : ''}`} style={{ '--template-picker-max-height': `${panelMaxHeight}px` } as CSSProperties}>
       <span className="template-picker-label" id={`${id}-label`}>{label}</span>
       <button
         ref={triggerRef}
@@ -103,6 +112,8 @@ export function TemplatePicker({
         aria-labelledby={`${id}-label ${id}-selection`}
         aria-haspopup="dialog"
         aria-expanded={open}
+        aria-busy={disabled}
+        disabled={disabled}
         onClick={() => open ? closePicker() : openPicker()}
       >
         {selected ? <>

@@ -491,12 +491,14 @@ function App() {
   const [manualPrabhagSelected, setManualPrabhagSelected] = useState(false);
   const [reportLocationSource, setReportLocationSource] = useState<'PHOTO' | 'DEVICE' | 'GOOGLE' | 'MANUAL' | ''>('');
   const [reportLocationStatus, setReportLocationStatus] = useState('');
+  const [reportLocationPhase, setReportLocationPhase] = useState<'idle' | 'waiting' | 'analyzing' | 'slow' | 'complete' | 'failed' | 'manual'>('idle');
   const [boundaryDatasetVersion, setBoundaryDatasetVersion] = useState<string | undefined>();
   const [evidenceText, setEvidenceText] = useState('');
   const [evidenceImage, setEvidenceImage] = useState<File | null>(null);
   const [evidencePreviewUrl, setEvidencePreviewUrl] = useState('');
   const [classification, setClassification] = useState<ClassificationResult | null>(null);
   const [classificationStatus, setClassificationStatus] = useState('');
+  const [classificationPhase, setClassificationPhase] = useState<'idle' | 'waiting' | 'analyzing' | 'slow' | 'complete' | 'failed' | 'manual'>('idle');
   const [classificationSource, setClassificationSource] = useState('SELF_REPORTED');
   const [complaintFacts, setComplaintFacts] = useState('');
   const [locationDetails, setLocationDetails] = useState('');
@@ -610,8 +612,16 @@ function App() {
   const initiativeCreateRequestId = useRef(crypto.randomUUID());
   const classificationTimer = useRef<number | null>(null);
   const classificationRequestSequence = useRef(0);
+  const classificationAbortController = useRef<AbortController | null>(null);
+  const classificationSlowTimer = useRef<number | null>(null);
+  const classificationTimeoutTimer = useRef<number | null>(null);
   const reportLocationRequestSequence = useRef(0);
-  const reportDeviceLocationAttempted = useRef(false);
+  const reportLocationSlowTimer = useRef<number | null>(null);
+  const reportLocationTimeoutTimer = useRef<number | null>(null);
+  const reportDeviceLocationState = useRef<
+    'NOT_REQUESTED' | 'PENDING' | 'GRANTED' | 'DECLINED_OR_UNAVAILABLE'
+  >('NOT_REQUESTED');
+  const reportAutomaticLocationSuppressed = useRef(false);
   const routeResultHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const filingPanelRef = useRef<HTMLDivElement | null>(null);
   const filingDrafts = useRef<Record<string, FilingDraftSnapshot>>({});
@@ -850,6 +860,10 @@ function App() {
     if (classificationTimer.current !== null) window.clearTimeout(classificationTimer.current);
     classificationTimer.current = null;
     classificationRequestSequence.current += 1;
+    classificationAbortController.current?.abort();
+    classificationAbortController.current = null;
+    clearClassificationProgressTimers();
+    setClassificationPhase('idle');
     setClassification(null);
     setClassificationStatus('');
     setClassificationSource('SELF_REPORTED');
@@ -864,6 +878,13 @@ function App() {
     if (classificationTimer.current !== null) window.clearTimeout(classificationTimer.current);
     classificationTimer.current = null;
     classificationRequestSequence.current += 1;
+    classificationAbortController.current?.abort();
+    classificationAbortController.current = null;
+    clearClassificationProgressTimers();
+    clearReportLocationProgressTimers();
+    reportLocationRequestSequence.current += 1;
+    setClassificationPhase('idle');
+    setReportLocationPhase('idle');
     setIssueType('');
     setPrabhagId('');
     setRouteResult(null);
@@ -892,7 +913,8 @@ function App() {
     setComplainantState('Maharashtra');
     setCurrentCoordinates(null);
     reportLocationRequestSequence.current += 1;
-    reportDeviceLocationAttempted.current = false;
+    reportDeviceLocationState.current = 'NOT_REQUESTED';
+    reportAutomaticLocationSuppressed.current = false;
     resetDraft();
     navigate('new-report');
   }
@@ -1563,6 +1585,68 @@ function App() {
     if (!background) setInitiativeStatus('The organiser code is active. It rotates every 10 minutes.');
   }
 
+  function clearClassificationProgressTimers() {
+    if (classificationSlowTimer.current !== null) window.clearTimeout(classificationSlowTimer.current);
+    if (classificationTimeoutTimer.current !== null) window.clearTimeout(classificationTimeoutTimer.current);
+    classificationSlowTimer.current = null;
+    classificationTimeoutTimer.current = null;
+  }
+
+  function clearReportLocationProgressTimers() {
+    if (reportLocationSlowTimer.current !== null) window.clearTimeout(reportLocationSlowTimer.current);
+    if (reportLocationTimeoutTimer.current !== null) window.clearTimeout(reportLocationTimeoutTimer.current);
+    reportLocationSlowTimer.current = null;
+    reportLocationTimeoutTimer.current = null;
+  }
+
+  function beginReportLocationProgress(message: string, requestSequence: number) {
+    clearReportLocationProgressTimers();
+    setReportLocationPhase('analyzing');
+    setReportLocationStatus(message);
+    reportLocationSlowTimer.current = window.setTimeout(() => {
+      if (requestSequence === reportLocationRequestSequence.current) setReportLocationPhase('slow');
+    }, 5_000);
+    reportLocationTimeoutTimer.current = window.setTimeout(() => {
+      if (requestSequence !== reportLocationRequestSequence.current) return;
+      reportLocationRequestSequence.current += 1;
+      clearReportLocationProgressTimers();
+      setReportLocationPhase('failed');
+      setReportLocationStatus('Automatic location detection took too long. Search for an address or choose your Prabhag manually.');
+    }, 25_000);
+  }
+
+  function finishReportLocationProgress(result: PrabhagResolution | null) {
+    clearReportLocationProgressTimers();
+    if (result?.status === 'CANDIDATE_PRABHAG' && result.prabhagId) {
+      setReportLocationPhase('complete');
+      setReportLocationStatus('Location suggestion ready. Confirm or correct the Prabhag.');
+    } else {
+      setReportLocationPhase('failed');
+      setReportLocationStatus('Automatic location detection could not identify a Prabhag. Search for an address or choose manually.');
+    }
+  }
+
+  function chooseCategoryManuallyInstead() {
+    if (classificationTimer.current !== null) window.clearTimeout(classificationTimer.current);
+    classificationTimer.current = null;
+    classificationRequestSequence.current += 1;
+    classificationAbortController.current?.abort();
+    classificationAbortController.current = null;
+    clearClassificationProgressTimers();
+    setClassificationPhase('manual');
+    setClassificationStatus('Automatic category suggestion skipped. Choose the best category.');
+    window.requestAnimationFrame(() => document.getElementById('issue-category-trigger')?.focus());
+  }
+
+  function chooseLocationManuallyInstead() {
+    reportLocationRequestSequence.current += 1;
+    reportAutomaticLocationSuppressed.current = true;
+    clearReportLocationProgressTimers();
+    setReportLocationPhase('manual');
+    setReportLocationStatus('Automatic location detection skipped. Search for an address or choose your Prabhag.');
+    window.requestAnimationFrame(() => document.getElementById('report-prabhag-select')?.focus());
+  }
+
   async function resolveCoordinates(latitude: number, longitude: number, source: 'PHOTO' | 'DEVICE' | 'GOOGLE', requestSequence = ++reportLocationRequestSequence.current, address = '') {
     const response = await fetch(`${API_URL}/api/civic/resolve-prabhag`, {
       method: 'POST',
@@ -1600,40 +1684,80 @@ function App() {
   }
 
   function requestDeviceReportLocation() {
-    if (reportDeviceLocationAttempted.current) return;
-    reportDeviceLocationAttempted.current = true;
-    if (!navigator.geolocation) {
+    if (reportAutomaticLocationSuppressed.current) {
+      clearReportLocationProgressTimers();
+      setReportLocationPhase('manual');
+      setReportLocationStatus('Automatic location detection skipped. Search for an address or choose your Prabhag.');
+      return;
+    }
+    if (reportDeviceLocationState.current === 'DECLINED_OR_UNAVAILABLE') {
+      clearReportLocationProgressTimers();
+      setReportLocationPhase('failed');
       setReportLocationStatus('Your device location could not be used. Search for an address or select your Prabhag manually.');
       return;
     }
-    setReportLocationStatus('');
+    if (!navigator.geolocation) {
+      reportDeviceLocationState.current = 'DECLINED_OR_UNAVAILABLE';
+      clearReportLocationProgressTimers();
+      setReportLocationPhase('failed');
+      setReportLocationStatus('Your device location could not be used. Search for an address or select your Prabhag manually.');
+      return;
+    }
+    reportDeviceLocationState.current = 'PENDING';
     const requestSequence = ++reportLocationRequestSequence.current;
+    beginReportLocationProgress('Finding your location…', requestSequence);
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setReportLocationStatus('');
+        if (requestSequence !== reportLocationRequestSequence.current) return;
+        reportDeviceLocationState.current = 'GRANTED';
         void reverseGeocodeGoogleLocation(position.coords.latitude, position.coords.longitude)
           .catch(() => '')
           .then((address) => resolveCoordinates(position.coords.latitude, position.coords.longitude, 'DEVICE', requestSequence, address))
+          .then((result) => {
+            if (requestSequence === reportLocationRequestSequence.current) finishReportLocationProgress(result);
+          })
           .catch(() => {
             if (requestSequence === reportLocationRequestSequence.current) {
+              clearReportLocationProgressTimers();
+              setReportLocationPhase('failed');
               setReportLocationStatus('Your device location could not be used. Search for an address or select your Prabhag manually.');
             }
           });
       },
-      () => setReportLocationStatus('Your device location could not be used. Search for an address or select your Prabhag manually.'),
+      () => {
+        if (requestSequence !== reportLocationRequestSequence.current) return;
+        reportDeviceLocationState.current = 'DECLINED_OR_UNAVAILABLE';
+        clearReportLocationProgressTimers();
+        setReportLocationPhase('failed');
+        setReportLocationStatus('Your device location could not be used. Search for an address or select your Prabhag manually.');
+      },
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
     );
   }
 
   async function prefillReportLocation(file: File) {
     const extractionSequence = ++reportLocationRequestSequence.current;
+    beginReportLocationProgress('Checking the photo for location…', extractionSequence);
     const coordinates = await extractPhotoCoordinates(file).catch(() => null);
     if (extractionSequence !== reportLocationRequestSequence.current) return;
     if (coordinates) {
       const address = await reverseGeocodeGoogleLocation(coordinates.latitude, coordinates.longitude).catch(() => '');
       if (extractionSequence !== reportLocationRequestSequence.current) return;
       const result = await resolveCoordinates(coordinates.latitude, coordinates.longitude, 'PHOTO', extractionSequence, address).catch(() => null);
-      if (result?.status === 'CANDIDATE_PRABHAG') return;
+      if (result?.status === 'CANDIDATE_PRABHAG') {
+        finishReportLocationProgress(result);
+        return;
+      }
+    }
+    if (extractionSequence !== reportLocationRequestSequence.current) return;
+    if (reportDeviceLocationState.current === 'DECLINED_OR_UNAVAILABLE') {
+      clearReportLocationProgressTimers();
+      setReportLocationPhase('failed');
+      setReportLocationStatus('Your device location could not be used. Search for an address or select your Prabhag manually.');
+      return;
+    }
+    if (reportDeviceLocationState.current === 'PENDING') {
+      reportDeviceLocationState.current = 'NOT_REQUESTED';
     }
     requestDeviceReportLocation();
   }
@@ -1641,7 +1765,9 @@ function App() {
   function selectManualPrabhag(value: string) {
     if (!PRABHAGS.includes(value)) return;
     reportLocationRequestSequence.current += 1;
-    reportDeviceLocationAttempted.current = true;
+    reportAutomaticLocationSuppressed.current = true;
+    clearReportLocationProgressTimers();
+    setReportLocationPhase('manual');
     setPrabhagId(value);
     setSelectionMethod('SELF_REPORTED');
     setCitizenConfirmed(false);
@@ -1656,7 +1782,11 @@ function App() {
 
   function editReportLocationAddress(value: string) {
     setLocationDetails(value);
-    if (value.trim()) setReportLocationStatus('');
+    if (value.trim()) {
+      clearReportLocationProgressTimers();
+      setReportLocationPhase('manual');
+      setReportLocationStatus('');
+    }
     setCitizenConfirmed(false);
     setRouteResult(null);
     resetDraft();
@@ -1664,7 +1794,7 @@ function App() {
 
   function selectGoogleReportLocation(selection: GoogleMeetingPointSelection) {
     const requestSequence = ++reportLocationRequestSequence.current;
-    reportDeviceLocationAttempted.current = true;
+    reportAutomaticLocationSuppressed.current = true;
     setReportLocationStatus('');
     setLocationDetails(selection.address || selection.label);
     setPrabhagId('');
@@ -1675,19 +1805,32 @@ function App() {
     setBoundaryDatasetVersion(undefined);
     setRouteResult(null);
     resetDraft();
+    beginReportLocationProgress('Finding your Prabhag…', requestSequence);
     void resolveCoordinates(
       selection.position.latitude,
       selection.position.longitude,
       'GOOGLE',
       requestSequence,
       selection.address || selection.label,
-    ).catch(() => undefined);
+    ).then((result) => {
+      if (requestSequence === reportLocationRequestSequence.current) finishReportLocationProgress(result);
+    }).catch(() => {
+      if (requestSequence !== reportLocationRequestSequence.current) return;
+      clearReportLocationProgressTimers();
+      setReportLocationPhase('failed');
+      setReportLocationStatus('Automatic location detection could not identify a Prabhag. Search for an address or choose manually.');
+    });
   }
 
   function chooseIssueType(value: string) {
     if (classificationTimer.current !== null) window.clearTimeout(classificationTimer.current);
     classificationTimer.current = null;
     classificationRequestSequence.current += 1;
+    classificationAbortController.current?.abort();
+    classificationAbortController.current = null;
+    clearClassificationProgressTimers();
+    setClassificationPhase('manual');
+    setClassificationStatus('');
     setIssueType(value as typeof issueType);
     setClassificationSource(classification?.issueType === value ? 'GEMINI_SUGGESTED' : 'CITIZEN_SELECTED');
     setRouteResult(null);
@@ -1698,11 +1841,15 @@ function App() {
     setEvidenceImage(file);
     resetEvidenceDerivedState();
     scheduleEvidenceClassification(file, evidenceText, file ? 0 : 650);
-    if (file && reportLocationSource !== 'MANUAL') {
+    if (file && reportLocationSource !== 'MANUAL' && !manualPrabhagSelected) {
+      reportAutomaticLocationSuppressed.current = false;
       void prefillReportLocation(file);
     } else if (!file && reportLocationSource === 'PHOTO') {
       reportLocationRequestSequence.current += 1;
-      reportDeviceLocationAttempted.current = false;
+      if (reportDeviceLocationState.current === 'PENDING') {
+        reportDeviceLocationState.current = 'NOT_REQUESTED';
+      }
+      reportAutomaticLocationSuppressed.current = false;
       setPrabhagId('');
       setResolution(null);
       setSelectionMethod('SELF_REPORTED');
@@ -1720,7 +1867,12 @@ function App() {
     if (classificationTimer.current !== null) window.clearTimeout(classificationTimer.current);
     classificationTimer.current = null;
     classificationRequestSequence.current += 1;
-    if (!image && !text.trim()) return;
+    if (!image && !text.trim()) {
+      setClassificationPhase('idle');
+      return;
+    }
+    setClassificationPhase(delay > 0 ? 'waiting' : 'analyzing');
+    if (image && delay === 0) setClassificationStatus('Reading your photo and suggesting a category…');
     classificationTimer.current = window.setTimeout(() => {
       classificationTimer.current = null;
       void classifyEvidence(image, text);
@@ -1735,14 +1887,32 @@ function App() {
     resetDraft();
     const trimmedText = text.trim();
     if (!image && !trimmedText) {
+      setClassificationPhase('failed');
       setClassificationStatus('Add a photo or a short description first.');
       return;
     }
     if (image && image.size > 5 * 1024 * 1024) {
+      setClassificationPhase('failed');
       setClassificationStatus('Please choose a photo that is 5 MB or smaller.');
       return;
     }
-    setClassificationStatus('Checking the issue category…');
+    classificationAbortController.current?.abort();
+    clearClassificationProgressTimers();
+    const controller = new AbortController();
+    classificationAbortController.current = controller;
+    let timedOut = false;
+    setClassificationPhase('analyzing');
+    setClassificationStatus(image ? 'Reading your photo and suggesting a category…' : 'Understanding your description and suggesting a category…');
+    classificationSlowTimer.current = window.setTimeout(() => {
+      if (requestSequence === classificationRequestSequence.current) setClassificationPhase('slow');
+    }, 5_000);
+    classificationTimeoutTimer.current = window.setTimeout(() => {
+      if (requestSequence !== classificationRequestSequence.current) return;
+      timedOut = true;
+      setClassificationPhase('failed');
+      setClassificationStatus('Automatic category detection took too long. Please choose manually.');
+      controller.abort();
+    }, 25_000);
     const form = new FormData();
     if (image) form.append('image', image);
     if (trimmedText) form.append('text', trimmedText);
@@ -1754,28 +1924,37 @@ function App() {
         method: 'POST',
         headers: { Authorization: `Bearer ${idToken}` },
         body: form,
+        signal: controller.signal,
       });
       result = await response.json();
     } catch {
       if (requestSequence !== classificationRequestSequence.current) return;
-      setClassificationStatus('The category could not be checked. Choose it manually below.');
+      clearClassificationProgressTimers();
+      classificationAbortController.current = null;
+      setClassificationPhase('failed');
+      setClassificationStatus(timedOut ? 'Automatic category detection took too long. Please choose manually.' : 'The category could not be checked. Choose it manually below.');
       setClassificationSource('CITIZEN_SELECTED');
       return;
     }
     if (requestSequence !== classificationRequestSequence.current) return;
+    clearClassificationProgressTimers();
+    classificationAbortController.current = null;
     setClassification(result);
     setComplaintFacts(trimmedText || result.description || '');
     if (!trimmedText && result.description) setEvidenceText(result.description);
     if (!response.ok || result.status === 'CLASSIFICATION_ERROR') {
-      setClassificationStatus(result.message ?? 'The category could not be checked. Choose it manually below.');
+      setClassificationPhase('failed');
+      setClassificationStatus('We could not suggest a category automatically. Please choose one manually.');
       setClassificationSource('CITIZEN_SELECTED');
       return;
     }
     if (result.issueType && result.issueType !== 'UNKNOWN' && ISSUE_VALUES.has(result.issueType)) {
       setIssueType(result.issueType as typeof issueType);
       setClassificationSource('GEMINI_SUGGESTED');
+      setClassificationPhase('complete');
     } else {
       setClassificationSource('CITIZEN_SELECTED');
+      setClassificationPhase('manual');
     }
     setClassificationStatus(
       result.status === 'CLASSIFIED' && result.issueType
@@ -3506,17 +3685,24 @@ function App() {
           scheduleEvidenceClassification(evidenceImage, nextText, 650);
           if (nextText.trim() && !prabhagId && reportLocationSource !== 'MANUAL') requestDeviceReportLocation();
         }} /></label>
-        {classificationStatus && <div role="status" aria-live="polite" className={`status-panel ${classification?.status === 'CLASSIFICATION_ERROR' ? 'state-error' : classification?.status === 'CLASSIFIED' ? 'state-success' : 'state-warning'}`}>
-          <strong>{classification?.status === 'CLASSIFIED' ? t('Category suggestion ready') : classification?.status === 'CLARIFICATION_REQUIRED' ? t('Please clarify') : t('Category suggestion')}</strong>
+        {classificationStatus && classificationPhase !== 'waiting' && <div role="status" aria-live="polite" aria-busy={classificationPhase === 'analyzing' || classificationPhase === 'slow'} className={`autofill-status ${classificationPhase === 'complete' ? 'is-complete' : classificationPhase === 'failed' ? 'is-failed' : ''}`}>
+          <span className="autofill-indicator" aria-hidden="true" style={classificationPhase === 'failed' ? { animation: 'none' } : undefined}>{classificationPhase === 'complete' ? '✓' : classificationPhase === 'failed' ? '!' : ''}</span>
+          <div><strong>{classificationPhase === 'complete' ? t('Category suggestion ready') : classificationPhase === 'failed' ? t('Category suggestion unavailable') : classificationPhase === 'slow' ? t('Still suggesting the issue category…') : classification?.status === 'CLARIFICATION_REQUIRED' ? t('Please clarify') : t('Suggesting issue category…')}</strong>
           <span>{runtimeMessage(classificationStatus)}</span>
           {classification?.description && <small>{classification.description}</small>}
-          {classification?.detectedLanguage && <small>{t('Detected language')}: {classification.detectedLanguage}</small>}
+          {classification?.detectedLanguage && <small>{t('Detected language')}: {classification.detectedLanguage}</small>}</div>
+          {classificationPhase === 'slow' && <button type="button" className="secondary autofill-manual-action" onClick={chooseCategoryManuallyInstead}>{t('Choose category manually instead')}</button>}
         </div>}
-        <TemplatePicker id="issue-category" label={t('Issue category')} placeholder={t('Choose an issue category')} searchPlaceholder={t('Filter categories')} emptyMessage={t('No categories match your search.')} clearSearchLabel={t('Clear search')} value={issueType} options={ISSUE_TYPES.map(([value]) => ({ value, icon: <AppIcon name={issueTypeIcon(value)} />, title: issueLabel(value, language) }))} onChange={(value) => chooseIssueType(value)} />
+        <TemplatePicker id="issue-category" label={t('Issue category')} placeholder={t('Choose an issue category')} searchPlaceholder={t('Filter categories')} emptyMessage={t('No categories match your search.')} clearSearchLabel={t('Clear search')} value={issueType} options={ISSUE_TYPES.map(([value]) => ({ value, icon: <AppIcon name={issueTypeIcon(value)} />, title: issueLabel(value, language) }))} disabled={classificationPhase === 'analyzing' || classificationPhase === 'slow'} onChange={(value) => chooseIssueType(value)} />
       </div>
 
       <div id="report-location-section">
       <div className="flow-step"><span>2</span><b>{t('Location')}</b></div>
+      {reportLocationStatus && <div className={`autofill-status ${reportLocationPhase === 'complete' ? 'is-complete' : reportLocationPhase === 'failed' ? 'is-failed' : ''}`} role="status" aria-live="polite" aria-busy={reportLocationPhase === 'analyzing' || reportLocationPhase === 'slow'}>
+        <span className="autofill-indicator" aria-hidden="true" style={reportLocationPhase === 'failed' ? { animation: 'none' } : undefined}>{reportLocationPhase === 'complete' ? '✓' : reportLocationPhase === 'failed' ? '!' : ''}</span>
+        <div><strong>{reportLocationPhase === 'complete' ? t('Location suggestion ready') : reportLocationPhase === 'slow' ? t('Still finding your location…') : reportLocationPhase === 'analyzing' ? t('Finding location suggestion…') : t('Location')}</strong><span>{t(reportLocationStatus)}</span></div>
+        {reportLocationPhase === 'slow' && <button type="button" className="secondary autofill-manual-action" onClick={chooseLocationManuallyInstead}>{t('Choose location manually instead')}</button>}
+      </div>}
       <GoogleMeetingPointSearch
         language={language}
         bounds={PRABHAG_BOUNDS ? {
@@ -3527,13 +3713,13 @@ function App() {
         } : null}
         mode="report-location"
         value={locationDetails}
+        disabled={reportLocationPhase === 'analyzing' || reportLocationPhase === 'slow'}
         onQueryChange={editReportLocationAddress}
         onSelect={selectGoogleReportLocation}
       />
-      {reportLocationStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{t(reportLocationStatus)}</div>}
       <div className="report-location-field">
         <span className="report-location-icon" aria-hidden="true"><AppIcon name="pin" /></span>
-        <label>{t('Prabhag')}<select value={prabhagId} onChange={(event) => selectManualPrabhag(event.target.value)}>
+        <label>{t('Prabhag')}<select id="report-prabhag-select" value={prabhagId} disabled={reportLocationPhase === 'analyzing' || reportLocationPhase === 'slow'} onChange={(event) => selectManualPrabhag(event.target.value)}>
             <option value="" disabled>{t('Choose Prabhag 1–20')}</option>
             {PRABHAGS.map((value, index) => <option key={value} value={value}>{t('Prabhag')} {index + 1}</option>)}
         </select>{prabhagId && reportLocationSourceLabel && <small>{reportLocationSourceLabel}</small>}</label>
@@ -3545,6 +3731,7 @@ function App() {
             highlightedPrabhagId={highlightedPrabhagId}
             selectionKind={boundarySelectionKind}
             currentPosition={currentCoordinates}
+            disabled={reportLocationPhase === 'analyzing' || reportLocationPhase === 'slow'}
             onManualSelect={selectManualPrabhag}
           />
         </BoundaryMapErrorBoundary>

@@ -60,3 +60,5 @@
 @media (prefers-reduced-motion: reduce) {
   .boundary-shape { transition: none; }
 }
+
+.boundary-map-panel.is-disabled .boundary-shape { cursor: wait; pointer-events: none; }

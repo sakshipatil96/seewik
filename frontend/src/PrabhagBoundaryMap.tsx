@@ -15,6 +15,7 @@ type PrabhagBoundaryMapProps = {
   highlightedPrabhagId?: string;
   selectionKind?: 'AUTOMATIC_CANDIDATE' | 'CONFIRMED' | 'MANUAL';
   currentPosition?: Position | null;
+  disabled?: boolean;
   onManualSelect: (prabhagId: string) => void;
 };
 
@@ -85,6 +86,7 @@ export default function PrabhagBoundaryMap({
   highlightedPrabhagId,
   selectionKind,
   currentPosition,
+  disabled = false,
   onManualSelect,
 }: PrabhagBoundaryMapProps) {
   const t = (source: string) => translate(language, source);
@@ -104,12 +106,12 @@ export default function PrabhagBoundaryMap({
         : '';
 
   function chooseWithKeyboard(event: KeyboardEvent<SVGPathElement>, prabhagId: string) {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
+    if (disabled || (event.key !== 'Enter' && event.key !== ' ')) return;
     event.preventDefault();
     onManualSelect(prabhagId);
   }
 
-  return <section className="boundary-map-panel" aria-labelledby="boundary-map-title">
+  return <section className={`boundary-map-panel ${disabled ? 'is-disabled' : ''}`} aria-labelledby="boundary-map-title" aria-busy={disabled}>
     <div className="boundary-map-heading">
       <div>
         <h3 id="boundary-map-title">{t('Approximate prabhag boundary guide')}</h3>
@@ -140,10 +142,11 @@ export default function PrabhagBoundaryMap({
               className={`boundary-shape${highlighted ? ' is-highlighted' : ''}`}
               d={ringPath(ring, mapProjection.point)}
               role="button"
-              tabIndex={0}
+              tabIndex={disabled ? -1 : 0}
+              aria-disabled={disabled}
               aria-label={`${t('Select')} ${prabhagLabel}${highlighted && selectionLabel ? `. ${selectionLabel}` : ''}`}
               aria-pressed={selectionKind !== 'AUTOMATIC_CANDIDATE' && highlighted}
-              onClick={() => onManualSelect(feature.properties.prabhagId)}
+              onClick={() => { if (!disabled) onManualSelect(feature.properties.prabhagId); }}
               onKeyDown={(event) => chooseWithKeyboard(event, feature.properties.prabhagId)}
             />
             <text className={`boundary-label${highlighted ? ' is-highlighted' : ''}`} x={labelX} y={labelY} aria-hidden="true">

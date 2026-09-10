@@ -24,12 +24,13 @@ type Props = {
   mode?: 'meeting-point' | 'report-location';
   value?: string;
   onQueryChange?: (value: string) => void;
+  disabled?: boolean;
 };
 
 type SearchState = 'LOADING_API' | 'IDLE' | 'SEARCHING' | 'NO_RESULTS' | 'SELECTING' | 'ERROR';
 const requestLanguages: Record<InterfaceLanguage, string> = { en: 'en-IN', mr: 'mr-IN', hi: 'hi-IN' };
 
-export default function GoogleMeetingPointSearch({ language, bounds, onSelect, mode = 'meeting-point', value, onQueryChange }: Props) {
+export default function GoogleMeetingPointSearch({ language, bounds, onSelect, mode = 'meeting-point', value, onQueryChange, disabled = false }: Props) {
   const t = (source: string) => translate(language, source);
   const isReportLocation = mode === 'report-location';
   const contextualText = (meetingPointText: string, reportLocationText: string) => t(isReportLocation ? reportLocationText : meetingPointText);
@@ -51,6 +52,13 @@ export default function GoogleMeetingPointSearch({ language, bounds, onSelect, m
     setQuery(value);
   }, [value]);
   const [selectedAddress, setSelectedAddress] = useState('');
+
+  useEffect(() => {
+    if (!disabled) return;
+    requestNumber.current += 1;
+    setSuggestions([]);
+    setActiveIndex(-1);
+  }, [disabled]);
 
   useEffect(() => {
     let active = true;
@@ -120,7 +128,7 @@ export default function GoogleMeetingPointSearch({ language, bounds, onSelect, m
   }, [bounds, language, query]);
 
   async function selectPlace(prediction: GooglePlacePrediction) {
-    if (!bounds) return;
+    if (!bounds || disabled) return;
     setState('SELECTING');
     setSuggestions([]);
     setMessage(contextualText('Checking the selected meeting place…', 'Checking the selected location…'));
@@ -183,7 +191,7 @@ export default function GoogleMeetingPointSearch({ language, bounds, onSelect, m
   }
 
   const titleId = isReportLocation ? 'google-report-location-search-title' : 'google-place-search-title';
-  return <section className={`google-meeting-point-search ${isReportLocation ? 'report-location-search' : ''}`} aria-labelledby={titleId}>
+  return <section className={`google-meeting-point-search ${isReportLocation ? 'report-location-search' : ''} ${disabled ? 'is-disabled' : ''}`} aria-labelledby={titleId} aria-busy={disabled}>
     <div>
       <h4 id={titleId}>{contextualText('Search for a meeting place', 'Address or landmark')}</h4>
       <p>{contextualText(
@@ -193,6 +201,7 @@ export default function GoogleMeetingPointSearch({ language, bounds, onSelect, m
     </div>
     <div className="google-place-search-control">
       <input
+        disabled={disabled}
         value={query}
         onChange={(event) => {
           selectedQuery.current = '';
@@ -213,6 +222,7 @@ export default function GoogleMeetingPointSearch({ language, bounds, onSelect, m
           id={`google-place-option-${index}`}
           key={prediction.placeId}
           type="button"
+          disabled={disabled}
           role="option"
           aria-selected={index === activeIndex}
           className={index === activeIndex ? 'active' : ''}

@@ -214,3 +214,50 @@ The local Day 12 and Day 15 handoff documents remain untracked and are not part 
 - Corrected the filing boundary so every non-linked identity state queues the selected filing method, opens the existing Google sign-in dialog before token or draft work, preserves the in-memory form, and resumes that exact draft action after authentication.
 - Centralized Civic Pack email resolution and added a regression test for the verified Nagar Palika address. A direct production router query confirmed that the deployed API returns `conandurbarnmc@gmail.com`; no duplicate frontend civic-data constant was introduced.
 - Added backend response assertions for the `EMAIL_NMC` channel ID and value. Priority 3 follow-up-button hydration and the separate filed-report `boundaryDatasetVersion` audit item remain intentionally outside this correction.
+
+## Production report-flow verification and Geocoding correction - 7 September 2026
+
+### Signed-in photo and filing walkthrough
+
+- Completed a full signed-in production walkthrough with a real civic-issue photo. Gemini correctly classified the visible blocked/open drainage issue as `Drainage / sewage` and generated a relevant complaint description.
+- The photo flow suggested Prabhag 10 and still required explicit citizen confirmation before routing.
+- The Civic Responsibility Router returned Nandurbar Municipal Council and the Public Works Department, followed by all three filing choices: printable letter, Nagar Palika email, and the Directorate of Municipal Administration copy-ready pack.
+- Confirmed that the printable letter, email, and DMA descriptions were generated with editable complaint content. Photo evidence remained a manual attachment step, as browser email links cannot attach local files automatically.
+- Opened the official DMA handoff without submitting an external government complaint, then confirmed the Seewik report as filed.
+- Production report `34hKTj8ICBWWtVC8lVwx` reached `FILED`, recorded the `+5` contribution event, and displayed its frozen route snapshot.
+
+### Signed-out recovery boundary
+
+- Repeated the report flow from a signed-out session using a plain-language description, manual category fallback, Streetlight, and Prabhag 10.
+- Selecting a filing route showed the intended Google-link requirement instead of the former generic draft-creation error.
+- The unfinished report and selected filing action survived Google authentication. After sign-in, Seewik automatically resumed the queued printable-letter action rather than discarding the citizen's work.
+- Completed the flow through the non-submitting DMA handoff and confirmed production report `fMPvfjvoGdr1q0OGSum0` as `FILED`, including the `+5` event and frozen route snapshot.
+- An immediate follow-up check correctly withheld escalation because the server-enforced seven-day period had not elapsed.
+- A signed-out classification attempt containing explicit test-only wording fell back to manual selection. This remains inconclusive rather than a product defect because the deliberately artificial wording was not representative citizen input.
+
+### Nagar Palika email-recipient diagnosis
+
+- Investigated the apparent recurrence of an empty recipient field before applying another patch.
+- The production route response contained `conandurbarnmc@gmail.com`, and full-page visual inspection showed the same address in the email field for both photo and non-photo filing paths.
+- The false failure came from browser automation redacting the readable value of an `input[type="email"]`; it was not a product regression on deployed commit `826110bc7be904b47b510649c5429e501c0d1f21`.
+- Future automated checks of email or password-type fields must use an appropriate visual/component assertion rather than treating a redacted DOM read as evidence that the visible field is empty.
+- The existing recipient-resolution unit test remains useful but narrow: it verifies the helper with supplied channel data and does not replace a rendered filing-panel assertion.
+
+### Google location configuration and safe fallback checks
+
+- Production initially reported that the Geocoding API was not enabled. Maps JavaScript and Places were already permitted on the restricted browser key, but Geocoding was absent.
+- Enabled the Google Geocoding API and added it to the same restricted browser key while preserving the existing localhost and Seewik production referrer restrictions. No credential values were added to this log.
+- Retested Google location search with Lokmanya Colony. The UI returned the readable Nandurbar address and the active v0.2 resolver suggested Prabhag 9 without Maps or Geocoding console errors.
+- This confirms that reverse geocoding is now available and that the current v0.2 resolver returns Prabhag 9 for that place. It does not prove that the earlier missing Geocoding API caused the previously observed Prabhag 11 result, because Places coordinates and BigQuery routing are separate from reverse geocoding.
+- Tested a temporary metadata-free photo derivative. Gemini still classified the civic issue, and when the browser did not provide device coordinates Seewik left the Prabhag unselected instead of crashing or inventing a Nandurbar result. Google search and manual selection remained available.
+- Sent a public Sacramento coordinate to the production resolver to test the out-of-region boundary directly. It returned `OUTSIDE_SUPPORTED_AREA`, no Prabhag, `BIGQUERY_ST_COVERS`, and boundary dataset `seewik-map-trace-v0.2`.
+- The location-denial or unavailable callback currently fails quietly. This is a low-severity UX gap because routing remains safe, but a future improvement should explain that Seewik could not access the device location and ask the citizen to search or select manually.
+
+### Release status
+
+- Current deployed application commit: `826110bc7be904b47b510649c5429e501c0d1f21`.
+- Quality workflow passed: <https://github.com/sakshipatil96/seewik/actions/runs/34148903143>.
+- Deployment workflow passed: <https://github.com/sakshipatil96/seewik/actions/runs/34149010052>.
+- The Geocoding correction is live Google Cloud configuration and did not require an application-code deployment.
+- All committed application changes are deployed. This build-log update remains a local documentation change until it is included in a future commit.
+- Production walkthrough records were clearly treated as test records, and no complaint was submitted to a government office during verification.

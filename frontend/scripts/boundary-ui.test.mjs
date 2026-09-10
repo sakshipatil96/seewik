@@ -24,7 +24,7 @@ test('local SVG guide exposes locked provenance and accessible outline controls'
   assert.match(mapSource, /Approximate boundaries traced from a municipal-office wall-map photograph/);
   assert.match(mapSource, /Every suggestion requires your confirmation/);
   assert.match(mapSource, /role="button"/);
-  assert.match(mapSource, /tabIndex=\{0\}/);
+  assert.match(mapSource, /tabIndex=\{disabled \? -1 : 0\}/);
   assert.match(mapSource, /event\.key !== 'Enter' && event\.key !== ' '/);
   assert.match(mapSource, /Math\.round\(position\.longitude \/ step\)/);
   assert.doesNotMatch(mapSource, /leaflet|mapbox|google\.maps|openlayers/i);
