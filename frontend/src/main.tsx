@@ -1919,13 +1919,22 @@ function App() {
     let response: Response;
     let result: ClassificationResult;
     try {
-      const idToken = await sessionToken();
-      response = await fetch(`${API_URL}/api/civic/classify`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${idToken}` },
-        body: form,
-        signal: controller.signal,
-      });
+      const requestClassification = async (forceRefresh = false, recreateAnonymous = false) => {
+        const idToken = await sessionToken(forceRefresh, {
+          allowAnonymousRecovery: true,
+          recreateAnonymous,
+        });
+        return fetch(`${API_URL}/api/civic/classify`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${idToken}` },
+          body: form,
+          signal: controller.signal,
+        });
+      };
+      response = await requestClassification();
+      if (response.status === 401) {
+        response = await requestClassification(true, true);
+      }
       result = await response.json();
     } catch {
       if (requestSequence !== classificationRequestSequence.current) return;

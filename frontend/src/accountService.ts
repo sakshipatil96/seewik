@@ -103,9 +103,34 @@ export async function startAnonymousWorkSession() {
   return ensureAnonymousSession();
 }
 
-export async function sessionToken(forceRefresh = false) {
+type SessionTokenOptions = {
+  allowAnonymousRecovery?: boolean;
+  recreateAnonymous?: boolean;
+};
+
+async function recreateAnonymousSessionToken() {
+  await signOut(auth);
+  window.localStorage.removeItem(SIGNED_OUT_STORAGE_KEY);
+  const replacement = await ensureAnonymousSession();
+  return replacement.getIdToken(true);
+}
+
+export async function sessionToken(forceRefresh = false, options: SessionTokenOptions = {}) {
+  await authPersistenceReady;
+  const { allowAnonymousRecovery = false, recreateAnonymous = false } = options;
+  if (allowAnonymousRecovery && !auth.currentUser) {
+    window.localStorage.removeItem(SIGNED_OUT_STORAGE_KEY);
+  }
   const user = auth.currentUser ?? await ensureAnonymousSession();
-  return user.getIdToken(forceRefresh);
+  if (recreateAnonymous && user.isAnonymous) {
+    return recreateAnonymousSessionToken();
+  }
+  try {
+    return await user.getIdToken(forceRefresh);
+  } catch (error) {
+    if (!allowAnonymousRecovery || !user.isAnonymous) throw error;
+    return recreateAnonymousSessionToken();
+  }
 }
 
 export function accountCredentialFromError(provider: AccountProvider, error: unknown) {
