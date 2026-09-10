@@ -1,4 +1,4 @@
-# Day 17 Cost per Request
+# Cost per Request
 
 ## Result
 
