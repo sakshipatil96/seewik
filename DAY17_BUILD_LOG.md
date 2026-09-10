@@ -64,9 +64,9 @@ Day 17 was a closure day before the September 9 checkpoint. Work stayed on known
 - Made the AI/deterministic boundary explicit, placed `ST_COVERS` on the request path, and showed the 1.5-second boundary timeout with snapshot fallback.
 - Preserved interactive HTML and editable JSON source with image and video export options for the submission and demo.
 
-## Demo rehearsal findings
+## Manual testing
 
-- The first mobile rehearsal surfaced five user-facing issues: iPhone Safari redirect authentication state, untranslated authority details, mobile email/Gmail handoff behavior, an internal resumed-draft identifier, and DMA clipboard encoding behavior.
+- The mobile test surfaced five user-facing issues: iPhone Safari redirect authentication state, untranslated authority details, mobile email/Gmail handoff behavior, an internal resumed-draft identifier, and DMA clipboard encoding behavior.
 - Default email handoff now works on iPhone Chrome, iPhone Safari, Mac Chrome, and Mac Safari.
 - Plain-text DMA copying was confirmed on the same device/browser set after preventing URL recognition.
 - Authority and department localization and the safe resumed-draft message were confirmed on production.
