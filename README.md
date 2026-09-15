@@ -75,7 +75,7 @@ Use the local-e2e profile only with Firebase Auth and Firestore emulators or an 
 
 ## Testing and evaluation
 
-Current local evidence recorded on 15 September 2026:
+Current application verification on 15 September 2026 for commit `9e47c5f`:
 
 | Evidence | Result |
 | --- | --- |
