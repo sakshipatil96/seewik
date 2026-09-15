@@ -373,8 +373,11 @@ type Initiative = {
   canUseOrganiserCode: boolean;
   canSelfAttend: boolean;
   canViewAttendanceCode: boolean;
+  archivedByOrganiser: boolean;
   schemaVersion: string;
 };
+
+type InitiativeDeletionEligibility = { initiativeId: string; canDelete: boolean; reason: string };
 
 type InitiativeJoinRequest = {
   requestId: string;
@@ -539,6 +542,7 @@ function App() {
   const [initiatives, setInitiatives] = useState<Initiative[]>([]);
   const [myInitiatives, setMyInitiatives] = useState<Initiative[]>([]);
   const [initiativeStatus, setInitiativeStatus] = useState('');
+  const [initiativeDeletionEligibility, setInitiativeDeletionEligibility] = useState<Record<string, InitiativeDeletionEligibility>>({});
   const [communityNearMe, setCommunityNearMe] = useState(false);
   const [communityFiltersOpen, setCommunityFiltersOpen] = useState(false);
   const [communityCategory, setCommunityCategory] = useState('ALL');
@@ -1518,6 +1522,56 @@ function App() {
         : target === 'COMPLETED'
           ? 'Activity completed. The organiser award needs two code-attending joiners.'
           : 'Activity cancelled.');
+  }
+
+  function activityHasEnded(initiative: Initiative) {
+    const endAt = Date.parse(initiative.endAt || initiative.startAt);
+    return Number.isFinite(endAt) && endAt <= Date.now();
+  }
+
+  function canShareInitiative(initiative: Initiative) {
+    const endAt = Date.parse(initiative.endAt || initiative.startAt);
+    return initiative.status === 'PUBLISHED' && Number.isFinite(endAt) && endAt > Date.now();
+  }
+
+  function canArchiveInitiative(initiative: Initiative) {
+    return initiative.canManage && (initiative.status === 'CANCELLED' || initiative.status === 'COMPLETED' || activityHasEnded(initiative));
+  }
+
+  async function setInitiativeArchive(initiativeId: string, archived: boolean) {
+    setInitiativeStatus(archived ? 'Archiving activity…' : 'Restoring activity…');
+    const response = await fetch(`${API_URL}/api/initiatives/${encodeURIComponent(initiativeId)}/${archived ? 'archive' : 'unarchive'}`, {
+      method: 'POST', headers: { Authorization: `Bearer ${await authenticatedToken()}` },
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message ?? 'The activity archive state could not be updated.');
+    setInitiativeDeletionEligibility((values) => { const updated = { ...values }; delete updated[initiativeId]; return updated; });
+    await loadMyInitiatives(true);
+    setInitiativeStatus(archived ? 'Activity archived from your active list.' : 'Activity restored to your history.');
+  }
+
+  async function checkInitiativeDeletion(initiativeId: string) {
+    setInitiativeStatus('Checking whether this activity can be deleted…');
+    const response = await fetch(`${API_URL}/api/initiatives/${encodeURIComponent(initiativeId)}/deletion-eligibility`, {
+      headers: { Authorization: `Bearer ${await authenticatedToken()}` },
+    });
+    const result: InitiativeDeletionEligibility & { message?: string } = await response.json();
+    if (!response.ok) throw new Error(result.message ?? 'The activity deletion check could not be completed.');
+    setInitiativeDeletionEligibility((values) => ({ ...values, [initiativeId]: result }));
+    setInitiativeStatus(result.canDelete ? 'This empty activity can be deleted permanently.' : result.reason);
+  }
+
+  async function deleteInitiative(initiativeId: string) {
+    if (!window.confirm('Delete this empty activity permanently? This cannot be undone.')) return;
+    setInitiativeStatus('Deleting activity permanently…');
+    const response = await fetch(`${API_URL}/api/initiatives/${encodeURIComponent(initiativeId)}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${await authenticatedToken()}` },
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message ?? 'The activity could not be deleted.');
+    setInitiativeDeletionEligibility((values) => { const updated = { ...values }; delete updated[initiativeId]; return updated; });
+    await loadMyInitiatives(true);
+    setInitiativeStatus('Activity deleted permanently.');
   }
 
   function applyAttendanceResult(result: InitiativeAttendanceResponse) {
@@ -2772,21 +2826,6 @@ function App() {
     setInitiativeStatus('Calendar reminder downloaded.');
   }
 
-  async function shareActivity(initiative: Initiative) {
-    const url = `${window.location.origin}/initiatives/${encodeURIComponent(initiative.initiativeId)}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: initiative.title, text: `${initiative.title} · ${initiative.placeName}`, url });
-        setInitiativeStatus('Your device share menu was opened.');
-        return;
-      } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-      }
-    }
-    await copyPlainText(url);
-    setInitiativeStatus('Activity link copied.');
-  }
-
   function activityDeepLink(initiative: Initiative) {
     return `${window.location.origin}/initiatives/${encodeURIComponent(initiative.initiativeId)}`;
   }
@@ -3366,6 +3405,10 @@ function App() {
     }
   }
 
+  const currentMyInitiatives = myInitiatives.filter((initiative) => !initiative.archivedByOrganiser && initiative.status === 'PUBLISHED' && !activityHasEnded(initiative));
+  const pastMyInitiatives = myInitiatives.filter((initiative) => !initiative.archivedByOrganiser && !currentMyInitiatives.some((current) => current.initiativeId === initiative.initiativeId));
+  const visibleMyInitiatives = [...currentMyInitiatives, ...pastMyInitiatives];
+
   const myInitiativesSection = <section id="my-initiatives" className="actions-subsection initiative-memberships">
     <div className="actions-section-heading">
       <div><h2>{t('My Initiatives')}</h2><p>{t('Initiatives you organise or join stay here, including their final status.')}</p></div>
@@ -3374,12 +3417,12 @@ function App() {
     {initiativeStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{runtimeMessage(initiativeStatus)}</div>}
     {!myInitiatives.length && <div className="empty-state"><b>{t('No joined initiatives yet.')}</b><p>{t('Create an initiative or join one nearby.')}</p><button onClick={() => navigate('initiatives')}>{t('Explore initiatives')}</button></div>}
     <div className="initiative-list compact-list" aria-live="polite">
-      {myInitiatives.map((initiative) => <article className={`card initiative-card my-action-initiative-card ${initiative.status === 'COMPLETED' ? 'is-completed' : initiative.status === 'CANCELLED' ? 'is-cancelled' : ''}`} key={`mine-${initiative.initiativeId}`}>
+      {visibleMyInitiatives.map((initiative, index) => <><>{index === 0 && currentMyInitiatives.length > 0 && <h3 className="initiative-history-heading">{t('Current activities')}</h3>}{index === currentMyInitiatives.length && pastMyInitiatives.length > 0 && <h3 className="initiative-history-heading">{t('Past and cancelled')}</h3>}</><article className={`card initiative-card my-action-initiative-card ${initiative.status === 'COMPLETED' ? 'is-completed' : initiative.status === 'CANCELLED' ? 'is-cancelled' : ''}`} key={`mine-${initiative.initiativeId}`}>
         <div className="initiative-card-top">
           <span className={`initiative-role-chip ${initiative.status === 'COMPLETED' ? 'role-completed' : initiative.status === 'CANCELLED' ? 'role-cancelled' : initiative.role === 'ORGANISER' ? 'role-organising' : initiative.role === 'REQUESTED' ? 'role-requested' : 'role-joined'}`}>{initiative.role === 'ORGANISER' ? t('Organising') : initiative.role === 'REQUESTED' ? t('Approval requested') : t('Joined')}</span>
           <span className="initiative-card-status">{localizedStatus(language, initiative.status)} · {initiative.joinerCount} {t('joined')}</span>
         </div>
-        <h3>{initiative.title}</h3>
+        <div className="initiative-title-row"><h3>{initiative.title}</h3>{canShareInitiative(initiative) && <a className="initiative-share-icon" href={whatsappActivityUrl(initiative)} target="_blank" rel="noopener noreferrer" aria-label={t('Share on WhatsApp')} title={t('Share on WhatsApp')} onClick={() => setInitiativeStatus(t('WhatsApp share opened.'))}><AppIcon name="share" /></a>}</div>
         <p className="my-action-meeting-point"><span>{timestampLabel(initiative.startAt, language)} · {initiative.placeName}</span>{initiative.mapsUrl && <a href={initiative.mapsUrl} target="_blank" rel="noreferrer">⌖ {t('Open in Google Maps')}</a>}</p>
         {initiative.status === 'CANCELLED' && initiative.cancellationReason && <p><b>{t('Cancellation reason')}:</b> {initiative.cancellationReason}</p>}
         {initiative.canManage && initiative.status === 'PUBLISHED' && <div className="initiative-manage">
@@ -3395,6 +3438,12 @@ function App() {
             <button className="secondary" disabled={!cancellationReasons[initiative.initiativeId]?.trim() || initiative.codeAttendanceCount > 0} title={initiative.codeAttendanceCount > 0 ? t('Cancellation is unavailable after code attendance is recorded') : undefined} onClick={() => requestLinkedMutation(() => changeInitiativeStatus(initiative.initiativeId, 'CANCELLED').catch((error) => setInitiativeStatus(citizenSafeError(error, 'The initiative could not be updated.'))))}>{t('Cancel activity')}</button>
             <button disabled={Date.now() < Date.parse(initiative.endAt || initiative.startAt)} title={Date.now() < Date.parse(initiative.endAt || initiative.startAt) ? t('Available after the scheduled activity time') : undefined} onClick={() => requestLinkedMutation(() => changeInitiativeStatus(initiative.initiativeId, 'COMPLETED').catch((error) => setInitiativeStatus(citizenSafeError(error, 'The initiative could not be updated.'))))}>{t('Mark completed')}</button>
           </div>
+        </div>}
+        {canArchiveInitiative(initiative) && <div className="initiative-history-actions">
+          <button className="secondary" onClick={() => requestLinkedMutation(() => setInitiativeArchive(initiative.initiativeId, true).catch((error) => setInitiativeStatus(citizenSafeError(error, 'The activity archive state could not be updated.'))))}>{t('Archive activity')}</button>
+          {initiativeDeletionEligibility[initiative.initiativeId]?.canDelete
+            ? <button className="danger" onClick={() => requestLinkedMutation(() => deleteInitiative(initiative.initiativeId).catch((error) => setInitiativeStatus(citizenSafeError(error, 'The activity could not be deleted.'))))}>{t('Delete permanently')}</button>
+            : <button className="secondary" onClick={() => requestLinkedMutation(() => checkInitiativeDeletion(initiative.initiativeId).catch((error) => setInitiativeStatus(citizenSafeError(error, 'The activity deletion check could not be completed.'))))}>{t('Check deletion eligibility')}</button>}
         </div>}
         {initiative.role !== 'REQUESTED' && <div className="attendance-summary" aria-label={t('Attendance summary')}>
           <p><strong>{initiative.codeAttendanceCount} {t('of')} {initiative.joinerCount}</strong> {t('joiners recorded attendance using the organiser’s code.')}</p>
@@ -3423,8 +3472,9 @@ function App() {
         </div>}
         {initiative.role === 'PARTICIPANT' && !initiative.attendanceBasis && !initiative.canUseOrganiserCode && !initiative.canSelfAttend && <small>{initiative.status === 'CANCELLED' ? t('Attendance is unavailable because this activity was cancelled.') : initiative.status === 'COMPLETED' ? t('No attendance option is currently available.') : t('Code attendance opens at the scheduled start time.')}</small>}
         <small>{t('Creating or joining alone does not earn points.')}</small>
-      </article>)}
+      </article></>)}
     </div>
+    {myInitiatives.some((initiative) => initiative.archivedByOrganiser) && <details className="archived-initiatives"><summary>{t('Archived activities')} ({myInitiatives.filter((initiative) => initiative.archivedByOrganiser).length})</summary><div className="initiative-list compact-list">{myInitiatives.filter((initiative) => initiative.archivedByOrganiser).map((initiative) => <article className="card initiative-card my-action-initiative-card" key={`archived-${initiative.initiativeId}`}><div className="initiative-card-top"><span className="initiative-role-chip role-organising">{t('Organising')}</span><span className="initiative-card-status">{localizedStatus(language, initiative.status)}</span></div><div className="initiative-title-row"><h3>{initiative.title}</h3></div><p className="my-action-meeting-point">{timestampLabel(initiative.startAt, language)} · {initiative.placeName}</p><div className="initiative-history-actions"><button className="secondary" onClick={() => requestLinkedMutation(() => setInitiativeArchive(initiative.initiativeId, false).catch((error) => setInitiativeStatus(citizenSafeError(error, 'The activity archive state could not be updated.'))))}>{t('Unarchive activity')}</button>{initiativeDeletionEligibility[initiative.initiativeId]?.canDelete ? <button className="danger" onClick={() => requestLinkedMutation(() => deleteInitiative(initiative.initiativeId).catch((error) => setInitiativeStatus(citizenSafeError(error, 'The activity could not be deleted.'))))}>{t('Delete permanently')}</button> : <button className="secondary" onClick={() => requestLinkedMutation(() => checkInitiativeDeletion(initiative.initiativeId).catch((error) => setInitiativeStatus(citizenSafeError(error, 'The activity deletion check could not be completed.'))))}>{t('Check deletion eligibility')}</button>}</div></article>)}</div></details>}
   </section>;
 
   const demoStates = [
@@ -3579,7 +3629,7 @@ function App() {
             return <article className={`community-activity-card ${index === 0 ? 'is-next' : 'is-compact'}`} key={initiative.initiativeId}>
               <div className="community-card-visual"><span className="community-type-icon" aria-hidden="true">{communityIcon(initiative.category)}</span><span className="community-type-chip">{initiativeCategoryLabel(initiative.category)}</span>{index === 0 && <small>{t('Next upcoming')}</small>}</div>
               <div className="community-card-content">
-                <h2>{initiative.title}</h2>
+                <div className="initiative-title-row"><h2>{initiative.title}</h2>{canShareInitiative(initiative) && <a className="initiative-share-icon" href={whatsappActivityUrl(initiative)} target="_blank" rel="noopener noreferrer" aria-label={t('Share on WhatsApp')} title={t('Share on WhatsApp')} onClick={() => setInitiativeStatus(t('WhatsApp share opened.'))}><AppIcon name="share" /></a>}</div>
                 <div className="community-card-meta">
                   <span><i aria-hidden="true">◷</i>{timestampLabel(initiative.startAt, language)}</span>
                   <span><i aria-hidden="true">⌖</i>{initiative.placeName}{communityNearMe && Number.isFinite(initiative.distanceKm) ? ` · ${communityDistanceLabel(initiative.distanceKm)}` : ''}</span>
@@ -3604,7 +3654,7 @@ function App() {
       {accountState !== 'SIGNED_OUT' && selectedInitiative && <article className="activity-detail-card">
         <div className="activity-detail-banner"><span className="community-type-chip">{initiativeCategoryLabel(selectedInitiative.category)}</span><span className="activity-banner-icon" aria-hidden="true">{communityIcon(selectedInitiative.category)}</span></div>
         <div className="activity-detail-content">
-          <h1>{selectedInitiative.title}</h1>
+          <div className="initiative-title-row activity-detail-title"><h1>{selectedInitiative.title}</h1>{canShareInitiative(selectedInitiative) && <a className="initiative-share-icon" href={whatsappActivityUrl(selectedInitiative)} target="_blank" rel="noopener noreferrer" aria-label={t('Share on WhatsApp')} title={t('Share on WhatsApp')} onClick={() => setInitiativeStatus(t('WhatsApp share opened.'))}><AppIcon name="share" /></a>}</div>
           <p className="activity-time icon-copy"><AppIcon name="clock" />{timestampLabel(selectedInitiative.startAt, language)}{selectedInitiative.endAt && selectedInitiative.endAt !== selectedInitiative.startAt ? ` · ${t('ends')} ${new Intl.DateTimeFormat(communityLocale, { hour: 'numeric', minute: '2-digit' }).format(new Date(selectedInitiative.endAt))}` : ''}</p>
           <dl className="activity-facts">
             <div><dt><AppIcon name="pin" />{t('Where')}</dt><dd>{selectedInitiative.mapsUrl ? <a href={selectedInitiative.mapsUrl} target="_blank" rel="noreferrer">{selectedInitiative.placeName} ↗</a> : selectedInitiative.placeName}</dd></div>
@@ -3614,14 +3664,9 @@ function App() {
           <section className="activity-description"><h2>{t('About this activity')}</h2><p>{selectedInitiative.description}</p></section>
           {selectedInitiative.neededItems?.length > 0 && <section className="activity-needed"><h2>{t('What is needed')}</h2><div className="activity-needed-chips">{selectedInitiative.neededItems.map((item) => <span key={item}>{item}</span>)}</div></section>}
           {selectedInitiative.organiserMessage && <blockquote className="organiser-message"><strong>{t('From the organiser:')}</strong> {selectedInitiative.organiserMessage}</blockquote>}
-          {selectedInitiative.status === 'PUBLISHED' && <section className="activity-share-panel" aria-label={t('Share this activity')}>
-            <div><h2>{t('Share this activity')}</h2><p>{t('Send the activity summary and a link that opens it in Seewik.')}</p></div>
-            <a className="whatsapp-share-button" href={whatsappActivityUrl(selectedInitiative)} target="_blank" rel="noopener noreferrer" onClick={() => setInitiativeStatus(t('WhatsApp share opened.'))}><AppIcon name="share" />{t('Share on WhatsApp')}</a>
-            <small>{t('The link keeps this activity ready if the recipient needs to sign in.')}</small>
-          </section>}
           {selectedInitiative.joined && !selectedInitiative.canManage ? <>
             <div className="joined-confirmation"><strong className="icon-copy"><AppIcon name="check" />{t('Joined')}</strong><span>{t('See you on')} {activityReminderLabel(selectedInitiative)}.</span></div>
-            <div className="joined-actions"><button className="secondary icon-button" onClick={() => addActivityToCalendar(selectedInitiative)}><AppIcon name="clock" />{t('Calendar')}</button><button className="secondary icon-button" onClick={() => void shareActivity(selectedInitiative)}><AppIcon name="share" />{t('Share')}</button></div>
+            <div className="joined-actions"><button className="secondary icon-button" onClick={() => addActivityToCalendar(selectedInitiative)}><AppIcon name="clock" />{t('Calendar')}</button></div>
           </> : selectedInitiative.joinRequestedByMe && !selectedInitiative.canManage ? <div className="joined-confirmation"><strong>{t('Approval requested')}</strong><span>{t('The organiser will accept or decline your request.')}</span></div> : !selectedInitiative.canManage && <button className="activity-join-button" disabled={selectedInitiative.full || joiningInitiativeId === selectedInitiative.initiativeId} onClick={() => requestLinkedMutation(() => joinInitiative(selectedInitiative.initiativeId).catch((error) => setInitiativeStatus(citizenSafeError(error, 'The initiative could not be joined.'))))}>{selectedInitiative.full ? t('Full') : joiningInitiativeId === selectedInitiative.initiativeId ? t('Joining…') : selectedInitiative.participationMode === 'APPROVAL_REQUIRED' ? t('Request to join') : t('Join Activity')}</button>}
           {selectedInitiative.canManage && <section className="organiser-tools"><span className="eyebrow icon-copy"><AppIcon name="shield" />{t('ORGANISER TOOLS')}</span>{Date.now() >= Date.parse(selectedInitiative.endAt || selectedInitiative.startAt) ? <><h2>{t('Activity day is over — record what happened')}</h2><p>{t('Completion and attendance tools remain protected in My Actions.')}</p></> : <p>{t('Manage this activity and attendance securely in My Actions.')}</p>}<button className="secondary icon-button" onClick={() => { navigate('reports'); window.setTimeout(() => document.getElementById('my-initiatives')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); }}><AppIcon name="shield" />{t('Open organiser tools in My Actions')}</button></section>}
           {initiativeStatus && <div className="status-panel state-warning" role="status" aria-live="polite">{runtimeMessage(initiativeStatus)}</div>}

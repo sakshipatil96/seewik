@@ -107,13 +107,17 @@ public class FirestoreInitiativeGateway implements InitiativeGateway {
                         .collection("initiatives").document(initiativeId).get().get();
                 if (initiative.exists()) {
                     ParticipationSummary summary = participationSummary(store, initiativeId);
+                    boolean archived = "ORGANISER".equals(participation.getString("role"))
+                            && store.collection("initiativeArchivePreferences")
+                                    .document(archivePreferenceId(initiativeId, ownerUid)).get().get().exists();
                     result.add(new CitizenInitiative(
                             new LinkedHashMap<>(initiative.getData()),
                             participation.getString("role"),
                             new LinkedHashMap<>(participation.getData()),
                             summary.joiners(),
                             summary.selfAttendance(),
-                            summary.codeAttendance()));
+                            summary.codeAttendance(),
+                            archived));
                 }
             }
             return List.copyOf(result);
@@ -412,6 +416,88 @@ public class FirestoreInitiativeGateway implements InitiativeGateway {
             while (cause instanceof ExecutionException && cause.getCause() != null) cause = cause.getCause();
             if (cause instanceof InitiativeService.InitiativeException initiativeException) throw initiativeException;
             throw failure("INITIATIVE_STORE_FAILED", "The activity change could not be saved", cause);
+        }
+    }
+
+    @Override
+    public ArchiveResult archive(String ownerUid, String initiativeId, boolean archived, Instant occurredAt) {
+        Firestore store = firebase.firestore();
+        DocumentReference initiativeRef = store.collection("initiatives").document(initiativeId);
+        DocumentReference preferenceRef = store.collection("initiativeArchivePreferences")
+                .document(archivePreferenceId(initiativeId, ownerUid));
+        try {
+            return store.runTransaction(transaction -> {
+                DocumentSnapshot initiative = transaction.get(initiativeRef).get();
+                if (!initiative.exists()) throw new InitiativeService.InitiativeException("INITIATIVE_NOT_FOUND", "Activity was not found");
+                if (!ownerUid.equals(initiative.getString("ownerUid"))) {
+                    throw new InitiativeService.InitiativeException("INITIATIVE_FORBIDDEN", "Only the organiser can archive this activity");
+                }
+                if (archived && !archiveAllowed(initiative.getData(), occurredAt)) {
+                    throw new InitiativeService.InitiativeException("INITIATIVE_ARCHIVE_UNAVAILABLE", "Only past, cancelled or completed activities can be archived");
+                }
+                if (archived) transaction.set(preferenceRef, Map.of(
+                        "initiativeId", initiativeId, "ownerUid", ownerUid, "archivedAt", occurredAt.toString(),
+                        "schemaVersion", "initiative-archive-preference-v0.1"));
+                else transaction.delete(preferenceRef);
+                return new ArchiveResult(initiativeId, archived);
+            }).get();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw failure("INITIATIVE_STORE_INTERRUPTED", "The activity archive state could not be saved", exception);
+        } catch (ExecutionException exception) {
+            Throwable cause = unwrap(exception);
+            if (cause instanceof InitiativeService.InitiativeException initiativeException) throw initiativeException;
+            throw failure("INITIATIVE_STORE_FAILED", "The activity archive state could not be saved", cause);
+        }
+    }
+
+    @Override
+    public DeletionEligibility deletionEligibility(String ownerUid, String initiativeId) {
+        return deletionEligibility(ownerUid, initiativeId, false);
+    }
+
+    @Override
+    public DeleteResult delete(String ownerUid, String initiativeId, Instant occurredAt) {
+        DeletionEligibility eligibility = deletionEligibility(ownerUid, initiativeId, true);
+        if (!eligibility.canDelete()) throw new InitiativeService.InitiativeException("INITIATIVE_DELETE_BLOCKED", eligibility.reason());
+        return new DeleteResult(initiativeId);
+    }
+
+    private DeletionEligibility deletionEligibility(String ownerUid, String initiativeId, boolean deleteWhenEligible) {
+        Firestore store = firebase.firestore();
+        DocumentReference initiativeRef = store.collection("initiatives").document(initiativeId);
+        DocumentReference preferenceRef = store.collection("initiativeArchivePreferences")
+                .document(archivePreferenceId(initiativeId, ownerUid));
+        try {
+            return store.runTransaction(transaction -> {
+                DocumentSnapshot initiative = transaction.get(initiativeRef).get();
+                if (!initiative.exists()) throw new InitiativeService.InitiativeException("INITIATIVE_NOT_FOUND", "Activity was not found");
+                if (!ownerUid.equals(initiative.getString("ownerUid"))) {
+                    throw new InitiativeService.InitiativeException("INITIATIVE_FORBIDDEN", "Only the organiser can delete this activity");
+                }
+                QuerySnapshot participations = transaction.get(store.collection("initiativeParticipations").whereEqualTo("initiativeId", initiativeId)).get();
+                QuerySnapshot ledgers = transaction.get(store.collection("pointsLedger").whereEqualTo("initiativeId", initiativeId)).get();
+                QuerySnapshot attempts = transaction.get(store.collection("initiativeAttendanceAttempts").whereEqualTo("initiativeId", initiativeId)).get();
+                QuerySnapshot events = transaction.get(initiativeRef.collection("events")).get();
+                QuerySnapshot evidence = transaction.get(initiativeRef.collection("evidence")).get();
+                String blocker = deletionBlocker(ownerUid, participations, ledgers, attempts, events, evidence);
+                if (!blocker.isBlank()) return new DeletionEligibility(initiativeId, false, blocker);
+                if (deleteWhenEligible) {
+                    for (QueryDocumentSnapshot item : participations.getDocuments()) transaction.delete(item.getReference());
+                    for (QueryDocumentSnapshot item : ledgers.getDocuments()) transaction.delete(item.getReference());
+                    for (QueryDocumentSnapshot item : events.getDocuments()) transaction.delete(item.getReference());
+                    transaction.delete(preferenceRef);
+                    transaction.delete(initiativeRef);
+                }
+                return new DeletionEligibility(initiativeId, true, "");
+            }).get();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw failure("INITIATIVE_STORE_INTERRUPTED", "The activity deletion check could not be completed", exception);
+        } catch (ExecutionException exception) {
+            Throwable cause = unwrap(exception);
+            if (cause instanceof InitiativeService.InitiativeException initiativeException) throw initiativeException;
+            throw failure("INITIATIVE_STORE_FAILED", "The activity deletion check could not be completed", cause);
         }
     }
 
@@ -735,6 +821,36 @@ public class FirestoreInitiativeGateway implements InitiativeGateway {
     private static String organiserLedgerId(String initiativeId, String organiserUid) {
         return "pts_" + InitiativeService.hash(
                 initiativeId + ":INITIATIVE_ORGANISER_COMPLETED_REWARDED:" + organiserUid);
+    }
+
+    private static String archivePreferenceId(String initiativeId, String ownerUid) {
+        return "archive_" + InitiativeService.hash(initiativeId + ":" + ownerUid);
+    }
+
+    private static boolean archiveAllowed(Map<String, Object> initiative, Instant now) {
+        String status = String.valueOf(initiative.get("status"));
+        if ("CANCELLED".equals(status) || "COMPLETED".equals(status)) return true;
+        Instant endAt = requiredInstant(initiative.get("endAt") == null ? initiative.get("startAt") : initiative.get("endAt"),
+                "The activity end time could not be verified");
+        return !now.isBefore(endAt);
+    }
+
+    private static String deletionBlocker(String ownerUid, QuerySnapshot participations, QuerySnapshot ledgers,
+            QuerySnapshot attempts, QuerySnapshot events, QuerySnapshot evidence) {
+        if (!attempts.isEmpty() || !evidence.isEmpty()) return "This activity has attendance or evidence records and must be kept in history.";
+        if (participations.size() != 1) return "This activity has another citizen's participation or request and must be kept in history.";
+        DocumentSnapshot participation = participations.getDocuments().getFirst();
+        Object attendanceBasis = participation.get("attendanceBasis");
+        if (!ownerUid.equals(participation.getString("ownerUid")) || !"ORGANISER".equals(participation.getString("role"))
+                || (attendanceBasis != null && !String.valueOf(attendanceBasis).isBlank())) return "This activity has participation history and must be kept in history.";
+        if (events.size() != 1 || !"INITIATIVE_CREATED".equals(events.getDocuments().getFirst().getString("eventType"))) {
+            return "This activity has lifecycle history and must be kept in history.";
+        }
+        if (ledgers.size() != 1 || !"INITIATIVE_CREATED".equals(ledgers.getDocuments().getFirst().getString("eventType"))
+                || integerValue(ledgers.getDocuments().getFirst().get("pointsAwarded")) != 0) {
+            return "This activity has contribution history and must be kept in history.";
+        }
+        return "";
     }
 
     private static String attendanceEventId(String initiativeId, String ownerUid) {

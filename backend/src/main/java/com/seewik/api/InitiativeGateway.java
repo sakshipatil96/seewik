@@ -39,6 +39,18 @@ public interface InitiativeGateway {
             String cancellationReason,
             Instant occurredAt);
 
+    default ArchiveResult archive(String ownerUid, String initiativeId, boolean archived, Instant occurredAt) {
+        throw new UnsupportedOperationException("Archive preferences are not implemented by this gateway");
+    }
+
+    default DeletionEligibility deletionEligibility(String ownerUid, String initiativeId) {
+        throw new UnsupportedOperationException("Initiative deletion is not implemented by this gateway");
+    }
+
+    default DeleteResult delete(String ownerUid, String initiativeId, Instant occurredAt) {
+        throw new UnsupportedOperationException("Initiative deletion is not implemented by this gateway");
+    }
+
     default AttendanceContext attendanceContext(String ownerUid, String initiativeId) {
         throw new UnsupportedOperationException("Attendance is not implemented by this gateway");
     }
@@ -72,9 +84,14 @@ public interface InitiativeGateway {
             Map<String, Object> participation,
             int joinerCount,
             int selfAttendanceCount,
-            int codeAttendanceCount) {
+            int codeAttendanceCount,
+            boolean archivedByOrganiser) {
+        CitizenInitiative(Map<String, Object> initiative, String role, Map<String, Object> participation,
+                int joinerCount, int selfAttendanceCount, int codeAttendanceCount) {
+            this(initiative, role, participation, joinerCount, selfAttendanceCount, codeAttendanceCount, false);
+        }
         CitizenInitiative(Map<String, Object> initiative, String role) {
-            this(initiative, role, Map.of(), 0, 0, 0);
+            this(initiative, role, Map.of(), 0, 0, 0, false);
         }
     }
 
@@ -83,6 +100,10 @@ public interface InitiativeGateway {
             this(initiative, idempotentReplay, 0);
         }
     }
+
+    record ArchiveResult(String initiativeId, boolean archived) {}
+    record DeletionEligibility(String initiativeId, boolean canDelete, String reason) {}
+    record DeleteResult(String initiativeId) {}
 
     record AttendanceContext(
             Map<String, Object> initiative,

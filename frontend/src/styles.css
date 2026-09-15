@@ -400,14 +400,19 @@ button.text-action { margin-top: var(--space-3); color: var(--color-teal-ink); t
 .joined-confirmation { display: grid; place-items: center; gap: var(--space-2); margin-top: var(--space-6); padding: var(--space-5); border: 1px solid color-mix(in srgb, var(--color-teal) 55%, var(--color-line)); border-radius: var(--radius-lg); background: var(--color-teal-soft); color: var(--color-teal-ink); text-align: center; }
 .joined-confirmation strong { font-size: 1.12rem; }
 .joined-confirmation span { font-size: .8rem; }
-.joined-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-3); }
+.joined-actions { display: grid; grid-template-columns: 1fr; gap: var(--space-3); margin-top: var(--space-3); }
 .joined-actions button, .activity-join-button { margin: 0; }
-.activity-share-panel { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2) var(--space-5); margin-top: var(--space-6); padding: var(--space-5); border: 1px solid color-mix(in srgb, var(--color-teal) 55%, var(--color-line)); border-radius: var(--radius-lg); background: linear-gradient(135deg, var(--color-teal-soft), var(--color-surface-2)); }
-.activity-share-panel h2, .activity-share-panel p { margin: 0; }
-.activity-share-panel p, .activity-share-panel small { color: var(--color-muted); }
-.activity-share-panel small { grid-column: 1 / -1; }
-.whatsapp-share-button { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 48px; padding: 0 var(--space-5); border: 1px solid rgba(255, 255, 255, .22); border-radius: var(--radius-md); background: #128c7e; color: #fff; font-weight: 800; text-decoration: none; }
-.whatsapp-share-button:hover, .whatsapp-share-button:focus-visible { background: #0f766e; color: #fff; }
+.initiative-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.initiative-title-row h1, .initiative-title-row h2, .initiative-title-row h3 { min-width: 0; flex: 1; }
+.initiative-share-icon { display: inline-grid; flex: 0 0 auto; place-items: center; width: 42px; height: 42px; border: 1px solid color-mix(in srgb, #128c7e 72%, var(--color-line)); border-radius: 50%; background: #128c7e; color: #fff; text-decoration: none; }
+.initiative-share-icon:hover, .initiative-share-icon:focus-visible { background: #0f766e; color: #fff; }
+.initiative-share-icon .app-icon { width: 21px; height: 21px; }
+.initiative-history-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-4); }
+.initiative-history-actions button { width: auto; margin: 0; }
+.initiative-history-actions .danger { border-color: #b42318; background: #b42318; color: #fff; }
+.initiative-history-heading { margin: var(--space-5) 0 var(--space-2); color: var(--color-ink-muted); font-size: .92rem; text-transform: uppercase; letter-spacing: .08em; }
+.archived-initiatives { margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--color-line); }
+.archived-initiatives summary { cursor: pointer; color: var(--color-teal-ink); font-weight: 800; }
 .activity-join-button { width: 100%; margin-top: var(--space-6); }
 .organiser-tools { display: grid; gap: var(--space-3); margin-top: var(--space-6); padding: var(--space-5); border: 1px solid color-mix(in srgb, var(--color-teal) 45%, var(--color-line)); border-radius: var(--radius-lg); background: var(--color-teal-soft); }
 .organiser-tools p, .organiser-tools button { margin: 0; }
@@ -1088,9 +1093,8 @@ footer { margin: auto auto 0; padding-top: var(--space-10); color: var(--color-f
   .community-card-content { padding: var(--space-4); }
   .community-card-actions { gap: var(--space-2); }
   .initiative-time-grid, .joined-actions { grid-template-columns: 1fr; }
-  .activity-share-panel { grid-template-columns: 1fr; }
-  .activity-share-panel small { grid-column: auto; }
-  .whatsapp-share-button { width: 100%; }
+  .initiative-title-row { gap: var(--space-2); }
+  .initiative-share-icon { width: 40px; height: 40px; }
   .participation-options { grid-template-columns: 1fr; }
   .participation-options label { min-height: 0; }
   .join-request-panel article { align-items: stretch; flex-direction: column; }

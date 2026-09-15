@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -115,6 +116,49 @@ public class InitiativeController {
         } catch (InitiativeService.InitiativeException exception) {
             return failure(exception);
         }
+    }
+
+    @PostMapping(value = "/{initiativeId}/archive", produces = "application/json")
+    public ResponseEntity<?> archive(@PathVariable String initiativeId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return archive(initiativeId, true, authorization);
+    }
+
+    @PostMapping(value = "/{initiativeId}/unarchive", produces = "application/json")
+    public ResponseEntity<?> unarchive(@PathVariable String initiativeId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return archive(initiativeId, false, authorization);
+    }
+
+    @GetMapping(value = "/{initiativeId}/deletion-eligibility", produces = "application/json")
+    public ResponseEntity<?> deletionEligibility(@PathVariable String initiativeId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        try {
+            var citizen = CitizenIdentityVerifier.requireGoogleLinked(identityVerifier.verifyBearer(authorization));
+            return ResponseEntity.ok(initiativeService.deletionEligibility(citizen.uid(), initiativeId));
+        } catch (CitizenIdentityVerifier.LinkedIdentityRequiredException exception) { return googleLinkRequired(exception);
+        } catch (CitizenIdentityVerifier.AuthenticationException exception) { return unauthorized(exception);
+        } catch (InitiativeService.InitiativeException exception) { return failure(exception); }
+    }
+
+    @DeleteMapping(value = "/{initiativeId}", produces = "application/json")
+    public ResponseEntity<?> delete(@PathVariable String initiativeId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        try {
+            var citizen = CitizenIdentityVerifier.requireGoogleLinked(identityVerifier.verifyBearer(authorization));
+            return ResponseEntity.ok(initiativeService.delete(citizen.uid(), initiativeId));
+        } catch (CitizenIdentityVerifier.LinkedIdentityRequiredException exception) { return googleLinkRequired(exception);
+        } catch (CitizenIdentityVerifier.AuthenticationException exception) { return unauthorized(exception);
+        } catch (InitiativeService.InitiativeException exception) { return failure(exception); }
+    }
+
+    private ResponseEntity<?> archive(String initiativeId, boolean archived, String authorization) {
+        try {
+            var citizen = CitizenIdentityVerifier.requireGoogleLinked(identityVerifier.verifyBearer(authorization));
+            return ResponseEntity.ok(initiativeService.archive(citizen.uid(), initiativeId, archived));
+        } catch (CitizenIdentityVerifier.LinkedIdentityRequiredException exception) { return googleLinkRequired(exception);
+        } catch (CitizenIdentityVerifier.AuthenticationException exception) { return unauthorized(exception);
+        } catch (InitiativeService.InitiativeException exception) { return failure(exception); }
     }
 
     @PostMapping(value = "/{initiativeId}/join", produces = "application/json")

@@ -194,6 +194,23 @@ public class InitiativeService {
         return new MyInitiativesResponse("MY_INITIATIVES", activities.size(), activities);
     }
 
+    public ArchiveResponse archive(String ownerUid, String initiativeId, boolean archived) {
+        String cleanId = clean(initiativeId, 80, "INVALID_INITIATIVE_ID", "Initiative ID is required");
+        InitiativeGateway.ArchiveResult result = gateway.archive(ownerUid, cleanId, archived, clock.instant());
+        return new ArchiveResponse(archived ? "INITIATIVE_ARCHIVED" : "INITIATIVE_UNARCHIVED", result.initiativeId(), result.archived());
+    }
+
+    public DeletionEligibilityResponse deletionEligibility(String ownerUid, String initiativeId) {
+        String cleanId = clean(initiativeId, 80, "INVALID_INITIATIVE_ID", "Initiative ID is required");
+        InitiativeGateway.DeletionEligibility result = gateway.deletionEligibility(ownerUid, cleanId);
+        return new DeletionEligibilityResponse("INITIATIVE_DELETION_ELIGIBILITY", result.initiativeId(), result.canDelete(), result.reason());
+    }
+
+    public DeleteResponse delete(String ownerUid, String initiativeId) {
+        String cleanId = clean(initiativeId, 80, "INVALID_INITIATIVE_ID", "Initiative ID is required");
+        return new DeleteResponse("INITIATIVE_DELETED", gateway.delete(ownerUid, cleanId, clock.instant()).initiativeId());
+    }
+
     public TransitionResponse cancel(String ownerUid, String initiativeId, CancelRequest request) {
         String cleanId = clean(initiativeId, 80, "INVALID_INITIATIVE_ID", "Initiative ID is required");
         String reason = clean(
@@ -603,6 +620,7 @@ public class InitiativeService {
                 participant && noAttendance && codeWindowOpen,
                 participant && noAttendance && selfWindowOpen && showSelfAttendance,
                 "ORGANISER".equals(role) && codeWindowOpen,
+                citizen.archivedByOrganiser(),
                 String.valueOf(data.get("schemaVersion")));
     }
 
@@ -789,6 +807,7 @@ public class InitiativeService {
             boolean canUseOrganiserCode,
             boolean canSelfAttend,
             boolean canViewAttendanceCode,
+            boolean archivedByOrganiser,
             String schemaVersion) {}
 
     private record MeetingPoint(
@@ -823,6 +842,10 @@ public class InitiativeService {
             String initiativeStatus,
             boolean idempotentReplay,
             int pointsAwarded) {}
+
+    public record ArchiveResponse(String status, String initiativeId, boolean archived) {}
+    public record DeletionEligibilityResponse(String status, String initiativeId, boolean canDelete, String reason) {}
+    public record DeleteResponse(String status, String initiativeId) {}
 
     public record AttendanceCodeResponse(
             String status,
