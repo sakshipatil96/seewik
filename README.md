@@ -1,133 +1,124 @@
 # Seewik
 
-Seewik is a multilingual civic-action platform for Nandurbar. It helps a citizen describe a local problem, review or edit the relevant civic facts, find the verified complaint route, organise or join a community initiative, and keep a private record of civic contributions.
+Seewik is a multilingual civic-intelligence platform for Nandurbar. It helps citizens turn a local civic concern into a clear, reviewable action: identify the issue, confirm the location, find the responsible authority, prepare filing-ready wording, and record what happened next.
+
+**Stack:** React, TypeScript and Vite PWA; Java 21 and Spring Boot; Vertex AI Gemini; Firestore; BigQuery; Cloud Run; Firebase Hosting and Authentication; Cloud Storage; Google Maps Platform.
 
 **Live application:** [seewik.web.app](https://seewik.web.app/)
 
-Seewik is an independent prototype. It is not a government service, emergency-response provider, legal adviser, or proof that a complaint has been submitted. The dedicated Emergency Information page keeps verified call actions separate from normal civic reporting.
+Quick navigation: [Architecture](#architecture) · [Testing](#testing-and-evaluation) · [Cost](#deployment-and-operations) · [Limitations](#known-limitations) · [Documentation](#documentation-and-development-history)
 
-## Product pillars
+Seewik is an independent prototype, not a government service, emergency-response provider, legal adviser, or proof that a complaint has been submitted.
 
-1. **Improve** — add a photograph or description, review or edit the suggested category and location, and use the deterministic Civic Pack route and complaint draft.
-2. **Initiate** — create or join local activities with an organiser-confirmed meeting point, participant directions, approval controls, attendance and completion states.
-3. **My Civic Card** — view private contribution history, lifetime non-deducting points, opt-in recognition, a locally generated sharing image and clearly illustrative rewards.
-4. **Civic Awareness and Emergency Information** — read sourced civic information and reach verified emergency numbers through direct call actions.
+## Engineering highlights
 
-The interface is available in English, Marathi and Hindi.
+| Concern | Implementation |
+| --- | --- |
+| Deterministic routing | Gemini interprets citizen input; the versioned Civic Pack determines the authority, route and official filing channels. |
+| Data consistency | Initiative joins are transactional and idempotent, preventing duplicate participation and incorrect counts. |
+| Auditable history | Lifecycle and points records are append-only; private organiser archive preferences never erase participant history. |
+| Access control | Firebase identity is verified at the backend; owner-scoped and backend-owned writes protect reports, Initiatives, attendance, points and recognition. |
+| Failure recovery | Model timeouts, BigQuery circuit breaking, a 1.5-second routing ceiling, packaged snapshot fallback and manual citizen recovery paths keep the flow usable. |
+| Delivery | A tested Cloud Run candidate is health-checked before traffic moves; the same revision builds Firebase Hosting and supports rollback. |
 
-## Core design rule
+The project treats debugging as engineering evidence: incognito testing isolated stale anonymous-token recovery; invalid image-model output is rejected by schema validation; blank-audio civic hallucinations are blocked; and dependency pins are verified before remediation.
 
-> Gemini understands the citizen; the verified Civic Pack decides who is responsible.
+## Product walkthrough
 
-Gemini may suggest an issue category and help draft citizen wording. It does not select the authority, department, complaint channel, SLA, escalation path or Prabhag. Citizens can edit the suggested category and Prabhag before invoking `Find official route`; that action uses the values currently visible in the form.
+1. **Improve:** add a photograph or description, review or edit the suggested category and location, then use the deterministic Civic Pack route and complaint draft.
+2. **Initiate:** create or join local activities with an organiser-confirmed public meeting point, participant directions, attendance and completion states.
+3. **Inspire:** view a private Civic Card, lifetime recognition points, opt-in recognition and clearly illustrative local rewards.
+4. **Information:** read sourced civic-awareness content and reach verified emergency numbers through direct call actions.
+
+The interface is available in English, Marathi and Hindi. Seewik never submits a complaint automatically: the citizen reviews the route and wording, then files it through the practical option they choose.
 
 ## Architecture
 
-```text
-React + TypeScript PWA on Firebase Hosting
-        |
-        | Firebase Authentication identity
-        v
-Java 21 + Spring Boot API on Cloud Run
-        |
-        +-- Vertex AI Gemini: bounded classification and drafting
-        +-- Civic Pack: deterministic authority and channel routing
-        +-- BigQuery ST_COVERS: approximate Prabhag suggestion
-        +-- Firestore: owner-scoped reports, initiatives and ledgers
-        +-- Cloud Storage: protected citizen-owned media path
-        +-- Google Maps + Places: optional meeting-point selection
-```
+![Seewik runtime architecture: React and Firebase connect to Cloud Run, Gemini assists with category interpretation, and versioned civic data plus BigQuery determine routing.](docs/assets/seewik-runtime-architecture.svg)
 
-Firebase Security Rules deny client forgery of backend-owned lifecycle events, Initiative records, attendance, points, recognition and reward claims. Sensitive write paths also verify Firebase identity in the backend. BigQuery analytics exclude complaint text, photographs, coordinates and raw citizen identifiers.
+> Gemini understands the citizen; versioned civic data decides who is responsible.
 
-## Current status
+The React PWA is hosted on Firebase and calls the Spring Boot API on Cloud Run. Gemini supplies bounded category and drafting assistance only. The Civic Pack supplies deterministic authority and filing data. BigQuery applies `ST_COVERS` to the approximate Prabhag trace with a 1.5-second timeout; a packaged snapshot provides a safe fallback. Firestore stores owner-scoped reports, Initiative lifecycle data and ledgers, while Cloud Storage protects citizen-owned media.
 
-The four product pillars are deployed. The Day 16 release candidate passed:
+## API and data model
 
-- 222 backend tests;
-- 79 frontend tests;
-- the frontend production build;
-- the high-severity dependency audit and vulnerability scan;
-- repository, secret-safe diagnostic and Prabhag checksum gates;
-- candidate health, traffic switch, Firebase Hosting/rules deployment and route checks.
+The API covers classification, Prabhag resolution, deterministic routing, complaint drafting, report lifecycle, Initiatives, attendance, recognition and reward simulation.
 
-The release evidence is recorded in [DAY16_BUILD_LOG.md](DAY16_BUILD_LOG.md). Physical Android and Safari follow-ups and known limitations remain tracked in [PROJECT_TODOS.md](PROJECT_TODOS.md).
+- Durable actions verify Firebase identity in the backend.
+- Report snapshots preserve the Civic Pack, boundary version and canonical route data used for each recommendation.
+- Initiative creation, joins, attendance and completion use transactional, idempotent writes.
+- Lifecycle and points records are append-only; private archive preferences are separate from shared activity state.
+- Versioned request, response and data contracts live under `data/contracts/`.
 
-## Local frontend
+## Run locally
 
-Prerequisites: Node.js 24 and npm.
+### Safe automated validation
 
 ```bash
-cd frontend
-npm ci
-npm run dev
+cd backend && mvn -B test
+cd frontend && npm ci && npm test && npm run build
+cd frontend && npm run test:rules:emulator
 ```
 
-Vite prints the exact localhost URL. The local development server proxies `/api` to the deployed Cloud Run API, so signed-in mutations can affect production records. Use harmless test data and do not create unnecessary reports or initiatives.
+Rules run against disposable emulators, never the production project.
 
-Google meeting-place search is optional. To enable it locally, copy `frontend/.env.example` to `frontend/.env.local` and insert a browser key restricted to the exact localhost/Firebase referrers and only the Maps JavaScript API and Places API (New). Never commit `.env.local` or a secret value.
+### Local browser development
 
-## Verification
-
-Backend tests require Java 21 and Maven:
+Vite proxies same-origin `/api` requests to a local backend by default. Start the backend on port `8080`, then Vite:
 
 ```bash
-cd backend
-mvn -B test
+cd backend && mvn spring-boot:run
+cd frontend && npm run dev
 ```
 
-Frontend tests and build:
+Use the local-e2e profile only with Firebase Auth and Firestore emulators or an isolated development project. Never use production credentials, production Firebase configuration, or realistic citizen data for local experimentation. Google Maps place search is optional and uses a restricted browser key in `frontend/.env.local`; never commit it.
+
+## Testing and evaluation
+
+Current local evidence recorded on 15 September 2026:
+
+| Evidence | Result |
+| --- | --- |
+| Backend automated tests | 238 passed |
+| Frontend automated tests | 133 passed |
+| Firebase security-rule emulator tests | 3 passed |
+| Production frontend build | Passed |
+| Routing resilience | Forced BigQuery timeout and circuit tests validate the 1.5-second snapshot fallback. |
+| Multilingual experience | English, Marathi and Hindi copy is covered across primary citizen flows. |
+| Image evaluation | 12/16 schema-valid responses; all 12 valid responses had the correct category. Dataset: `classification-image-cases-v0.1-draft`. |
+| Survey baseline | 52 completed Nandurbar respondents and 520 scenario answers; see the business case for scoring scope and limitations. |
+
+Evaluation fixtures are versioned. Private citizen photographs and raw survey exports are not committed.
+
+## Deployment and operations
+
+`quality.yml` runs repository, boundary, backend, frontend, dependency and security-rule checks. `deploy.yml` deploys a no-traffic Cloud Run candidate, verifies health, moves traffic, builds the frontend from the tested revision, deploys Firebase Hosting and rules, checks public routes and retains rollback behavior.
+
+The early-stage measured baseline is **$0.0169 gross per report started** and **$8.43 per month for 500 reports**, before credits. It uses Cloud Billing and Cloud Logging exports from 18 August through 7 September 2026 and includes development and smoke-test activity. See [Cost per request](COST_PER_REQUEST.md).
+
+## Known limitations
+
+- The active Prabhag dataset is `seewik-map-trace-v0.2`, an approximate trace of a municipal wall-map image. It is not authority-verified machine-readable municipal geometry and always requires citizen confirmation.
+- Civic Pack desk assignments and service commitments remain review-pending where Nandurbar-specific official publication is unavailable.
+- Default email-app handoff and plain-text filing copy were confirmed on Mac and iPhone browsers. Gmail mobile compose parameters are not reliable; copy-ready fallback remains available.
+- Device location is optional. Safari location availability can vary by permission and browser state; Google address search and manual Prabhag selection remain durable recovery paths.
+- Rewards are labelled **Example local reward**. No merchant onboarding, payment, live redemption, municipal campaign feed or legal guidance is implemented.
+
+Verify the active map trace locally:
 
 ```bash
-cd frontend
-npm ci
-npm test
-npm run build
-npm audit --audit-level=high
-```
-
-Firestore and Storage rules are tested against disposable local emulators, never the production project:
-
-```bash
-cd frontend
-npm run test:rules:emulator
-```
-
-Repository-wide local gates:
-
-```bash
-bash scripts/check_repository_content.sh
-bash scripts/check_secret_safe_diagnostics.sh
 cd data/prabhags
-shasum -a 256 -c official-map-digitized-boundaries-v0.1.sha256
+shasum -a 256 -c official-map-digitized-boundaries-v0.2.sha256
 ```
 
-## Delivery
+## Documentation and development history
 
-`.github/workflows/quality.yml` runs the required repository, boundary, backend, frontend, dependency and local security-rule checks. A successful push to `main` records the complete pushed commit range. `.github/workflows/deploy.yml` deploys only when that tested range contains application, civic-boundary, Firebase-rule or delivery-workflow changes.
-
-Production deployment uses a no-traffic Cloud Run candidate, verifies its health, moves traffic, builds the frontend from the same tested commit, deploys Hosting plus Firestore and Storage rules, checks all public routes and retains rollback behavior. Production pushes and deployments require explicit owner approval.
-
-Release diagnostics must use allow-listed projections. Do not print Cloud Run environment variables, Secret Manager payloads, identity tokens, attendance secrets or reward claim codes.
-
-## Evidence and project records
-
-- [Project file and service map](PROJECT_FILE_MAP.md)
-- [Day 12 build log](DAY12_BUILD_LOG.md)
-- [Day 13 build log](DAY13_BUILD_LOG.md)
-- [Day 14 build log](DAY14_BUILD_LOG.md)
-- [Day 15 build log](DAY15_BUILD_LOG.md)
-- [Day 16 build log](DAY16_BUILD_LOG.md)
+- [Current build evidence](DAY17_BUILD_LOG.md)
+- [Cost per request](COST_PER_REQUEST.md)
 - [Touchpoint 3 business case](TOUCHPOINT3_BUSINESS_CASE.md)
 - [Security findings](SECURITY_FINDINGS.md)
+- [Project file and service map](PROJECT_FILE_MAP.md)
 - [Changelog](CHANGELOG.md)
+- Historical build logs: `DAY1_BUILD_LOG.md` through `DAY16_BUILD_LOG.md`
 
-Earlier build logs (`DAY1_BUILD_LOG.md` through `DAY11_BUILD_LOG.md`) preserve the foundation, routing, evaluation, lifecycle, identity, Initiative and attendance evidence. Versioned product contracts live in `data/contracts/`; civic data and evaluation fixtures live under `data/`.
-
-## Known boundaries
-
-- Civic Pack routes remain review-pending where Nandurbar-specific desk assignments or service commitments are not officially published.
-- Automatic Prabhag suggestion uses an explicitly synthetic development boundary dataset; the citizen confirms or manually selects the Prabhag.
-- Google place search is optional, may return some English address fragments, and does not replace the organiser-confirmed public label and coordinates.
-- Rewards are labelled **Example local reward**. Points are lifetime, non-deducting recognition thresholds—not money—and simulated use is not merchant verification.
-- No real merchant onboarding, payment, point-of-sale redemption, live municipal campaign feed or legal guidance is implemented.
+Operational handoff notes remain local-only and are intentionally excluded from version control.

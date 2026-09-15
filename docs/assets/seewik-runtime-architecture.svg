@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="820" viewBox="0 0 1600 820" role="img" aria-labelledby="title desc">
+  <title id="title">Seewik runtime architecture</title>
+  <desc id="desc">Citizen-facing React and Firebase application calls Cloud Run. Gemini suggests a category only. Versioned Civic Pack data and BigQuery determine routing, while Firestore stores protected lifecycle data.</desc>
+  <defs>
+    <pattern id="grid" width="34" height="34" patternUnits="userSpaceOnUse"><path d="M34 0H0V34" fill="none" stroke="#18253b" stroke-width="1"/></pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5 0 10z" fill="#79d8d3"/></marker>
+    <style>.h{font:700 38px ui-monospace,monospace;fill:#f1f5ff}.s{font:500 17px ui-monospace,monospace;fill:#aab9d4}.l{font:700 15px ui-monospace,monospace;fill:#f2bc51}.n{font:700 20px ui-monospace,monospace;fill:#edf4ff}.d{font:500 15px ui-monospace,monospace;fill:#9fb0c8}.box{fill:#111c2d;stroke-width:2;rx:14}.flow{fill:none;stroke:#79d8d3;stroke-width:3;marker-end:url(#arrow)}.dash{fill:none;stroke:#d6a84b;stroke-width:2;stroke-dasharray:8 7}</style>
+  </defs>
+  <rect width="1600" height="820" fill="#050b17"/><rect x="160" y="118" width="1280" height="610" fill="url(#grid)" stroke="#263651"/>
+  <text x="58" y="68" class="h">Seewik Runtime Architecture</text><text x="58" y="96" class="s">Gemini suggests. Versioned civic data decides who is responsible.</text>
+  <rect x="625" y="160" width="725" height="432" rx="18" fill="#1a1820" stroke="#d6a84b" stroke-width="2" stroke-dasharray="8 7"/><text x="645" y="188" class="l">GOOGLE CLOUD RUNTIME · DETERMINISTIC ROUTING BOUNDARY</text>
+  <rect class="box" x="205" y="337" width="155" height="88" stroke="#8ea1bc"/><text x="250" y="374" class="n">Citizen</text><text x="231" y="403" class="d">Web + mobile</text>
+  <rect class="box" x="420" y="320" width="184" height="120" stroke="#27c3cf"/><text x="445" y="366" class="n">React / Firebase</text><text x="445" y="395" class="d">Hosted PWA</text>
+  <rect class="box" x="665" y="320" width="176" height="120" stroke="#50ce9b"/><text x="706" y="366" class="n">Cloud Run</text><text x="705" y="395" class="d">Spring Boot API</text>
+  <path class="flow" d="M360 381H420"/><text x="375" y="366" class="d">HTTPS</text><path class="flow" d="M604 381H665"/><text x="615" y="366" class="d">/api</text>
+  <rect class="box" x="910" y="230" width="190" height="94" stroke="#50ce9b"/><text x="948" y="267" class="n">Civic Pack</text><text x="927" y="294" class="d">Versioned routes</text>
+  <rect class="box" x="910" y="362" width="190" height="94" stroke="#e0ac35"/><text x="960" y="399" class="n">BigQuery</text><text x="931" y="426" class="d">ST_COVERS lookup</text>
+  <rect class="box" x="1160" y="362" width="150" height="94" stroke="#9a75db"/><text x="1182" y="399" class="n">Snapshot</text><text x="1181" y="426" class="d">Fallback</text>
+  <rect class="box" x="910" y="494" width="190" height="94" stroke="#9a75db"/><text x="959" y="531" class="n">Firestore</text><text x="931" y="558" class="d">Lifecycle + ledger</text>
+  <rect x="1170" y="598" width="150" height="92" rx="14" fill="#1e1424" stroke="#db6cc7" stroke-width="2" stroke-dasharray="7 6"/><text x="1204" y="635" class="n">Gemini</text><text x="1187" y="662" class="d">Suggestions only</text>
+  <path class="flow" d="M841 360H910V277"/><text x="850" y="279" class="d">deterministic route</text><path class="flow" d="M841 395H910"/><text x="850" y="422" class="d">Prabhag lookup</text><path class="dash" d="M1100 409H1160"/><text x="1110" y="390" class="d">1.5 s limit</text><path class="flow" d="M841 420V541H910"/><text x="850" y="523" class="d">protected writes</text><path class="dash" d="M841 425V644H1170"/><text x="980" y="628" class="d">photo / text for bounded interpretation</text>
+  <rect x="215" y="677" width="20" height="12" fill="#27c3cf"/><text x="244" y="688" class="d">Frontend</text><rect x="340" y="677" width="20" height="12" fill="#50ce9b"/><text x="369" y="688" class="d">Backend / data</text><rect x="505" y="677" width="20" height="12" fill="#9a75db"/><text x="534" y="688" class="d">Durable state</text><rect x="661" y="677" width="20" height="12" fill="#db6cc7"/><text x="690" y="688" class="d">AI boundary</text>
+</svg>
