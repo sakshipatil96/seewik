@@ -34,7 +34,7 @@ The interface is available in English, Marathi and Hindi. Seewik never submits a
 
 ## Architecture
 
-![Seewik runtime architecture: React and Firebase connect to Cloud Run, Gemini assists with category interpretation, and versioned civic data plus BigQuery determine routing.](docs/assets/seewik-runtime-architecture.svg)
+![Seewik runtime architecture: React and Firebase connect to Cloud Run, Gemini assists with category interpretation, and versioned civic data plus BigQuery determine routing.](docs/assets/seewik-runtime-architecture.png)
 
 > Gemini understands the citizen; versioned civic data decides who is responsible.
 
