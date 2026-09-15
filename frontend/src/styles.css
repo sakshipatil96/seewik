@@ -210,6 +210,10 @@ button.text-action { margin-top: var(--space-3); color: var(--color-teal-ink); t
 .report-list-item h3 { margin: var(--space-2) 0 var(--space-1); }
 .report-list-item small { display: block; margin-top: var(--space-2); color: var(--color-faint); font-family: var(--font-mono); font-size: .68rem; }
 .report-list-item button { width: auto; min-width: 130px; margin: 0; }
+.report-list-actions { display: grid; gap: var(--space-2); min-width: 160px; }
+.report-list-actions button { margin: 0; }
+.danger-button { border-color: color-mix(in srgb, var(--color-danger) 70%, var(--color-line)); color: var(--color-danger-ink); }
+.danger-button:hover, .danger-button:focus-visible { background: var(--color-danger-soft); }
 .report-list { display: grid; gap: var(--space-3); }
 .report-list .report-list-item { margin-top: 0; }
 .reports-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin: var(--space-5) 0; padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-line); color: var(--color-muted); font-size: .8rem; }
@@ -398,6 +402,12 @@ button.text-action { margin-top: var(--space-3); color: var(--color-teal-ink); t
 .joined-confirmation span { font-size: .8rem; }
 .joined-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-3); }
 .joined-actions button, .activity-join-button { margin: 0; }
+.activity-share-panel { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2) var(--space-5); margin-top: var(--space-6); padding: var(--space-5); border: 1px solid color-mix(in srgb, var(--color-teal) 55%, var(--color-line)); border-radius: var(--radius-lg); background: linear-gradient(135deg, var(--color-teal-soft), var(--color-surface-2)); }
+.activity-share-panel h2, .activity-share-panel p { margin: 0; }
+.activity-share-panel p, .activity-share-panel small { color: var(--color-muted); }
+.activity-share-panel small { grid-column: 1 / -1; }
+.whatsapp-share-button { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 48px; padding: 0 var(--space-5); border: 1px solid rgba(255, 255, 255, .22); border-radius: var(--radius-md); background: #128c7e; color: #fff; font-weight: 800; text-decoration: none; }
+.whatsapp-share-button:hover, .whatsapp-share-button:focus-visible { background: #0f766e; color: #fff; }
 .activity-join-button { width: 100%; margin-top: var(--space-6); }
 .organiser-tools { display: grid; gap: var(--space-3); margin-top: var(--space-6); padding: var(--space-5); border: 1px solid color-mix(in srgb, var(--color-teal) 45%, var(--color-line)); border-radius: var(--radius-lg); background: var(--color-teal-soft); }
 .organiser-tools p, .organiser-tools button { margin: 0; }
@@ -1078,6 +1088,9 @@ footer { margin: auto auto 0; padding-top: var(--space-10); color: var(--color-f
   .community-card-content { padding: var(--space-4); }
   .community-card-actions { gap: var(--space-2); }
   .initiative-time-grid, .joined-actions { grid-template-columns: 1fr; }
+  .activity-share-panel { grid-template-columns: 1fr; }
+  .activity-share-panel small { grid-column: auto; }
+  .whatsapp-share-button { width: 100%; }
   .participation-options { grid-template-columns: 1fr; }
   .participation-options label { min-height: 0; }
   .join-request-panel article { align-items: stretch; flex-direction: column; }

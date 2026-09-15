@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import type { AuthCredential } from 'firebase/auth';
-import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import { db } from './firebase';
 import { AccountControl, type AccountDialog } from './AccountControl';
 import {
@@ -534,6 +534,7 @@ function App() {
   const [escalationBody, setEscalationBody] = useState('');
   const [escalationActionOpened, setEscalationActionOpened] = useState(false);
   const [reportsStatus, setReportsStatus] = useState('');
+  const [deletingDraftId, setDeletingDraftId] = useState('');
   const [selectedReport, setSelectedReport] = useState<SavedReport | null>(null);
   const [initiatives, setInitiatives] = useState<Initiative[]>([]);
   const [myInitiatives, setMyInitiatives] = useState<Initiative[]>([]);
@@ -2786,6 +2787,26 @@ function App() {
     setInitiativeStatus('Activity link copied.');
   }
 
+  function activityDeepLink(initiative: Initiative) {
+    return `${window.location.origin}/initiatives/${encodeURIComponent(initiative.initiativeId)}`;
+  }
+
+  function activityShareSummary(initiative: Initiative) {
+    const description = initiative.description.replace(/\s+/g, ' ').trim();
+    const shortDescription = description.length > 220 ? `${description.slice(0, 217)}...` : description;
+    return [
+      initiative.title,
+      shortDescription,
+      `${t('When')}: ${timestampLabel(initiative.startAt, language)}`,
+      `${t('Where')}: ${initiative.placeName}`,
+      `${t('Open Seewik, sign in and join this activity:')} ${activityDeepLink(initiative)}`,
+    ].filter(Boolean).join('\n');
+  }
+
+  function whatsappActivityUrl(initiative: Initiative) {
+    return `https://wa.me/?text=${encodeURIComponent(activityShareSummary(initiative))}`;
+  }
+
   async function fileReviewedReport(dedupeOverride = false, requireActionConfirmation = true) {
     if (requireActionConfirmation && (!selectedFilingMethod || !filingActionIsCurrent())) {
       setLifecycleStatus('Open, print or share the current prepared complaint before confirming submission.');
@@ -3183,6 +3204,42 @@ function App() {
     navigate('report-detail', false, report.id);
   }
 
+  async function deleteSavedDraft(report: SavedReport) {
+    if (!canResumeReport(report.status)) {
+      setReportsStatus(t('Only drafts can be deleted.'));
+      return;
+    }
+    if (!window.confirm(t('Delete this draft permanently?'))) return;
+
+    setDeletingDraftId(report.id);
+    setReportsStatus(t('Deleting draft…'));
+    try {
+      await deleteDoc(doc(db, 'reports', report.id));
+      setSavedReports((current) => current.filter((item) => item.id !== report.id));
+      setFollowUpsByReport((current) => {
+        const next = { ...current };
+        delete next[report.id];
+        return next;
+      });
+      setFollowUpLoadStates((current) => {
+        const next = { ...current };
+        delete next[report.id];
+        return next;
+      });
+      if (selectedReport?.id === report.id) setSelectedReport(null);
+      if (draftDocumentId === report.id) {
+        setDraftDocumentId(null);
+        setComplaintDraft(null);
+        setDraftSubject('');
+        setDraftBody('');
+        setDraftReviewed(false);
+      }
+      setReportsStatus(t('Draft deleted.'));
+    } finally {
+      setDeletingDraftId('');
+    }
+  }
+
   async function refreshDerivedPoints() {
     setPrivatePointsStatus('Loading your contribution record…');
     try {
@@ -3541,9 +3598,10 @@ function App() {
 
     {screen === 'initiative-detail' && <section className="activity-detail-page">
       <button className="activity-back secondary" onClick={() => navigate('initiatives')}>‹ {t('Community')}</button>
-      {initiativeDetailLoading && !selectedInitiative && <div className="activity-detail-skeleton" aria-label={t('Loading activity')}><span /><b /><i /><i /><em /></div>}
-      {!initiativeDetailLoading && !selectedInitiative && <div className="community-empty-state"><b>{t('This activity could not be found.')}</b><button onClick={() => navigate('initiatives')}>{t('Browse community activities')}</button></div>}
-      {selectedInitiative && <article className="activity-detail-card">
+      {accountState === 'SIGNED_OUT' && <div className="community-empty-state account-recovery-state"><b>{t('Sign in to view and join this activity.')}</b><p>{t('This shared activity link will stay open while you connect Google.')}</p><button onClick={openAccount}>{t('Continue with Google')}</button></div>}
+      {accountState !== 'SIGNED_OUT' && initiativeDetailLoading && !selectedInitiative && <div className="activity-detail-skeleton" aria-label={t('Loading activity')}><span /><b /><i /><i /><em /></div>}
+      {accountState !== 'SIGNED_OUT' && !initiativeDetailLoading && !selectedInitiative && <div className="community-empty-state"><b>{t('This activity could not be found.')}</b><button onClick={() => navigate('initiatives')}>{t('Browse community activities')}</button></div>}
+      {accountState !== 'SIGNED_OUT' && selectedInitiative && <article className="activity-detail-card">
         <div className="activity-detail-banner"><span className="community-type-chip">{initiativeCategoryLabel(selectedInitiative.category)}</span><span className="activity-banner-icon" aria-hidden="true">{communityIcon(selectedInitiative.category)}</span></div>
         <div className="activity-detail-content">
           <h1>{selectedInitiative.title}</h1>
@@ -3556,6 +3614,11 @@ function App() {
           <section className="activity-description"><h2>{t('About this activity')}</h2><p>{selectedInitiative.description}</p></section>
           {selectedInitiative.neededItems?.length > 0 && <section className="activity-needed"><h2>{t('What is needed')}</h2><div className="activity-needed-chips">{selectedInitiative.neededItems.map((item) => <span key={item}>{item}</span>)}</div></section>}
           {selectedInitiative.organiserMessage && <blockquote className="organiser-message"><strong>{t('From the organiser:')}</strong> {selectedInitiative.organiserMessage}</blockquote>}
+          {selectedInitiative.status === 'PUBLISHED' && <section className="activity-share-panel" aria-label={t('Share this activity')}>
+            <div><h2>{t('Share this activity')}</h2><p>{t('Send the activity summary and a link that opens it in Seewik.')}</p></div>
+            <a className="whatsapp-share-button" href={whatsappActivityUrl(selectedInitiative)} target="_blank" rel="noopener noreferrer" onClick={() => setInitiativeStatus(t('WhatsApp share opened.'))}><AppIcon name="share" />{t('Share on WhatsApp')}</a>
+            <small>{t('The link keeps this activity ready if the recipient needs to sign in.')}</small>
+          </section>}
           {selectedInitiative.joined && !selectedInitiative.canManage ? <>
             <div className="joined-confirmation"><strong className="icon-copy"><AppIcon name="check" />{t('Joined')}</strong><span>{t('See you on')} {activityReminderLabel(selectedInitiative)}.</span></div>
             <div className="joined-actions"><button className="secondary icon-button" onClick={() => addActivityToCalendar(selectedInitiative)}><AppIcon name="clock" />{t('Calendar')}</button><button className="secondary icon-button" onClick={() => void shareActivity(selectedInitiative)}><AppIcon name="share" />{t('Share')}</button></div>
@@ -3937,7 +4000,7 @@ function App() {
           {reportsView === 'HAS_REPORTS' && <div className="reports-toolbar"><span role="status" aria-live="polite">{runtimeMessage(reportsStatus)}</span></div>}
           {reportsView === 'LINKED_EMPTY' && <div className="empty-state"><b>{t('Signed in. No saved reports yet.')}</b><p>{t('Create a report to keep a draft only you can see.')}</p><button onClick={() => navigate('new-report')}>{t('Create a report')}</button></div>}
           {reportsView === 'ANONYMOUS_EMPTY' && <div className="empty-state"><b>{t('No reports are saved for this device-only account.')}</b><p>{t('Create a report to keep a draft only you can see.')}</p><button onClick={() => navigate('new-report')}>{t('Create a report')}</button></div>}
-          {reportsView === 'HAS_REPORTS' && <div className="report-list">{savedReports.map((report) => { const followUp = followUpsByReport[report.id]; return <article className="report-list-item" key={report.id}><div><span className={`status-chip status-${report.status.toLowerCase()}`}>{localizedStatus(language, report.status)}</span>{followUp?.promptDue && <span className="follow-up-chip">{t('Follow-up due')}</span>}{followUp?.escalationAvailable && <span className="follow-up-chip escalation-ready">{t('Escalation ready')}</span>}<h3>{issueLabel(report.confirmedIssueType, language)}</h3><p>{report.prabhagId} · {t('Updated')} {timestampLabel(report.updatedAt, language)}</p><small>{report.id.slice(0, 12)}…</small></div>{canResumeReport(report.status) ? <button onClick={() => resumeSavedReport(report).catch((error) => setReportsStatus(citizenSafeError(error, 'The draft could not be resumed.')))}>{t('Resume draft')}</button> : <button onClick={() => openSavedReport(report).catch((error) => setReportsStatus(citizenSafeError(error, 'The report could not be loaded.')))}>{t('View report')}</button>}</article>; })}</div>}
+          {reportsView === 'HAS_REPORTS' && <div className="report-list">{savedReports.map((report) => { const followUp = followUpsByReport[report.id]; return <article className="report-list-item" key={report.id}><div><span className={`status-chip status-${report.status.toLowerCase()}`}>{localizedStatus(language, report.status)}</span>{followUp?.promptDue && <span className="follow-up-chip">{t('Follow-up due')}</span>}{followUp?.escalationAvailable && <span className="follow-up-chip escalation-ready">{t('Escalation ready')}</span>}<h3>{issueLabel(report.confirmedIssueType, language)}</h3><p>{report.prabhagId} · {t('Updated')} {timestampLabel(report.updatedAt, language)}</p><small>{report.id.slice(0, 12)}…</small></div><div className="report-list-actions">{canResumeReport(report.status) ? <button onClick={() => resumeSavedReport(report).catch((error) => setReportsStatus(citizenSafeError(error, 'The draft could not be resumed.')))}>{t('Resume draft')}</button> : <button onClick={() => openSavedReport(report).catch((error) => setReportsStatus(citizenSafeError(error, 'The report could not be loaded.')))}>{t('View report')}</button>}{canResumeReport(report.status) && <button className="secondary danger-button" disabled={deletingDraftId === report.id} onClick={() => requestLinkedMutation(() => deleteSavedDraft(report).catch((error) => setReportsStatus(citizenSafeError(error, t('The draft could not be deleted.')))))}>{deletingDraftId === report.id ? t('Deleting draft…') : t('Delete draft')}</button>}</div></article>; })}</div>}
         </section>
         {myInitiativesSection}
       </>}
