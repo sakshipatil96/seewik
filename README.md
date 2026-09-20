@@ -34,8 +34,6 @@ The interface is available in English, Marathi and Hindi. Seewik never submits a
 
 ## Architecture
 
-![Seewik runtime architecture: React and Firebase connect to Cloud Run, Gemini assists with category interpretation, and versioned civic data plus BigQuery determine routing.](docs/assets/seewik-runtime-architecture.png)
-
 > Gemini understands the citizen; versioned civic data decides who is responsible.
 
 The React PWA is hosted on Firebase and calls the Spring Boot API on Cloud Run. Gemini supplies bounded category and drafting assistance only. The Civic Pack supplies deterministic authority and filing data. BigQuery applies `ST_COVERS` to the approximate Prabhag trace with a 1.5-second timeout; a packaged snapshot provides a safe fallback. Firestore stores owner-scoped reports, Initiative lifecycle data and ledgers, while Cloud Storage protects citizen-owned media.
