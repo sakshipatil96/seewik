@@ -103,7 +103,7 @@ Production recovery acceptance complete. The signed-out/report-state correction 
 
 This carries forward the former Day 9 Set 7 after the identity change is complete.
 
-- [x] Update `DAY10_BUILD_LOG.md`, `CHANGELOG.md`, the Day 9 closure note and the parent project guide.
+- [x] Update `buildlog/DAY10_BUILD_LOG.md`, `CHANGELOG.md`, the Day 9 closure note and the parent project guide.
 - [x] Run affected backend and frontend gates.
 - [x] Run repository-content, dataset-integrity and whitespace checks.
 - [x] Deploy only from green `main` and preserve the previous healthy revision for rollback.

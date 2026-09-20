@@ -7,7 +7,7 @@ This record names credential-handling findings without storing any credential va
 - Date recorded: 2026-08-29.
 - Source: a private task-tool output during OAuth configuration diagnostics.
 - Persistence check: the value was not committed or included in the frontend bundle.
-- Status: rotation remains deferred under the Day 10 risk decision recorded in `DAY10_BUILD_LOG.md`; replace and retire the OAuth client before public launch.
+- Status: rotation remains deferred under the Day 10 risk decision recorded in `buildlog/DAY10_BUILD_LOG.md`; replace and retire the OAuth client before public launch.
 
 ## `attendance_code_secret_exposed_in_diagnostic_output_rotated`
 

@@ -5,14 +5,14 @@ This map is for handoffs and repository study. Generated directories such as `fr
 ## First-read order
 
 1. Repository overview and local verification: `README.md`
-2. Current release evidence: `DAY15_BUILD_LOG.md`
+2. Current release evidence: `buildlog/DAY15_BUILD_LOG.md`
 3. Current handoff: `SEEWIK_PROJECT_HANDOFF_START_DAY15.md`
 4. Product follow-ups: `PROJECT_TODOS.md`
-5. Day 14 plan and evidence: `DAY14_CHECKLIST.md` and `DAY14_BUILD_LOG.md`
+5. Day 14 plan and evidence: `DAY14_CHECKLIST.md` and `buildlog/DAY14_BUILD_LOG.md`
 6. Day 14 meeting-point contracts: `data/contracts/day14-initiative-meeting-point-contract-v0.1.md` and the owner-approved Google search amendment `v0.2.md`
 7. Touchpoint 3 business case: `TOUCHPOINT3_BUSINESS_CASE.md`
-8. Day 13 reward plan and evidence: `DAY13_CHECKLIST.md` and `DAY13_BUILD_LOG.md`
-9. Day 12 recognition/privacy plan and evidence: `DAY12_CHECKLIST.md`, `DAY12_BUILD_LOG.md` and `data/contracts/day12-recognition-privacy-content-contract-v0.1.md`
+8. Day 13 reward plan and evidence: `DAY13_CHECKLIST.md` and `buildlog/DAY13_BUILD_LOG.md`
+9. Day 12 recognition/privacy plan and evidence: `DAY12_CHECKLIST.md`, `buildlog/DAY12_BUILD_LOG.md` and `data/contracts/day12-recognition-privacy-content-contract-v0.1.md`
 10. Parent project guide: `../Seewik_what_we_built till now.md`
 11. Version history: `CHANGELOG.md`
 12. Identity contract: `data/contracts/day10-identity-migration-contract-v0.1.md`
@@ -38,30 +38,30 @@ This map is for handoffs and repository study. Generated directories such as `fr
 
 ## Build logs, checklists and design records
 
-- `DAY1_BUILD_LOG.md` — cloud/PWA/Firebase/Vertex foundation.
-- `DAY2_BUILD_LOG.md` — Civic Pack v0.1, prabhags, BigQuery and synthetic boundary safeguards.
-- `DAY3_BUILD_LOG.md` — Civic Pack v0.2, constrained classification and voice feasibility.
-- `DAY4_BUILD_LOG.md` — English/Marathi complaint drafting and Firestore drafts.
-- `DAY5_BUILD_LOG.md` — report lifecycle, dedupe, points and BigQuery analytics.
-- `DAY6_BUILD_LOG.md` — saved-report workspace, URL-backed screens and points UI.
-- `DAY7_BUILD_LOG.md` — Initiate MVP, protected model endpoints and text evaluation.
+- `buildlog/DAY1_BUILD_LOG.md` — cloud/PWA/Firebase/Vertex foundation.
+- `buildlog/DAY2_BUILD_LOG.md` — Civic Pack v0.1, prabhags, BigQuery and synthetic boundary safeguards.
+- `buildlog/DAY3_BUILD_LOG.md` — Civic Pack v0.2, constrained classification and voice feasibility.
+- `buildlog/DAY4_BUILD_LOG.md` — English/Marathi complaint drafting and Firestore drafts.
+- `buildlog/DAY5_BUILD_LOG.md` — report lifecycle, dedupe, points and BigQuery analytics.
+- `buildlog/DAY6_BUILD_LOG.md` — saved-report workspace, URL-backed screens and points UI.
+- `buildlog/DAY7_BUILD_LOG.md` — Initiate MVP, protected model endpoints and text evaluation.
 - `DAY7_BIGQUERY_EVIDENCE.md` — Day 7 production/controlled-fixture analytical evidence.
-- `DAY8_SET1_BUILD_LOG.md` — rate limits, timeouts, circuit breaker, metrics and capacity evidence.
-- `DAY8_SET2_BUILD_LOG.md` — Initiative completion/cancellation and green-main deployment.
-- `DAY9_CHECKLIST.md` / `DAY9_BUILD_LOG.md` — languages, approximate map, Track B image evaluation and closure.
-- `DAY10_CHECKLIST.md` / `DAY10_BUILD_LOG.md` — recoverable Google profiles, write enforcement and production closeout.
+- `buildlog/DAY8_SET1_BUILD_LOG.md` — rate limits, timeouts, circuit breaker, metrics and capacity evidence.
+- `buildlog/DAY8_SET2_BUILD_LOG.md` — Initiative completion/cancellation and green-main deployment.
+- `DAY9_CHECKLIST.md` / `buildlog/DAY9_BUILD_LOG.md` — languages, approximate map, Track B image evaluation and closure.
+- `DAY10_CHECKLIST.md` / `buildlog/DAY10_BUILD_LOG.md` — recoverable Google profiles, write enforcement and production closeout.
 - `DAY11_CHECKLIST.md` — completed attendance implementation checklist and remaining device QA boundary.
-- `DAY11_BUILD_LOG.md` — attendance/reward implementation and release evidence.
+- `buildlog/DAY11_BUILD_LOG.md` — attendance/reward implementation and release evidence.
 - `SEEWIK_PROJECT_HANDOFF_START_DAY12.md` — self-contained Day 12 kickoff with current production state and frozen recognition decisions.
 - `DAY12_CHECKLIST.md` — planned opt-in top-three recognition, private points, client-side sharing and sourced-awareness work.
-- `DAY12_BUILD_LOG.md` — Sets 1-6 profile, recognition, sharing, sourced-awareness, emergency and local verification evidence.
+- `buildlog/DAY12_BUILD_LOG.md` — Sets 1-6 profile, recognition, sharing, sourced-awareness, emergency and local verification evidence.
 - `SECURITY_FINDINGS.md` — named credential-diagnostic findings, persistence scope, remediation and prevention rules; never contains credential values.
 - `DAY13_CHECKLIST.md` — contribution/reward/coupon contract, completed local checks and remaining release gates.
-- `DAY13_BUILD_LOG.md` — final Day 13 test, deployment, browser, log-safety, cleanup and legacy-audit evidence.
+- `buildlog/DAY13_BUILD_LOG.md` — final Day 13 test, deployment, browser, log-safety, cleanup and legacy-audit evidence.
 - `TOUCHPOINT3_BUSINESS_CASE.md` — survey-grounded demand case, proposed revenue loop, illustrative unit economics, pilot requirements and explicit demonstration boundaries.
 - `DAY14_CHECKLIST.md` — Initiative meeting-point, publishing clarity, Android closeout and citizen-facing cleanup plan.
-- `DAY14_BUILD_LOG.md` — Day 14 local Set 5/6 implementation and regression evidence; production and physical-Android sections remain explicitly pending.
-- `DAY15_BUILD_LOG.md` — Day 15 interface release plus the local Set 3 CI, rules-emulator, README and Lighthouse follow-up.
+- `buildlog/DAY14_BUILD_LOG.md` — Day 14 local Set 5/6 implementation and regression evidence; production and physical-Android sections remain explicitly pending.
+- `buildlog/DAY15_BUILD_LOG.md` — Day 15 interface release plus the local Set 3 CI, rules-emulator, README and Lighthouse follow-up.
 - `data/contracts/day14-initiative-meeting-point-contract-v0.1.md` — frozen no-Places meeting-point, confirmation, storage, participant-link and legacy rules.
 - `data/contracts/day14-initiative-meeting-point-contract-v0.2.md` — owner-approved optional Google Places selection layer, restricted data fields, fallback, credential and cost controls; stored records remain v0.1.
 - `PROJECT_TODOS.md` — routing simplification, Initiative meeting-point redesign and UI-polish follow-ups.
@@ -360,14 +360,14 @@ They include Maharashtra SEC ward-formation/reservation/election documents, Nand
 
 Committed product screenshots:
 
-- `day1-deployed-verification.jpg`
-- `day1-frontend-verification.jpg`
-- `day1-mobile-verification.jpg`
-- `day2-bigquery-runtime-verification.png`
+- `buildlog/verification-images/day1-deployed-verification.jpg`
+- `buildlog/verification-images/day1-frontend-verification.jpg`
+- `buildlog/verification-images/day1-mobile-verification.jpg`
+- `buildlog/verification-images/day2-bigquery-runtime-verification.png`
 - `day3-classifier-routing-mobile.jpg`
 - `day3-deterministic-route-mobile.jpg`
 - `day4-complaint-draft-panel.png`
-- `day4-complaint-draft-verification.png`
+- `buildlog/verification-images/day4-complaint-draft-verification.png`
 - `day5-lifecycle-demo-desktop.png`
 - `day5-lifecycle-demo-mobile.png`
 - `day6-app-home-desktop.png`

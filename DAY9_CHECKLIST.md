@@ -98,7 +98,7 @@ Day 9 absorbs the former Set 3 work and incorporates the approximate prabhag geo
 
 ## Set 7 — Final verification, documentation and deployment
 
-- [x] Create `DAY9_BUILD_LOG.md`.
+- [x] Create `buildlog/DAY9_BUILD_LOG.md`.
 - [x] Update `CHANGELOG.md` and the parent project guide.
 - [x] Run affected backend and frontend gates.
 - [x] Run repository-content and whitespace checks.

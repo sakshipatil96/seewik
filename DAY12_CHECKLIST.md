@@ -111,7 +111,7 @@ Day 12 adds an opt-in monthly recognition panel, a private contribution summary,
 - [x] Run backend tests, frontend tests, production build, dependency audit and repository checks.
 - [x] Commit and push only after green checks and explicit approval.
 - [x] Deploy from green `main`, verify health/routes/rules and record the exact Git SHA and Cloud Run revision.
-- [x] Write `DAY12_BUILD_LOG.md` with sources, limitations, test counts and privacy-safe verification evidence; add deployment evidence only after an approved production release.
+- [x] Write `buildlog/DAY12_BUILD_LOG.md` with sources, limitations, test counts and privacy-safe verification evidence; add deployment evidence only after an approved production release.
 
 ## Inputs needed from the owner
 

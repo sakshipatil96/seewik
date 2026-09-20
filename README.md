@@ -113,12 +113,12 @@ shasum -a 256 -c official-map-digitized-boundaries-v0.2.sha256
 
 ## Documentation and development history
 
-- [Current build evidence](DAY17_BUILD_LOG.md)
+- [Current build evidence](buildlog/DAY17_BUILD_LOG.md)
 - [Cost per request](COST_PER_REQUEST.md)
 - [Touchpoint 3 business case](TOUCHPOINT3_BUSINESS_CASE.md)
 - [Security findings](SECURITY_FINDINGS.md)
 - [Project file and service map](PROJECT_FILE_MAP.md)
 - [Changelog](CHANGELOG.md)
-- Historical build logs: `DAY1_BUILD_LOG.md` through `DAY16_BUILD_LOG.md`
+- Historical build logs: `buildlog/DAY1_BUILD_LOG.md` through `buildlog/DAY16_BUILD_LOG.md`
 
 Operational handoff notes remain local-only and are intentionally excluded from version control.

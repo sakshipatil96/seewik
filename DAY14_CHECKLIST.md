@@ -145,7 +145,7 @@ Owner-approved execution order on 2026-09-01:
 - [ ] Complete three-language, keyboard and narrow-layout browser checks.
 - [x] Obtain explicit owner approval before pushing or deploying.
 - [x] Deploy only from green `main`; record the commit SHA, frontend release and Cloud Run revision when applicable.
-- [x] Write `DAY14_BUILD_LOG.md` with test counts, available production evidence, cleanup and limitations; append the remaining physical-device results when the Android phone is available.
+- [x] Write `buildlog/DAY14_BUILD_LOG.md` with test counts, available production evidence, cleanup and limitations; append the remaining physical-device results when the Android phone is available.
 
 ## Explicitly outside Day 14
 
